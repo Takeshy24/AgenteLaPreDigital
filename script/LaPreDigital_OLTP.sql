@@ -1837,3 +1837,411 @@ WHERE
     i.idEtapaResultante IS NOT NULL;
 
 END;
+
+GO
+
+IF OBJECT_ID('dbo.App_TelegramChat', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_TelegramChat (
+    idContacto BIGINT PRIMARY KEY REFERENCES dbo.Contacto (idContacto),
+    chatId NVARCHAR(30) NOT NULL UNIQUE,
+    linkedAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_TelegramLink', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_TelegramLink (
+    codeHash CHAR(64) PRIMARY KEY,
+    idContacto BIGINT NOT NULL REFERENCES dbo.Contacto (idContacto),
+    expiresAt DATETIME2(0) NOT NULL,
+    usedAt DATETIME2(0) NULL
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_TelegramInbox', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_TelegramInbox (
+    updateId BIGINT PRIMARY KEY,
+    chatId NVARCHAR(30) NOT NULL,
+    payload NVARCHAR(MAX) NOT NULL,
+    idMensaje BIGINT NULL REFERENCES dbo.Mensaje (idMensaje),
+    receivedAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME()),
+    processedAt DATETIME2(0) NULL,
+    error NVARCHAR(500) NULL
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_Dispatch', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_Dispatch (
+    idMensaje BIGINT PRIMARY KEY REFERENCES dbo.Mensaje (idMensaje),
+    state NVARCHAR(20) NOT NULL DEFAULT N'pending' CHECK (
+        state IN ('pending', 'sending', 'sent', 'failed', 'unknown')
+    ),
+    externalId NVARCHAR(100) NULL,
+    claimedAt DATETIME2(0) NULL,
+    error NVARCHAR(500) NULL
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_IntegrationCursor', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_IntegrationCursor (
+    name NVARCHAR(50) PRIMARY KEY,
+    position BIGINT NOT NULL
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_ContactSelection', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_ContactSelection (
+    idContacto BIGINT PRIMARY KEY REFERENCES dbo.Contacto (idContacto),
+    idLeadCaso BIGINT NOT NULL REFERENCES dbo.LeadCaso (idLeadCaso)
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_TrialLink', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_TrialLink (
+    codeHash CHAR(64) PRIMARY KEY,
+    idLeadCaso BIGINT NOT NULL REFERENCES dbo.LeadCaso (idLeadCaso),
+    expiresAt DATETIME2(0) NOT NULL,
+    usedAt DATETIME2(0) NULL
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_OperationEvidence', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_OperationEvidence (
+    id BIGINT IDENTITY(1, 1) PRIMARY KEY,
+    idCaso BIGINT NOT NULL REFERENCES dbo.Caso (idCaso),
+    operation NVARCHAR(60) NOT NULL,
+    reference NVARCHAR(300) NOT NULL,
+    idOperador INT NOT NULL REFERENCES dbo.Operador (idOperador),
+    createdAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;
+
+GO
+
+IF NOT EXISTS (
+    SELECT
+        1
+    FROM
+        sys.check_constraints
+    WHERE
+        name = 'CK_Mensaje_DireccionOrigen'
+) BEGIN DECLARE @constraint SYSNAME;
+
+SELECT
+    @constraint = name
+FROM
+    sys.check_constraints
+WHERE
+    parent_object_id = OBJECT_ID('dbo.Mensaje')
+    AND definition LIKE '%idDireccion%'
+    AND definition LIKE '%esAutomatico%';
+
+IF @constraint IS NOT NULL BEGIN DECLARE @statement NVARCHAR(MAX) = 'ALTER TABLE dbo.Mensaje DROP CONSTRAINT ' + QUOTENAME(@constraint);
+
+EXEC sys.sp_executesql @statement;
+
+END;
+
+ALTER TABLE dbo.Mensaje
+ADD CONSTRAINT CK_Mensaje_DireccionOrigen CHECK (
+    (
+        idDireccion = 1
+        AND idOrigenMensaje IS NULL
+        AND idEstadoEntrega IS NULL
+        AND idOperador IS NULL
+    )
+    OR (
+        idDireccion = 2
+        AND idOrigenMensaje IS NOT NULL
+        AND idEstadoEntrega IS NOT NULL
+        AND (
+            esAutomatico = 0
+            OR idOrigenMensaje IN (1, 2)
+        )
+    )
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_ContractSnapshot', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_ContractSnapshot (
+    idContratacion BIGINT PRIMARY KEY REFERENCES dbo.Contratacion (idContratacion),
+    previousStage TINYINT NOT NULL REFERENCES dbo.Cat_EtapaBeneficiario (id)
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_Scholarship', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_Scholarship (
+    idCaso BIGINT PRIMARY KEY REFERENCES dbo.Caso (idCaso),
+    idPlan TINYINT NOT NULL REFERENCES dbo.PlanComercial (idPlan),
+    idOperador INT NOT NULL REFERENCES dbo.Operador (idOperador),
+    reference NVARCHAR(300) NOT NULL,
+    authorizedAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME()),
+    endDate DATE NOT NULL,
+    activatedAt DATETIME2(0) NULL
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_AgentAnalysis', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_AgentAnalysis (
+    idMensaje BIGINT PRIMARY KEY REFERENCES dbo.Mensaje (idMensaje),
+    model NVARCHAR(100) NOT NULL,
+    payload NVARCHAR(MAX) NOT NULL,
+    createdAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;
+
+GO
+
+IF NOT EXISTS (
+    SELECT
+        1
+    FROM
+        dbo.Cat_TipoEvento
+    WHERE
+        id = 14
+)
+INSERT INTO
+    dbo.Cat_TipoEvento (id, nombre)
+VALUES
+    (14, N'Habilitación del servicio');
+
+GO
+
+IF NOT EXISTS (
+    SELECT
+        1
+    FROM
+        dbo.Cat_CanalComunicacion
+    WHERE
+        id = 4
+)
+INSERT INTO
+    dbo.Cat_CanalComunicacion (id, nombre)
+VALUES
+    (4, N'Portal web');
+
+GO
+
+IF OBJECT_ID('dbo.App_PublicOffer', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_PublicOffer (
+    idOferta BIGINT IDENTITY(1, 1) PRIMARY KEY,
+    idPropuesta BIGINT NOT NULL REFERENCES dbo.PropuestaComercial (idPropuesta),
+    tokenHash CHAR(64) NOT NULL UNIQUE,
+    expiresAt DATETIME2(0) NOT NULL,
+    createdAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;
+
+GO
+
+IF EXISTS (
+    SELECT
+        1
+    FROM
+        sys.columns
+    WHERE
+        object_id = OBJECT_ID('dbo.App_OperationEvidence')
+        AND name = 'idOperador'
+        AND is_nullable = 0
+) BEGIN
+ALTER TABLE dbo.App_OperationEvidence
+ALTER COLUMN idOperador INT NULL;
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_PublicInquiry', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_PublicInquiry (
+    idSolicitud BIGINT IDENTITY(1, 1) PRIMARY KEY,
+    nombre NVARCHAR(150) NOT NULL,
+    correo NVARCHAR(254) NOT NULL,
+    beneficiario NVARCHAR(150) NOT NULL,
+    esEstudiante BIT NOT NULL,
+    planSolicitado NVARCHAR(80) NOT NULL,
+    autorizaCorreo BIT NOT NULL,
+    createdAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;
+
+GO
+
+IF COL_LENGTH('dbo.App_PublicInquiry', 'telefono') IS NULL BEGIN
+ALTER TABLE dbo.App_PublicInquiry
+ADD telefono NVARCHAR(20) NULL,
+idRolContacto TINYINT NULL REFERENCES dbo.Cat_RolContacto (id),
+idContacto BIGINT NULL REFERENCES dbo.Contacto (idContacto),
+idLeadCaso BIGINT NULL REFERENCES dbo.LeadCaso (idLeadCaso),
+estado NVARCHAR(30) NOT NULL DEFAULT N'Pendiente',
+requestKey NVARCHAR(64) NULL,
+idPlanTarifa BIGINT NULL,
+idSolicitudProvisional BIGINT NULL REFERENCES dbo.SolicitudProvisional (idSolicitud);
+
+END;
+
+GO
+
+CREATE
+OR ALTER
+TRIGGER dbo.trg_PublicInquiry_ClaveUnica ON dbo.App_PublicInquiry AFTER
+INSERT
+,
+UPDATE AS BEGIN IF EXISTS (
+    SELECT
+        p.requestKey
+    FROM
+        dbo.App_PublicInquiry p
+    WHERE
+        p.requestKey IS NOT NULL
+        AND p.requestKey IN (
+            SELECT
+                requestKey
+            FROM
+                inserted
+        )
+    GROUP BY
+        p.requestKey
+    HAVING
+        COUNT(*) > 1
+) BEGIN RAISERROR (N'Ya existe una solicitud con esa clave.', 16, 1);
+
+ROLLBACK TRANSACTION;
+
+END END;
+
+GO
+
+IF OBJECT_ID('dbo.App_Onboarding', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_Onboarding (
+    idContacto BIGINT PRIMARY KEY REFERENCES dbo.Contacto (idContacto),
+    payload NVARCHAR(MAX) NOT NULL,
+    step NVARCHAR(30) NOT NULL,
+    idSolicitud BIGINT NOT NULL REFERENCES dbo.SolicitudProvisional (idSolicitud)
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_AgentFailures', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_AgentFailures (
+    idContacto BIGINT PRIMARY KEY REFERENCES dbo.Contacto (idContacto),
+    consecutiveFailures INT NOT NULL DEFAULT 0
+);
+
+END;
+
+GO
+
+USE master;
+
+GO
+
+IF SUSER_ID('landing_app') IS NULL CREATE
+LOGIN landing_app
+WITH
+    PASSWORD = N'password',
+    CHECK_POLICY = ON,
+    DEFAULT_DATABASE = LaPreDigital_OLTP;
+
+GO
+
+USE LaPreDigital_OLTP;
+
+GO
+
+IF USER_ID('landing_app') IS NULL CREATE
+USER landing_app FOR
+LOGIN landing_app;
+
+GO
+
+GRANT
+SELECT
+,
+INSERT
+,
+UPDATE ON dbo.Contacto TO landing_app;
+
+GRANT
+SELECT
+,
+INSERT
+    ON dbo.AutorizacionContacto TO landing_app;
+
+GRANT
+SELECT
+,
+INSERT
+    ON dbo.Beneficiario TO landing_app;
+
+GRANT
+SELECT
+,
+INSERT
+    ON dbo.PerfilBeneficiario TO landing_app;
+
+GRANT
+SELECT
+,
+INSERT
+    ON dbo.Lead TO landing_app;
+
+GRANT
+SELECT
+,
+INSERT
+,
+UPDATE ON dbo.Caso TO landing_app;
+
+GRANT
+SELECT
+,
+INSERT
+    ON dbo.EventoCaso TO landing_app;
+
+GRANT
+SELECT
+,
+INSERT
+,
+UPDATE ON dbo.LeadCaso TO landing_app;
+
+GRANT
+SELECT
+,
+INSERT
+    ON dbo.SolicitudProvisional TO landing_app;

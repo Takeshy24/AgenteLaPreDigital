@@ -31,7 +31,7 @@ Una captación por chat que todavía no tiene autorización de ningún canal per
 
 ## Probar el recorrido local
 
-1. Ejecutar `npm run migrate`, `npm run build` y `npm start`.
+1. Ejecutar `npm run migrate` (aplica el script SQL único), `npm run build` y `npm start`.
 2. Abrir `/planes`, seleccionar plan y completar nombre, correo, teléfono, rol y autorización. Si el correo o el beneficiario coinciden con una identidad existente, resolver la revisión desde LEADS y casos.
 3. Pulsar Continuar en Telegram e Iniciar. También se puede escribir directamente al bot y completar sus preguntas de registro.
 4. Usar `/autorizar` para habilitar seguimiento por Telegram o `/revocar` para retirarlo. Responder una conversación no requiere autorizar comunicaciones proactivas.

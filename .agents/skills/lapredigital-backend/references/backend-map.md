@@ -11,7 +11,7 @@
 - `server/db.mjs`, `server/sql-worker.ps1`: transporte local Node → .NET SqlClient con autenticación Windows. Es específico del entorno Windows; no cambiar de controlador como efecto secundario de una tarea de estilo.
 - `script/LaPreDigital_OLTP.sql`: esquema suministrado, catálogos, parámetros, restricciones y triggers.
 - `src/api.ts`: contratos usados por la interfaz conectada.
-- `script/migrations/`: extensiones versionadas; aplicar únicamente con el comando de migración explícito.
+- `script/LaPreDigital_OLTP.sql`: único script de base de datos (esquema original, extensiones `App_*` y usuario de la landing); repetible, sin comentarios ni índices; aplicar únicamente con `npm run migrate`.
 - `server/README.md`: alcance HTTP y componentes pendientes. Verificar que siga actualizado.
 
 ## Organización incremental sugerida

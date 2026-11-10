@@ -6,7 +6,7 @@ export function registerRoutes(app) {
   app.post(
     '/api/cases/:id/stripe-checkout',
     route(z.object({}).strict(), (_, id) =>
-      service.startStripeCheckout(id, `http://127.0.0.1:${process.env.PORT || 3001}`),
+      service.startStripeCheckout(id, `http://127.0.0.1:${process.env.PORT || 3067}`),
     ),
   );
   app.post(

@@ -1,6 +1,6 @@
 ---
 name: lapredigital-backend
-description: Crear, modificar o revisar la API y lógica comercial de LaPreDigital con funciones de nombres sencillos, responsabilidades separadas y operaciones SQL Server legibles. Usar para servicios, repositorios, validación y reglas del backend; no para rediseñar pantallas o ejecutar migraciones sin un encargo que las requiera.
+description: Crear, modificar o revisar la API y lógica comercial de LaPreDigital con funciones de nombres sencillos, responsabilidades separadas y operaciones SQL Server legibles. Usar para servicios, repositorios, validación y reglas del backend; no para rediseñar pantallas o ejecutar el script de base de datos sin un encargo que lo requiera.
 ---
 
 # Backend claro de LaPreDigital

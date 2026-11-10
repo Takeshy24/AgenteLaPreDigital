@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { id, route } from '../http/validation.mjs';
+import { normalizePhone, registerLanding } from './landing.mjs';
+import { limitRequests } from './rate-limit.mjs';
 import * as service from './service.mjs';
 import { registerInquiry } from './intake.mjs';
 import { activateTrial, viewTrial } from '../trials/service.mjs';
@@ -8,6 +10,26 @@ import { viewInvitation, acceptPublicInvitation } from './invitations.mjs';
 
 const token = z.string().regex(/^[A-Za-z0-9_-]{40,100}$/);
 const trialToken = z.string().regex(/^[A-Za-z0-9_-]{32}$/);
+const landingForm = z
+  .object({
+    name: z.string().trim().min(2).max(150),
+    email: z.email().max(254),
+    phone: z
+      .string()
+      .refine((value) => normalizePhone(value) !== null, { message: 'Teléfono no válido' })
+      .transform(normalizePhone),
+    role: z.number().int().min(1).max(4),
+    beneficiaryName: z.string().trim().max(150).optional(),
+    channels: z
+      .array(z.union([z.literal(1), z.literal(2)]))
+      .min(1)
+      .max(2),
+    website: z.string().max(200).optional(),
+  })
+  .strict()
+  .refine((data) => data.role === 1 || data.beneficiaryName?.length >= 2, {
+    message: 'Escribe el nombre completo del estudiante',
+  });
 const inquiry = z
   .object({
     name: z.string().trim().min(2).max(150),
@@ -52,6 +74,11 @@ export function registerRoutes(app) {
     }
   });
   app.get('/api/public/plans', route(null, service.listPlans));
+  app.post(
+    '/api/public/landing',
+    limitRequests({ max: 8, windowMs: 60000 }),
+    route(landingForm, registerLanding),
+  );
   app.get('/api/public/trials/:token', async (req, res, next) => {
     try {
       res.json(await viewTrial(trialToken.parse(req.params.token)));
@@ -92,7 +119,7 @@ export function registerRoutes(app) {
     route(z.object({}).strict(), (_, id) =>
       service.createOfferLink(
         id,
-        process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3001}`,
+        process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3067}`,
       ),
     ),
   );
@@ -115,7 +142,7 @@ export function registerRoutes(app) {
       res.json(
         await service.payOffer(
           token.parse(req.params.token),
-          process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3001}`,
+          process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3067}`,
         ),
       );
     } catch (error) {

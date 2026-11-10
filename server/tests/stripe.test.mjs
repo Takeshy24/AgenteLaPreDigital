@@ -30,7 +30,7 @@ test('Stripe de prueba: usa importe del servidor y rechaza claves de producción
     contractId: 11,
     amount: 39.9,
     plan: 'Ruta UNT',
-    origin: 'http://127.0.0.1:3001',
+    origin: 'http://127.0.0.1:3067',
   });
   assert.equal(session.url, 'https://checkout.stripe.com/test');
   await assert.rejects(() => getSession('fake_session'), /Sesión Stripe inválida/);

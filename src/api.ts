@@ -106,10 +106,19 @@ export interface Details {
     idEstadoEntrega: number;
   }[];
 }
+// Vacío: la API es la del mismo origen (npm start, o Vite con su proxy). Con valor, es una API
+// pública (por ejemplo el túnel ngrok) y la página puede alojarse en otro origen.
+const apiBase = (import.meta.env.VITE_API_URL ?? '')
+  .replace(/^\uFEFF/, '')
+  .trim()
+  .replace(/\/$/, '');
 export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const res = await fetch('/api' + path, {
+  const headers: Record<string, string> = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (apiBase) headers['ngrok-skip-browser-warning'] = '1';
+  const res = await fetch(apiBase + '/api' + path, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const payload = await res

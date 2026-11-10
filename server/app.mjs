@@ -33,19 +33,39 @@ app.post(
     }
   },
 );
+app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '32kb' }));
+function landingOrigins() {
+  return (process.env.LANDING_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+}
+function allowCrossOrigin(res, origin) {
+  res.set({
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, ngrok-skip-browser-warning',
+    'Access-Control-Max-Age': '86400',
+    Vary: 'Origin',
+  });
+}
 app.use('/api', (req, res, next) => {
   const origin = req.headers.origin;
   const host = req.headers.host?.split(':')[0];
   const publicOrigin = process.env.PUBLIC_ORIGIN;
   const publicHost = publicOrigin ? new URL(publicOrigin).hostname : null;
+  const fromLanding = !!origin && landingOrigins().includes(origin);
   if (
     req.path.startsWith('/public/') &&
     publicHost &&
     host === publicHost &&
-    (!origin || origin === publicOrigin)
-  )
+    (!origin || origin === publicOrigin || fromLanding)
+  ) {
+    if (fromLanding) allowCrossOrigin(res, origin);
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
     return next();
+  }
   if (!['localhost', '127.0.0.1', '[::1]'].includes(host))
     return res.status(403).json({ error: 'Solo disponible en localhost' });
   if (origin && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))
@@ -66,8 +86,9 @@ operationsRoutes(app);
 contractsRoutes(app);
 publicRoutes(app);
 app.use(express.static(fileURLToPath(new URL('../dist', import.meta.url))));
-app.get(['/planes', '/oferta/:token', '/prueba/:token', '/invitacion/:code'], (req, res) =>
-  res.sendFile(fileURLToPath(new URL('../dist/index.html', import.meta.url))),
+app.get(
+  ['/landing', '/planes', '/oferta/:token', '/prueba/:token', '/invitacion/:code'],
+  (req, res) => res.sendFile(fileURLToPath(new URL('../dist/index.html', import.meta.url))),
 );
 app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 app.use((error, req, res, next) => {

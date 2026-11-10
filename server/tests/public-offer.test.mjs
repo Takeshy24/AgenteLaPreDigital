@@ -41,7 +41,7 @@ test('oferta pública: enlace, aceptación web y condiciones sin atribuirlas al 
       await confirmExternalDelivery(proposal.messageId, {
         reference: 'entrega externa verificada',
       });
-      const link = await createOfferLink(proposal.id, 'http://127.0.0.1:3001');
+      const link = await createOfferLink(proposal.id, 'http://127.0.0.1:3067');
       const token = link.url.split('/').at(-1);
       assert.equal((await viewOffer(token)).accepted, false);
       await acceptOffer(token);

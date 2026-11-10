@@ -13,11 +13,11 @@ npm run build
 npm start
 ```
 
-La base debe existir previamente. Las migraciones de `script/migrations` son explícitas y repetibles: añaden tablas `App_*` para Telegram, despachos, evidencias, pruebas, becas y análisis; permiten mensajes automáticos salientes de los orígenes previstos y agregan el evento de habilitación. El servidor no ejecuta el esquema ni inserta datos ficticios al arrancar.
+`npm run migrate` aplica `script/LaPreDigital_OLTP.sql` con `sqlcmd`; el script crea la base si no existe y es repetible. Además del esquema original incluye las extensiones `App_*` (Telegram, despachos, evidencias, pruebas, becas, análisis, captación pública y onboarding), el ajuste que permite mensajes automáticos salientes de los orígenes previstos, el evento de habilitación, el canal Portal web y el usuario `landing_app` con permisos mínimos. La unicidad de `requestKey` en solicitudes públicas se resuelve con un trigger, sin índices. El servidor no ejecuta el esquema ni inserta datos ficticios al arrancar.
 
 Las transacciones usan aislamiento Serializable y contexto asíncrono compartido para operaciones compuestas. Los fallos revierten toda la operación. El adaptador actual requiere Windows; para Linux debe sustituirse.
 
-La API escucha en `127.0.0.1:3001`, verifica host/origen y exige JSON en escrituras. Es una consola bajo la identidad Windows, sin autenticación HTTP ni autorización por usuario. El despliegue público requiere ambos controles.
+La API escucha en `127.0.0.1:3067`, verifica host/origen y exige JSON en escrituras. Es una consola bajo la identidad Windows, sin autenticación HTTP ni autorización por usuario. El despliegue público requiere ambos controles.
 
 ## Reglas implementadas
 
@@ -46,6 +46,7 @@ Los esquemas Zod de cada archivo de rutas son la referencia para los cuerpos JSO
 | ---------------------------------------------------------------------- | ------------------------------------------------------- |
 | GET /api/health, /api/bootstrap                                        | Salud SQL y espacio de trabajo.                         |
 | POST /api/leads                                                        | Captación/reutilización.                                |
+| POST /api/public/landing                                               | Captación pública desde la landing; ver más abajo.      |
 | GET /api/participations/:id                                            | Expediente, mensajes, agenda, propuestas y eventos.     |
 | PATCH /api/participations/:id/profile                                  | Perfil con historial.                                   |
 | POST /api/participations/:id/messages/incoming                         | Evidencia entrante y reevaluación.                      |
@@ -62,6 +63,12 @@ Los esquemas Zod de cada archivo de rutas son la referencia para los cuerpos JSO
 | POST /api/followup/run                                                 | Revisión manual; no envía mensajes de red.              |
 | GET /api/integrations/status                                           | Configuración Telegram, disponibilidad Ollama y agenda. |
 | POST /api/participations/:id/telegram-link, /agent/analyze             | Vinculación temporal y análisis local.                  |
+
+## Acceso público y landing
+
+Con `PUBLIC_ORIGIN` definido, el servidor acepta del host público únicamente rutas `/api/public/*`, sin origen o con el propio `PUBLIC_ORIGIN`. `LANDING_ORIGINS` añade páginas de otros orígenes (por ejemplo Vercel) a esa lista: solo ellas reciben cabeceras CORS y respuesta a la verificación previa. La consola, `/api/public-inquiries` y el resto de rutas devuelven 403 fuera de localhost, también con un origen autorizado. Sin `PUBLIC_ORIGIN`, solo localhost. `trust proxy` se limita al bucle local, de modo que la IP del visitante proviene de la cabecera que añade el túnel.
+
+`POST /api/public/landing` acepta nombre, correo, teléfono (987654321 se normaliza a +51987654321), rol 1–4, `beneficiaryName` si el rol no es Estudiante, `channels` (1 WhatsApp, 2 correo) y el campo trampa `website`. Reutiliza `saveLead` con captación «Landing page» y los canales marcados en una sola transacción. Reenviar el mismo formulario no duplica registros. Si el nombre del estudiante pertenece a otro contacto, se guarda una solicitud provisional y la respuesta es la misma que en un registro normal, sin identificadores. Limita a 8 solicitudes por minuto y por IP, en memoria.
 
 ## Telegram: conexión local activa
 
@@ -88,7 +95,7 @@ En el panel de Stripe, activar modo de prueba y guardar la clave secreta `sk_tes
 
 El portal del lead está en `/planes`. La captación completa crea o vincula la negociación; los datos incompletos y las coincidencias de identidad quedan pendientes de revisión. La consola muestra las solicitudes web y las provisionales de Telegram, con acciones para completarlas o abrir la negociación. El agente prepara propuestas y adjunta un enlace personal; la aceptación exige que su entrega ya esté confirmada. El lead ve el precio autorizado, acepta expresamente y puede abrir Checkout en `/oferta/<token>`. La aceptación se registra como mensaje del canal Portal web y su evidencia no se atribuye al operador. `/prueba/<token>` registra la activación expresa de Explora y `/invitacion/<codigo>` permite al responsable aceptar la vinculación y el contacto por separado. Ver [el plan y recorrido de prueba](../docs/plan-agente.md).
 
-Configurar `STRIPE_WEBHOOK_SECRET=whsec_...` además de la clave de prueba. En desarrollo, Stripe CLI puede reenviar los eventos con `stripe listen --forward-to localhost:3001/api/stripe/webhook`; copiar el secreto que muestra a `.env` y reiniciar el servidor. El webhook comprueba firma y antigüedad, recupera la sesión desde Stripe, exige pago, moneda, importe y contratación coincidentes y usa la sesión como referencia idempotente. El regreso del navegador realiza la misma conciliación. [Stripe recomienda procesar eventos del servidor](https://docs.stripe.com/payments/existing-customers?platform=web&ui=stripe-hosted).
+Configurar `STRIPE_WEBHOOK_SECRET=whsec_...` además de la clave de prueba. En desarrollo, Stripe CLI puede reenviar los eventos con `stripe listen --forward-to localhost:3067/api/stripe/webhook`; copiar el secreto que muestra a `.env` y reiniciar el servidor. El webhook comprueba firma y antigüedad, recupera la sesión desde Stripe, exige pago, moneda, importe y contratación coincidentes y usa la sesión como referencia idempotente. El regreso del navegador realiza la misma conciliación. [Stripe recomienda procesar eventos del servidor](https://docs.stripe.com/payments/existing-customers?platform=web&ui=stripe-hosted).
 
 La clave `sk_test_...` local respondió correctamente a una consulta de la cuenta Stripe. Falta `STRIPE_WEBHOOK_SECRET`, por lo que no se realizó un pago completo ni una entrega real de webhook. Para compartir `/planes` y `/oferta` fuera del equipo se necesita un dominio HTTPS y un proxy; configurar `PUBLIC_ORIGIN` y `BIND_HOST` según `.env.example`. Mantener las rutas administrativas restringidas a localhost. Antes de publicar ampliamente se requieren protección contra abuso del formulario, verificación de identidad del destinatario y autenticación de operadores.
 

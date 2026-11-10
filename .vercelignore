@@ -1,0 +1,12 @@
+server
+script
+docs
+tools
+.agents
+.github
+.env
+.env.*
+!.env.example
+node_modules
+dist
+*.log

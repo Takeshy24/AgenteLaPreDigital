@@ -43,6 +43,47 @@ WHERE
     )
   ).recordset;
 }
+export async function findContactBeneficiary(db, params = {}) {
+  return query(
+    db,
+    `SELECT
+  TOP 1 b.idBeneficiario id
+FROM
+  dbo.Lead l
+  JOIN dbo.Beneficiario b ON b.idBeneficiario = l.idBeneficiario
+WHERE
+  l.idContacto = @contact
+  AND b.nombreNormalizado = @name
+ORDER BY
+  b.idBeneficiario`,
+    params,
+  );
+}
+export async function insertProvisionalRequest(db, params = {}) {
+  return query(
+    db,
+    `IF NOT EXISTS (
+  SELECT
+    1
+  FROM
+    dbo.SolicitudProvisional
+  WHERE
+    idContacto = @contact
+    AND idEstadoSolicitud = 1
+    AND textoSolicitud = @text
+)
+INSERT
+  dbo.SolicitudProvisional (
+    idContacto,
+    idRolContacto,
+    idCanalCaptacion,
+    textoSolicitud
+  )
+VALUES
+  (@contact, @role, @channel, @text)`,
+    params,
+  );
+}
 export async function findStudent(db, params = {}, options = {}) {
   return query(
     db,

@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "server": "node server/index.mjs",
     "start": "node server/index.mjs",
+    "up": "node tools/up.mjs",
+    "up:check": "node tools/up.mjs --check",
     "test": "node --test --test-concurrency=1",
     "format": "prettier --write . && node tools/format-sql.mjs",
     "format:check": "prettier --check . && node tools/format-sql.mjs --check",
