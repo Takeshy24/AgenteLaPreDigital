@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import { Button, Modal } from '../../components/ui';
 import { useWorkspace } from '../../state/Workspace';
-export function LeadForm({ onClose }: { onClose: () => void }) {
+import type { PublicInquiry } from '../../api';
+export function LeadForm({ onClose, inquiry }: { onClose: () => void; inquiry?: PublicInquiry }) {
   const { data, busy, run, error } = useWorkspace();
   const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    role: 1,
-    channel: 1,
+    name: inquiry?.name || '',
+    email: inquiry?.email || '',
+    phone: inquiry?.phone || '',
+    role: inquiry?.role || (inquiry?.name !== inquiry?.beneficiary ? 2 : 1),
+    channel: inquiry && inquiry.id < 0 ? 5 : 1,
     communicationChannel: 2,
-    consent: false,
-    beneficiaryName: '',
+    consent: inquiry?.consent || false,
+    beneficiaryName: inquiry?.beneficiary || '',
     beneficiaryId: '',
   });
   return (
     <Modal title="Registrar contacto y negociación" onClose={onClose}>
       <p className="form-intro">
+        {inquiry?.status === 'Revisar identidad' &&
+          'Confirma la identidad con la persona antes de guardar la vinculación. '}
         Registra los datos declarados por el contacto. Si el beneficiario ya existe, utiliza su
         identificador para evitar duplicados.
       </p>
@@ -26,11 +29,27 @@ export function LeadForm({ onClose }: { onClose: () => void }) {
           event.preventDefault();
           if (
             await run(
-              '/leads',
-              {
-                ...form,
-                beneficiaryId: form.beneficiaryId ? Number(form.beneficiaryId) : undefined,
-              },
+              inquiry
+                ? inquiry.id < 0
+                  ? `/onboarding/${-inquiry.id}/complete`
+                  : `/public-inquiries/${inquiry.id}/complete`
+                : '/leads',
+              inquiry
+                ? {
+                    name: form.name,
+                    email: form.email,
+                    phone: form.phone,
+                    role: form.role,
+                    beneficiary: form.role === 1 ? form.name : form.beneficiaryName,
+                    beneficiaryId: form.beneficiaryId ? Number(form.beneficiaryId) : undefined,
+                    isStudent: form.role === 1,
+                    consent: form.consent,
+                    plan: inquiry.plan,
+                  }
+                : {
+                    ...form,
+                    beneficiaryId: form.beneficiaryId ? Number(form.beneficiaryId) : undefined,
+                  },
               'LEAD registrado.',
             )
           )
@@ -89,6 +108,7 @@ export function LeadForm({ onClose }: { onClose: () => void }) {
           <label>
             Captación
             <select
+              disabled={!!inquiry}
               value={form.channel}
               onChange={(event) => setForm({ ...form, channel: Number(event.target.value) })}
             >
@@ -122,6 +142,7 @@ export function LeadForm({ onClose }: { onClose: () => void }) {
         <label>
           Canal autorizado
           <select
+            disabled={!!inquiry}
             value={form.communicationChannel}
             onChange={(event) =>
               setForm({ ...form, communicationChannel: Number(event.target.value) })

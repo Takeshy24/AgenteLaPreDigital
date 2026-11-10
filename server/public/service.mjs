@@ -5,6 +5,7 @@ import { recordIncoming } from '../messages/service.mjs';
 import { recordProposalResponse } from '../proposals/service.mjs';
 import { acceptTerms, confirmStripeCheckout, startStripeCheckout } from '../contracts/service.mjs';
 import * as repository from './repository.mjs';
+import { registerInquiry } from './intake.mjs';
 
 const hash = (token) => createHash('sha256').update(token).digest('hex');
 
@@ -16,19 +17,20 @@ export async function requestPlan(data) {
   const tariffs = await listPlans();
   if (data.plan !== 'Explora UNT' && !tariffs.some((item) => item.plan === data.plan))
     throw new BusinessError('El plan solicitado no está vigente.');
-  await transaction((db) => repository.saveInquiry(db, data));
-  return { requested: true };
+  if (data.tariff && !tariffs.some((item) => item.id === data.tariff && item.plan === data.plan))
+    throw new BusinessError('La tarifa seleccionada no corresponde al plan vigente.');
+  return registerInquiry(data);
 }
 
 export async function getInquiries() {
   return repository.listInquiries(await pool());
 }
 
-export async function createOfferLink(proposalId, origin) {
+export async function createOfferLink(proposalId, origin, { prepared = false } = {}) {
   const token = randomBytes(32).toString('base64url');
   await transaction(async (db) => {
     const offer = await repository.getOfferByProposal(db, proposalId);
-    if (!offer || offer.idEstadoEntrega !== 2 || offer.idResultado === 2)
+    if (!offer || (!prepared && offer.idEstadoEntrega !== 2) || offer.idResultado === 2)
       throw new BusinessError('La propuesta debe estar entregada y vigente.');
     await repository.saveOffer(db, proposalId, hash(token));
   });

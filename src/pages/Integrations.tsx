@@ -63,8 +63,8 @@ export function Integrations() {
               </div>
             </dl>
             <p>
-              El contacto debe iniciar la conversación con el bot. La vinculación se prepara desde
-              su expediente.
+              El contacto puede iniciar directamente el bot o continuar desde el formulario de
+              planes. El agente completa los datos de captación que falten.
             </p>
             <small>La configuración no acredita una entrega real.</small>
           </Card>
@@ -82,7 +82,10 @@ export function Integrations() {
               Propone datos expresos e interés comercial. El sistema calcula la prioridad y controla
               tarifas y transiciones.
             </p>
-            <small>Las salidas requieren revisión; no confirman pagos.</small>
+            <small>
+              Los datos y acciones se validan con reglas. Los casos excepcionales se derivan a una
+              persona.
+            </small>
           </Card>
           <Card title="Seguimiento" label="PROCESO PROGRAMADO · L-1">
             <span className="integration-status" data-ready={status.followup.enabled}>

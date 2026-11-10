@@ -66,7 +66,7 @@ operationsRoutes(app);
 contractsRoutes(app);
 publicRoutes(app);
 app.use(express.static(fileURLToPath(new URL('../dist', import.meta.url))));
-app.get(['/planes', '/oferta/:token'], (req, res) =>
+app.get(['/planes', '/oferta/:token', '/prueba/:token', '/invitacion/:code'], (req, res) =>
   res.sendFile(fileURLToPath(new URL('../dist/index.html', import.meta.url))),
 );
 app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));

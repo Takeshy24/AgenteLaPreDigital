@@ -68,7 +68,7 @@ Los esquemas Zod de cada archivo de rutas son la referencia para los cuerpos JSO
 El adaptador usa [Telegram Bot API](https://core.telegram.org/bots/api) con long polling. No requiere publicar la consola ni un webhook. El token local se verificó con `getMe`, el usuario se ajustó al bot devuelto por Telegram y el servidor quedó con `TELEGRAM_ENABLED=true`. Aún falta probar recepción y respuesta con una conversación iniciada por una persona.
 
 1. Mantener `npm start` o `npm run server` activo. No ejecutar otro consumidor de `getUpdates` con el mismo bot.
-2. Registrar un contacto en la consola local y, desde su expediente, generar el enlace de vinculación Telegram. El enlace es de un uso, vence en diez minutos y se almacena como hash.
+2. Completar `/planes` y usar el enlace para continuar en Telegram, o escribir directamente al bot y responder las preguntas de captación. El expediente también permite generar un enlace para contactos ya registrados. Los enlaces son de un uso, vencen en diez minutos y se almacenan como hash. Una coincidencia con una identidad existente se revisa desde la consola antes de vincular otro chat.
 3. Abrir el enlace con la cuenta Telegram del contacto y pulsar **Iniciar**. Enviar un mensaje. Si existen varias participaciones, el bot pide seleccionar beneficiario. `/autorizar` y `/revocar` funcionan sin esa selección.
 4. Activar `FOLLOWUP_ENABLED=true` únicamente cuando se desee ejecutar la agenda periódica y reiniciar. Sigue desactivada para la primera prueba conversacional.
 
@@ -86,7 +86,7 @@ Configurar `OLLAMA_ENABLED=true`, `OLLAMA_URL=http://127.0.0.1:11434` y `OLLAMA_
 
 En el panel de Stripe, activar modo de prueba y guardar la clave secreta `sk_test_...` en `STRIPE_SECRET_KEY` de `.env`. La aplicación rechaza claves `sk_live_...`. Reiniciar `npm start` o `npm run server`. Tras aceptar una propuesta y registrar las condiciones, usar **Pagar con Stripe de prueba** en el expediente. Checkout cobra el precio autorizado de SQL Server en PEN y vuelve a la aplicación con el identificador de sesión. El servidor consulta la sesión en Stripe, exige `payment_status=paid`, modo de prueba, importe, moneda, caso y contratación coincidentes, y registra el pago con la sesión como referencia. Luego se puede validar la contratación. Las tarjetas de prueba se encuentran en la [documentación oficial](https://docs.stripe.com/testing).
 
-El portal del lead está en `/planes`; las solicitudes se almacenan en `App_PublicInquiry` y aparecen en Negociaciones registradas para revisión. Una propuesta entregada puede generar desde el expediente un enlace personal con vencimiento de siete días. El lead ve el precio autorizado, acepta expresamente y puede abrir Checkout en `/oferta/<token>`. La aceptación se registra como mensaje del canal Portal web y su evidencia no se atribuye al operador.
+El portal del lead está en `/planes`. La captación completa crea o vincula la negociación; los datos incompletos y las coincidencias de identidad quedan pendientes de revisión. La consola muestra las solicitudes web y las provisionales de Telegram, con acciones para completarlas o abrir la negociación. El agente prepara propuestas y adjunta un enlace personal; la aceptación exige que su entrega ya esté confirmada. El lead ve el precio autorizado, acepta expresamente y puede abrir Checkout en `/oferta/<token>`. La aceptación se registra como mensaje del canal Portal web y su evidencia no se atribuye al operador. `/prueba/<token>` registra la activación expresa de Explora y `/invitacion/<codigo>` permite al responsable aceptar la vinculación y el contacto por separado. Ver [el plan y recorrido de prueba](../docs/plan-agente.md).
 
 Configurar `STRIPE_WEBHOOK_SECRET=whsec_...` además de la clave de prueba. En desarrollo, Stripe CLI puede reenviar los eventos con `stripe listen --forward-to localhost:3001/api/stripe/webhook`; copiar el secreto que muestra a `.env` y reiniciar el servidor. El webhook comprueba firma y antigüedad, recupera la sesión desde Stripe, exige pago, moneda, importe y contratación coincidentes y usa la sesión como referencia idempotente. El regreso del navegador realiza la misma conciliación. [Stripe recomienda procesar eventos del servidor](https://docs.stripe.com/payments/existing-customers?platform=web&ui=stripe-hosted).
 
@@ -101,10 +101,9 @@ La revisión visual automatizada de esta entrega quedó pendiente: ambos control
 ## Alcance pendiente del informe
 
 - Verificar Telegram → SQL → Ollama → respuesta, revocación y selección de beneficiario con cuentas reales; el bot ya está configurado y el servidor escucha.
-- Onboarding F9 completo de contactos/beneficiarios desconocidos; hoy Telegram vincula contactos ya registrados.
-- Portal remoto de aceptación de invitaciones; actualmente se registra desde la consola local.
+- Verificar con personas reales el alta F9, los enlaces de Telegram y la aceptación de invitaciones públicas; las pruebas automatizadas usan adaptadores controlados y rollback.
 - Prueba real del webhook y Checkout con claves de Stripe, conciliación de reembolsos/disputas y plataforma educativa para aplicar accesos, pruebas y habilitaciones.
-- WhatsApp/correo y aviso específico de consultas humanas pendientes; la retoma por plazo aún no envía ese aviso.
+- Conectores de WhatsApp/correo. La retoma de una derivación ya prepara un aviso Telegram vinculado al mensaje pendiente.
 - Perfil académico ampliado y recorridos excepcionales restantes del informe.
 - DataMart/ETL y seis KPI actualizados, incluida la conversión pagada de casos con Alta.
 - Autenticación, permisos, auditoría por usuario real, observabilidad y operación de producción.

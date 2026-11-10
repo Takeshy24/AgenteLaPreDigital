@@ -59,6 +59,7 @@ WHERE
 
 INSERT
   dbo.CambioPerfil (
+    idPregunta,
     idLeadCaso,
     idContactoInformante,
     idTipoTitular,
@@ -75,6 +76,7 @@ INSERT
   )
 VALUES
   (
+    (SELECT TOP 1 q.idPregunta FROM dbo.PreguntaPerfil q JOIN dbo.Mensaje m ON m.idMensaje=q.idMensajePregunta WHERE q.idContacto=@contact AND m.idEstadoEntrega=2 AND m.fechaEntrega>=DATEADD(DAY,-7,${now}) ORDER BY m.fechaEntrega DESC,q.idPregunta DESC),
     @id,
     @contact,
     @type,

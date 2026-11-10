@@ -2,24 +2,36 @@ import { analyzeMessage } from '../agent/ollama.mjs';
 import { actOnAnalysis, handoffReason } from '../agent/service.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, transaction } from '../db.mjs';
+import { getRecentHistory, updateFailures, getRequestedPlan } from '../agent/repository.mjs';
+import { getParticipation } from '../shared/repository.mjs';
+import { getOpenHandoff } from '../handoffs/repository.mjs';
 import { openHandoff } from '../handoffs/service.mjs';
 import { assignUnassigned, recordIncoming, recordUnassigned } from '../messages/service.mjs';
 import { getWorkspace } from '../workspace/repository.mjs';
 import { integrationConfig } from './config.mjs';
 import * as repository from './repository.mjs';
 import { hashCode } from './service.mjs';
+import { startOnboarding, continueOnboarding, onboardingQuestion } from '../onboarding/service.mjs';
 
 async function analyze(text, participantId) {
   if (!integrationConfig().ollama.enabled) return { analysis: null, error: null };
   try {
     const workspace = await getWorkspace();
     const participant = workspace.leads.find((item) => item.id === participantId);
+    const history = await getRecentHistory(await pool(), participantId);
     return {
       analysis: await analyzeMessage(text, workspace.tariffs, {
         context: {
           contact: participant?.name,
           beneficiary: participant?.beneficiary,
           role: participant?.role,
+          career: participant?.career,
+          availability: participant?.availability,
+          budget: participant?.budget,
+          history,
+          requestedPlan: participant
+            ? await getRequestedPlan(await pool(), participant.idContacto)
+            : null,
         },
       }),
       error: null,
@@ -55,14 +67,15 @@ async function handleStart(item, text, client) {
   const code = text.slice(7).trim();
   const contact = await transaction(async (db) => {
     const contact = await repository.useLink(db, hashCode(code), item.chatId);
-    if (contact) await recordUnassigned(contact, 'Inició la conversación con el bot.');
+    if (contact) await recordUnassigned(contact, text);
     await repository.finishUpdate(db, item.updateId);
     return contact;
   });
   await client.call('sendMessage', {
     chat_id: item.chatId,
     text: contact
-      ? 'Contacto vinculado. Puedes escribir tu consulta. Usa /autorizar para permitir seguimiento por Telegram o /revocar para retirarlo.'
+      ? (await onboardingQuestion(contact)) ||
+        'Contacto vinculado. Puedes escribir tu consulta. Usa /autorizar para permitir seguimiento por Telegram o /revocar para retirarlo.'
       : 'El enlace no es válido, expiró o ya fue utilizado. Solicita uno nuevo a tu asesor.',
   });
 }
@@ -122,9 +135,12 @@ async function askBeneficiary(item, chat, text, candidates, client) {
 }
 async function processMessage(item, target, text) {
   const result = await analyze(text, target.id);
-  const saved = await transaction(async (db) => {
-    const existing = await repository.getUpdate(db, item.updateId);
-    if (existing?.processedAt) return null;
+  if (result.analysis?.understood === false) {
+    result.error = 'Mensaje no interpretable';
+    result.analysis = null;
+  }
+  return transaction(async (db) => {
+    if ((await repository.getUpdate(db, item.updateId))?.processedAt) return;
     const message = await recordIncoming(
       target.id,
       {
@@ -142,17 +158,28 @@ async function processMessage(item, target, text) {
         integrationConfig().ollama.model,
         result.analysis,
       );
+    const participant = await getParticipation(db, message.participationId);
+    const failures = await updateFailures(db, participant.idContacto, !!result.error);
+    if (result.analysis) {
+      await actOnAnalysis(message.participationId, message.id, text, result.analysis);
+    } else {
+      const reason = handoffReason(text);
+      const handoff = await getOpenHandoff(db, participant.idContacto);
+      if (reason || (result.error && failures >= 2))
+        await openHandoff(message.participationId, { reason: reason || 7, messageId: message.id });
+      else if (result.error && (!handoff || handoff.fechaRetomaAgente))
+        await repository.createReply(
+          db,
+          participant,
+          'No pude interpretar tu consulta. ¿Puedes reformularla indicando el plan o la duda que tienes?',
+          message.id,
+        );
+    }
     await repository.finishUpdate(db, item.updateId, message.id, result.error);
-    return message;
   });
-  if (!saved) return;
-  if (result.analysis) await actOnAnalysis(saved.participationId, saved.id, text, result.analysis);
-  else {
-    const reason = handoffReason(text);
-    if (reason) await openHandoff(saved.participationId, { reason, messageId: saved.id });
-  }
 }
 export async function processUpdate(item, client) {
+  if ((await repository.getUpdate(await pool(), item.updateId))?.processedAt) return;
   const update = JSON.parse(item.payload);
   if (update.callback_query) return handleCallback(item, update.callback_query, client);
   const message = update.message;
@@ -168,13 +195,9 @@ export async function processUpdate(item, client) {
   if (message.text.startsWith('/start ')) return handleStart(item, message.text, client);
   const chat = await repository.getChat(await pool(), item.chatId);
   if (!chat) {
-    await transaction((db) => repository.finishUpdate(db, item.updateId));
-    await client.call('sendMessage', {
-      chat_id: item.chatId,
-      text: 'Para proteger tus datos, solicita un enlace de vinculación a tu asesor de LaPreDigital.',
-    });
-    return;
+    return startOnboarding(item, message.text, client);
   }
+  if (await continueOnboarding(item, chat.idContacto, message.text, client)) return;
   const participants = await repository.listContactParticipations(await pool(), chat.idContacto);
   const consentCommand =
     ['/autorizar', '/revocar'].includes(message.text.trim()) ||

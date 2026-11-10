@@ -1,27 +1,14 @@
-import { useEffect, useState } from 'react';
-import { request } from '../../api';
+import { useState } from 'react';
 import { Badge, Button, Empty } from '../../components/ui';
 import { useWorkspace } from '../../state/Workspace';
+import { LeadForm } from './LeadForm';
+import type { PublicInquiry } from '../../api';
 export function LeadTable() {
-  const { data, open } = useWorkspace();
+  const { data, open, inquiries, inquiryError, refreshInquiries } = useWorkspace();
   const [search, setSearch] = useState('');
   const [priority, setPriority] = useState('');
   const [caseState, setCaseState] = useState('');
-  const [inquiries, setInquiries] = useState<
-    {
-      id: number;
-      name: string;
-      email: string;
-      beneficiary: string;
-      plan: string;
-      consent: boolean;
-    }[]
-  >([]);
-  useEffect(() => {
-    request<typeof inquiries>('/public-inquiries')
-      .then(setInquiries)
-      .catch(() => {});
-  }, []);
+  const [intake, setIntake] = useState<PublicInquiry | null>(null);
   const rows =
     data?.leads.filter(
       (lead) =>
@@ -33,6 +20,81 @@ export function LeadTable() {
     ) || [];
   return (
     <>
+      {intake && (
+        <LeadForm
+          inquiry={intake}
+          onClose={() => {
+            setIntake(null);
+            void refreshInquiries();
+          }}
+        />
+      )}
+      <section className="data-section" id="solicitudes">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">FORMULARIO PÚBLICO</span>
+            <h2>Solicitudes de planes {inquiries && `(${inquiries.length})`}</h2>
+          </div>
+          <Button variant="secondary" onClick={() => void refreshInquiries()}>
+            Actualizar
+          </Button>
+        </div>
+        <p className="inquiry-note">
+          Las captaciones completas se vinculan automáticamente. Revisa las que necesitan datos o
+          confirmación de identidad.
+        </p>
+        {inquiryError && (
+          <div className="live-alert" role="alert">
+            No se pudieron consultar las solicitudes: {inquiryError}
+          </div>
+        )}
+        {inquiries?.length ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>CONTACTO</th>
+                  <th>BENEFICIARIO</th>
+                  <th>PLAN</th>
+                  <th>SEGUIMIENTO</th>
+                  <th>ESTADO / ACCIÓN</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inquiries.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      {item.name}
+                      <small className="live-sub">{item.email}</small>
+                    </td>
+                    <td>{item.beneficiary}</td>
+                    <td>{item.plan}</td>
+                    <td>{item.consent ? 'Autorizó correo' : 'Sin autorización'}</td>
+                    <td>
+                      <small className="live-sub">{item.status}</small>
+                      {item.participationId ? (
+                        <Button variant="secondary" onClick={() => open(item.participationId!)}>
+                          Abrir negociación
+                        </Button>
+                      ) : (
+                        <Button variant="secondary" onClick={() => setIntake(item)}>
+                          Completar captación
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : !inquiryError ? (
+          <Empty>
+            {inquiries
+              ? 'Aún no hay solicitudes del catálogo público.'
+              : 'Consultando solicitudes…'}
+          </Empty>
+        ) : null}
+      </section>
       <section className="data-section">
         <div className="section-heading">
           <div>
@@ -121,43 +183,6 @@ export function LeadTable() {
             </Empty>
           )}
         </div>
-      </section>
-      <section className="data-section">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">FORMULARIO PÚBLICO</span>
-            <h2>Solicitudes de planes</h2>
-          </div>
-        </div>
-        {inquiries.length ? (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>CONTACTO</th>
-                  <th>BENEFICIARIO</th>
-                  <th>PLAN</th>
-                  <th>SEGUIMIENTO</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inquiries.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      {item.name}
-                      <small className="live-sub">{item.email}</small>
-                    </td>
-                    <td>{item.beneficiary}</td>
-                    <td>{item.plan}</td>
-                    <td>{item.consent ? 'Autorizó correo' : 'Sin autorización'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <Empty>Aún no hay solicitudes del catálogo público.</Empty>
-        )}
       </section>
     </>
   );

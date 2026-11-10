@@ -2,7 +2,8 @@ import { transaction } from '../db.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { scheduleAttempts } from '../shared/repository.mjs';
 import * as repository from './repository.mjs';
-export async function createLead(data) {
+import { resumeContact, listActive } from '../consents/repository.mjs';
+export async function createLead(data, options = {}) {
   return transaction(async (db) => {
     const params = {
       ...data,
@@ -13,7 +14,10 @@ export async function createLead(data) {
     const match = await repository.findContacts(db, params);
     if (match.recordset.length > 1)
       throw new BusinessError('El correo y el teléfono corresponden a contactos distintos.');
-    const contact = match.recordset[0]?.id ?? (await repository.insertContact(db, params));
+    const contact =
+      options.contactId ?? match.recordset[0]?.id ?? (await repository.insertContact(db, params));
+    if (options.contactId && match.recordset.some((item) => item.id !== options.contactId))
+      throw new BusinessError('La identidad requiere revisión del personal comercial.');
     let beneficiary = data.beneficiaryId;
     if (!beneficiary && data.role === 1)
       beneficiary = (await repository.findStudent(db, { contact })).recordset[0]?.id;
@@ -53,9 +57,16 @@ export async function createLead(data) {
       });
       await repository.recordCaseOpening(db, { caseId });
     }
-    const old = (await repository.findParticipation(db, { lead, caseId })).recordset[0];
-    if (old) return { id: old.id };
     if (data.consent) await repository.grantConsent(db, { ...params, contact });
+    const old = (await repository.findParticipation(db, { lead, caseId })).recordset[0];
+    if (old) {
+      if (data.consent) {
+        await resumeContact(db, { contact });
+        for (const row of (await listActive(db, { contact })).recordset)
+          await scheduleAttempts(db, row.id);
+      }
+      return { id: old.id };
+    }
     const authorized = (await repository.findConsent(db, { contact })).recordset.length > 0;
     const id = await repository.insertParticipation(
       db,

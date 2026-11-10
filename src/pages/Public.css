@@ -73,7 +73,7 @@
   color: var(--ui-muted);
   flex: 1;
 }
-.public-page button {
+.public-form button {
   background: var(--ui-accent);
   color: var(--ui-bg);
   border: 0;
@@ -106,7 +106,8 @@
   display: grid;
   gap: 8px;
 }
-.public-form input:not([type='checkbox']) {
+.public-form input:not([type='checkbox']),
+.public-form select {
   background: var(--ui-bg);
   color: var(--ui-ink);
   padding: 12px;
@@ -129,6 +130,64 @@
 .public-small {
   font-size: 12px;
 }
+.public-page .plans {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding-top: 20px;
+}
+.public-page .plans-grid {
+  margin-top: 24px;
+}
+.public-page .plans-cta {
+  cursor: pointer;
+}
+.public-page .public-form {
+  max-width: 680px;
+  scroll-margin-top: 24px;
+  margin: 48px auto 32px;
+  padding: 36px;
+}
+.public-page .public-form h2 {
+  margin-top: 8px;
+  color: var(--ui-ink);
+}
+.public-page .public-form h2 em {
+  color: var(--ui-accent);
+  font-style: normal;
+}
+.public-page .public-form label {
+  color: var(--ui-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.public-page .public-form input:not([type='checkbox']) {
+  width: 100%;
+  min-height: 44px;
+  color-scheme: dark;
+}
+.public-page .public-form input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ui-accent);
+}
+.public-page .public-form button {
+  min-height: 48px;
+  background: linear-gradient(115deg, var(--ui-accent), var(--ui-accent-deep));
+}
+.public-page .public-form button:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.public-loading,
+.public-disclaimer {
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.public-disclaimer {
+  border-top: 1px solid var(--ui-line);
+  padding-top: 20px;
+  margin-top: 24px;
+}
 @media (max-width: 640px) {
   .public-hero {
     padding: 55px 0 32px;
@@ -136,5 +195,11 @@
   .public-plan,
   .public-form {
     padding: 22px;
+  }
+  .public-page .plans {
+    padding-top: 0;
+  }
+  .public-page .public-form {
+    padding: 24px;
   }
 }

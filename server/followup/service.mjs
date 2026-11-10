@@ -1,16 +1,34 @@
 import { listCaseIds } from '../cases/repository.mjs';
 import { closeInactiveCase } from '../cases/service.mjs';
 import { transaction } from '../db.mjs';
+import { createReply } from '../integrations/repository.mjs';
 import { resumeExpired } from '../handoffs/repository.mjs';
 import { evaluatePriority } from '../priorities/service.mjs';
 import { getParticipation } from '../shared/repository.mjs';
 import { getParameters } from '../shared/parameters.mjs';
 import * as repository from './repository.mjs';
+export async function reviewMaintenance() {
+  return transaction(async (db) => {
+    const resumed = await resumeExpired(db);
+    for (const row of resumed.recordset) {
+      const message = await repository.latestTelegramMessage(db, row.idContacto);
+      if (message)
+        await createReply(
+          db,
+          await getParticipation(db, message.idLeadCaso),
+          'Tu consulta sigue pendiente de atención del personal comercial. Mientras tanto, puedo continuar ayudándote con los planes y tu preparación.',
+          message.idMensaje,
+        );
+    }
+    await repository.expireTrials(db);
+    await repository.expireRequests(db);
+    return { resumed: resumed.recordset.length };
+  });
+}
 export async function reviewFollowup({ canSend = () => false } = {}) {
   return transaction(async (db) => {
     const result = { prepared: 0, omitted: 0, evaluated: 0, closed: 0 };
-    await resumeExpired(db);
-    await repository.expireTrials(db);
+    await reviewMaintenance();
     const parameters = await getParameters(db);
     const pending = await repository.listDue(db);
     for (const attempt of pending) {
@@ -41,7 +59,11 @@ export async function reviewFollowup({ canSend = () => false } = {}) {
         continue;
       }
       const authorization = channels.find((channel) => canSend(channel.idCanal));
-      if (!authorization) continue;
+      if (!authorization) {
+        await repository.omitAttempt(db, attempt.id);
+        result.omitted++;
+        continue;
+      }
       await repository.createAttemptMessage(db, attempt, authorization);
       result.prepared++;
     }

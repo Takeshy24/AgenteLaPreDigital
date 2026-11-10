@@ -1,4 +1,22 @@
 import { query } from '../db.mjs';
+export async function latestTelegramMessage(db, contact) {
+  return (
+    await query(
+      db,
+      'SELECT TOP 1 idMensaje,idLeadCaso FROM dbo.Mensaje WHERE idContacto=@contact AND idDireccion=1 AND idCanal=3 AND idLeadCaso IS NOT NULL ORDER BY idMensaje DESC',
+      { contact },
+    )
+  ).recordset[0];
+}
+export async function expireRequests(db) {
+  await query(
+    db,
+    `UPDATE s SET idEstadoSolicitud=3 FROM dbo.SolicitudProvisional s
+    WHERE s.idEstadoSolicitud=1 AND COALESCE((SELECT MAX(m.fechaHora) FROM dbo.Mensaje m WHERE m.idContacto=s.idContacto AND m.idDireccion=1 AND m.esAutomatico=0),s.fechaSolicitud)<DATEADD(DAY,-30,DATEADD(HOUR,-5,SYSUTCDATETIME()));
+    UPDATE o SET step=N'expired' FROM dbo.App_Onboarding o JOIN dbo.SolicitudProvisional s ON s.idSolicitud=o.idSolicitud WHERE s.idEstadoSolicitud=3;
+    UPDATE p SET estado=N'Descartada' FROM dbo.App_PublicInquiry p JOIN dbo.SolicitudProvisional s ON s.idSolicitud=p.idSolicitudProvisional WHERE s.idEstadoSolicitud=3`,
+  );
+}
 import { insert, now } from '../shared/repository.mjs';
 export async function listDue(db) {
   return (

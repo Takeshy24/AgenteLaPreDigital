@@ -12,6 +12,7 @@ WITH
   (UPDLOCK, HOLDLOCK)
 WHERE
   idCaso = @caseId
+  AND NOT EXISTS (SELECT 1 FROM dbo.InvitacionVinculacion i WHERE i.idNecesidad=dbo.NecesidadVinculacion.idNecesidad AND i.fechaVinculacion IS NOT NULL)
 ORDER BY
   fechaNecesidad,
   idNecesidad`,
@@ -30,6 +31,14 @@ VALUES
   );
 }
 export async function addInvitation(db, data) {
+  const existing = (
+    await query(
+      db,
+      'SELECT TOP 1 idInvitacion id,codigoEnlace code FROM dbo.InvitacionVinculacion WITH(UPDLOCK,HOLDLOCK) WHERE idNecesidad=@need AND nombreInvitado=@name AND idRolInvitado=@role AND fechaVinculacion IS NULL',
+      { need: data.need, name: data.name, role: data.role },
+    )
+  ).recordset[0];
+  if (existing) return existing;
   const id = await insert(
     db,
     `INSERT

@@ -35,6 +35,19 @@ export interface Bootstrap {
   channels: { id: number; nombre: string }[];
   roles: { id: number; nombre: string }[];
 }
+export interface PublicInquiry {
+  id: number;
+  name: string;
+  email: string;
+  beneficiary: string;
+  plan: string;
+  consent: boolean;
+  createdAt: string;
+  phone: string | null;
+  role: number | null;
+  status: string;
+  participationId: number | null;
+}
 export interface Message {
   idMensaje: number;
   idDireccion: number;

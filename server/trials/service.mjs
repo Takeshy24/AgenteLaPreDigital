@@ -37,3 +37,14 @@ export async function activateTrial(token) {
     return { id, days: parameters.DURACION_EXPLORA_DIAS };
   });
 }
+export async function viewTrial(token) {
+  return transaction(async (db) => {
+    const link = await repository.getTrialLink(db, hash(token));
+    if (!link) throw new BusinessError('El enlace no es válido, expiró o ya fue utilizado.', 404);
+    const participant = await getParticipation(db, link.idLeadCaso);
+    if (await repository.getTrial(db, participant.idBeneficiario))
+      throw new BusinessError('El beneficiario ya utilizó Explora UNT.');
+    const parameters = await getParameters(db);
+    return { days: parameters.DURACION_EXPLORA_DIAS };
+  });
+}

@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { request, type Bootstrap, type Details } from '../api';
+import { request, type Bootstrap, type Details, type PublicInquiry } from '../api';
 export type Page = 'overview' | 'leads' | 'catalog' | 'followup' | 'integrations';
 function useWorkspaceState() {
   const [data, setData] = useState<Bootstrap | null>(null),
@@ -16,9 +16,13 @@ function useWorkspaceState() {
     [page, setPage] = useState<Page>('overview'),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [inquiries, setInquiries] = useState<PublicInquiry[] | null>(null),
+    [inquiryError, setInquiryError] = useState('');
   const lock = useRef(false),
     selection = useRef(0);
+  const latestData = useRef(data);
+  latestData.current = data;
   const reload = useCallback(async (id?: number | null) => {
     const fresh = await request<Bootstrap>('/bootstrap');
     setData(fresh);
@@ -27,6 +31,35 @@ function useWorkspaceState() {
       if (selection.current === id) setDetail(freshDetail);
     }
   }, []);
+  const refreshInquiries = useCallback(async () => {
+    try {
+      const result = await request<PublicInquiry[]>('/public-inquiries');
+      setInquiries(result);
+      setInquiryError('');
+      if (
+        result.some(
+          (item) =>
+            item.participationId &&
+            !latestData.current?.leads.some((lead) => lead.id === item.participationId),
+        )
+      )
+        setData(await request<Bootstrap>('/bootstrap'));
+    } catch (failure) {
+      setInquiryError((failure as Error).message);
+    }
+  }, []);
+  useEffect(() => {
+    void refreshInquiries();
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void refreshInquiries();
+    }, 10000);
+    const onFocus = () => void refreshInquiries();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [refreshInquiries]);
   useEffect(() => {
     let active = true;
     request<Bootstrap>('/bootstrap')
@@ -85,7 +118,7 @@ function useWorkspaceState() {
       const result = await request<{ participationId?: number }>(path, method, body);
       setNotice(success);
       let target = selectedId;
-      if (result?.participationId && selection.current === selectedId) {
+      if (result?.participationId && selection.current === (selectedId ?? 0)) {
         target = result.participationId;
         selection.current = target;
         setSelectedId(target);
@@ -93,6 +126,7 @@ function useWorkspaceState() {
       }
       try {
         await reload(target);
+        await refreshInquiries();
       } catch {
         setError(
           'La operación se guardó, pero no se pudo actualizar la vista. Reintenta la lectura.',
@@ -116,6 +150,9 @@ function useWorkspaceState() {
     error,
     notice,
     busy,
+    inquiries,
+    inquiryError,
+    refreshInquiries,
     open,
     navigate,
     run,

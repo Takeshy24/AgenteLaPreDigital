@@ -1,7 +1,6 @@
 import {
   ArrowUpRight,
   BookOpen,
-  Check,
   Compass,
   Minus,
   ShieldCheck,
@@ -13,18 +12,12 @@ import { useSurfaceLight } from '../shared/useSurfaceLight';
 import type { Tariff } from '../api';
 import { Button, Empty } from '../components/ui';
 import { AnimatedPrice, useReveal } from '../features/catalog/motion';
+import { PlanBenefits } from '../features/catalog/PlanBenefits';
 import { planFeatures, reportFeatures, reportPlanNames } from '../shared/reportCatalog';
 import { useWorkspace } from '../state/Workspace';
 import './Catalog.css';
 
 const planIcons = { 'Ruta UNT': Compass, 'Meta UNT': Target, 'Meta UNT Plus': Sparkles };
-const differentiators = new Set([
-  'Ruta de estudio',
-  'Simulacros completos',
-  'Consultas de IA mensuales',
-  'Reportes para apoderados',
-  'Alertas avanzadas de rendimiento',
-]);
 
 function PlanCard({
   tariffs,
@@ -96,31 +89,6 @@ function PlanCard({
         </div>
       </section>
     </div>
-  );
-}
-
-function PlanBenefits({ plan }: { plan: string }) {
-  const features = planFeatures(plan).filter(
-    (feature) => feature.value !== '—' && feature.value !== 'No',
-  );
-  return (
-    <ul className="plans-benefits">
-      {features.map((feature, position) => (
-        <li
-          className={differentiators.has(feature.label) ? 'is-differential' : ''}
-          key={feature.label}
-          style={{ '--check-delay': `${position * 30}ms` } as CSSProperties}
-        >
-          <span className="plans-check">
-            <Check size={13} strokeWidth={2.3} aria-hidden="true" />
-          </span>
-          <span>
-            {feature.label}
-            {feature.value !== 'Sí' && <b>{feature.value}</b>}
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }
 

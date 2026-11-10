@@ -37,7 +37,7 @@ export async function acceptGuardian(code, data) {
       phone: data.phone,
       role: invitation.idRolInvitado,
       beneficiaryId: invitation.idBeneficiario,
-      channel: 5,
+      channel: null,
       communicationChannel: data.channel,
       consent: true,
     });

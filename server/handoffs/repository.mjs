@@ -48,6 +48,7 @@ export async function resumeExpired(db) {
     `UPDATE dbo.Derivacion
 SET
   fechaRetomaAgente = ${now}
+OUTPUT INSERTED.idContacto
 WHERE
   fechaAtencion IS NULL
   AND fechaRetomaAgente IS NULL

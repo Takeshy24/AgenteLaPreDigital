@@ -1,12 +1,13 @@
 import { query } from '../db.mjs';
+import { insert } from '../shared/repository.mjs';
 
 export async function saveInquiry(db, data) {
-  await query(
+  return insert(
     db,
     `INSERT dbo.App_PublicInquiry
-    (nombre,correo,beneficiario,esEstudiante,planSolicitado,autorizaCorreo)
-    VALUES (@name,@email,@beneficiary,@isStudent,@plan,@consent)`,
-    data,
+    (nombre,correo,beneficiario,esEstudiante,planSolicitado,autorizaCorreo,telefono,idRolContacto,requestKey,idPlanTarifa)
+    VALUES (@name,@email,@beneficiary,@isStudent,@plan,@consent,@phone,@role,@requestKey,@tariff)`,
+    { phone: null, role: null, requestKey: null, tariff: null, ...data },
   );
 }
 
@@ -16,10 +17,48 @@ export async function listInquiries(db) {
       db,
       `SELECT TOP 100 idSolicitud id, nombre name, correo email,
     beneficiario beneficiary, esEstudiante isStudent, planSolicitado [plan],
-    autorizaCorreo consent, createdAt
-    FROM dbo.App_PublicInquiry ORDER BY idSolicitud DESC`,
+    autorizaCorreo consent, createdAt, telefono phone, idRolContacto role,
+    idLeadCaso participationId, estado status
+    FROM dbo.App_PublicInquiry
+    UNION ALL
+    SELECT -s.idSolicitud id, COALESCE(c.nombreCompleto,JSON_VALUE(o.payload,'$.name'),N'Contacto Telegram') name,
+    COALESCE(c.correo,JSON_VALUE(o.payload,'$.email')) email, JSON_VALUE(o.payload,'$.beneficiary') beneficiary,
+    CAST(CASE WHEN JSON_VALUE(o.payload,'$.role')='1' THEN 1 ELSE 0 END AS BIT) isStudent,
+    N'Consulta Telegram' [plan], CAST(0 AS BIT) consent, s.fechaSolicitud createdAt,
+    COALESCE(c.telefono,JSON_VALUE(o.payload,'$.phone')) phone, TRY_CAST(JSON_VALUE(o.payload,'$.role') AS TINYINT) role,
+    NULL participationId, CASE WHEN o.step='review' THEN N'Revisar identidad' ELSE N'Completar datos en chat' END status
+    FROM dbo.SolicitudProvisional s JOIN dbo.Contacto c ON c.idContacto=s.idContacto
+    JOIN dbo.App_Onboarding o ON o.idSolicitud=s.idSolicitud
+    WHERE s.idEstadoSolicitud=1 AND NOT EXISTS(SELECT 1 FROM dbo.App_PublicInquiry p WHERE p.idSolicitudProvisional=s.idSolicitud)
+    ORDER BY createdAt DESC`,
     )
   ).recordset;
+}
+
+export async function getInquiry(db, id) {
+  return (
+    await query(
+      db,
+      'SELECT * FROM dbo.App_PublicInquiry WITH(UPDLOCK,HOLDLOCK) WHERE idSolicitud=@id',
+      { id },
+    )
+  ).recordset[0];
+}
+export async function findRequest(db, key) {
+  return (
+    await query(
+      db,
+      'SELECT * FROM dbo.App_PublicInquiry WITH(UPDLOCK,HOLDLOCK) WHERE requestKey=@key',
+      { key },
+    )
+  ).recordset[0];
+}
+export async function linkInquiry(db, id, contact, participation, status, provisional = null) {
+  await query(
+    db,
+    'UPDATE dbo.App_PublicInquiry SET idContacto=@contact,idLeadCaso=@participation,estado=@status,idSolicitudProvisional=@provisional WHERE idSolicitud=@id',
+    { id, contact, participation, status, provisional },
+  );
 }
 
 export async function getOfferByProposal(db, proposal) {

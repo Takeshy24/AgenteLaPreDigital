@@ -1,5 +1,5 @@
 import { pool, query } from './db.mjs';
-import { reviewFollowup } from './followup/service.mjs';
+import { reviewFollowup, reviewMaintenance } from './followup/service.mjs';
 import { integrationConfig } from './integrations/config.mjs';
 import { dispatchPending } from './integrations/dispatch.mjs';
 import { recoverDispatches } from './integrations/repository.mjs';
@@ -45,8 +45,10 @@ SELECT
     running = (async () => {
       try {
         if (client) await pollTelegram(client);
-        if (config.followup.enabled && Date.now() - lastReview >= config.followup.interval) {
-          await reviewFollowup({ canSend: (channel) => enabled && channel === 3 });
+        if (Date.now() - lastReview >= config.followup.interval) {
+          if (config.followup.enabled)
+            await reviewFollowup({ canSend: (channel) => enabled && channel === 3 });
+          else await reviewMaintenance();
           lastReview = Date.now();
         }
         if (client) await dispatchPending(client);
