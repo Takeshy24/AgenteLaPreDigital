@@ -1,0 +1,6 @@
+interface:
+  display_name: 'LaPreDigital Frontend'
+  short_description: 'Diseño premium oscuro y lima para LaPreDigital'
+  default_prompt: 'Usa $lapredigital-frontend para implementar esta vista con la identidad oscura y lima aprobada, profundidad y microinteracciones compartidas.'
+policy:
+  allow_implicit_invocation: true

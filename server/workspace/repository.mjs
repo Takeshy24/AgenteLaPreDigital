@@ -1,0 +1,280 @@
+import { pool, query } from '../db.mjs';
+import { now } from '../shared/repository.mjs';
+export async function getHealth() {
+  try {
+    const result = await query(
+      await pool(),
+      `SELECT
+  DB_NAME() databaseName`,
+    );
+    return { status: 'ok', ...result.recordset[0] };
+  } catch {
+    throw new Error('No se pudo conectar a SQL Server.');
+  }
+}
+export async function listBeneficiaries() {
+  return (
+    await query(
+      await pool(),
+      `SELECT
+  idBeneficiario id,
+  nombreCompleto name
+FROM
+  dbo.Beneficiario
+ORDER BY
+  nombreCompleto`,
+    )
+  ).recordset;
+}
+export async function getWorkspace() {
+  const db = await pool();
+  const [leads, tariffs, params, agenda, channels, roles] = await Promise.all([
+    query(
+      db,
+      `SELECT
+  lc.idLeadCaso id,
+  lc.idCaso,
+  lc.idLead,
+  l.idContacto,
+  l.idBeneficiario,
+  c.nombreCompleto name,
+  c.correo email,
+  c.telefono phone,
+  b.nombreCompleto beneficiary,
+  rc.nombre
+ROLE,
+cc.nombre channel,
+p.nombre priority,
+ep.nombre status,
+ni.nombre interest,
+pb.universidadObjetivo university,
+pb.carreraDeseada career,
+pb.disponibilidadEstudio availability,
+pc.presupuestoMensual budget,
+lc.idEstadoParticipacion,
+lc.idPrioridadActual,
+ca.idEstadoCaso,
+lc.fechaInicioElegibilidad,
+lc.fechaIncorporacion,
+(
+  SELECT
+    COUNT(*)
+  FROM
+    dbo.AutorizacionContacto a
+  WHERE
+    a.idContacto = c.idContacto
+    AND a.idEstadoAutorizacion = 1
+) authorized
+FROM
+  dbo.LeadCaso lc
+  JOIN dbo.Lead l ON l.idLead = lc.idLead
+  JOIN dbo.Contacto c ON c.idContacto = l.idContacto
+  JOIN dbo.Beneficiario b ON b.idBeneficiario = l.idBeneficiario
+  JOIN dbo.Caso ca ON ca.idCaso = lc.idCaso
+  JOIN dbo.Cat_RolContacto rc ON rc.id = lc.idRolContacto
+  LEFT JOIN dbo.Cat_CanalCaptacion cc ON cc.id = l.idCanalCaptacion
+  JOIN dbo.Cat_Prioridad p ON p.id = lc.idPrioridadActual
+  JOIN dbo.Cat_EstadoParticipacion ep ON ep.id = lc.idEstadoParticipacion
+  JOIN dbo.Cat_NivelInteres ni ON ni.id = lc.idNivelInteres
+  LEFT JOIN dbo.PerfilBeneficiario pb ON pb.idBeneficiario = b.idBeneficiario
+  LEFT JOIN dbo.PerfilContacto pc ON pc.idContacto = c.idContacto
+ORDER BY
+  lc.idLeadCaso DESC`,
+    ),
+    query(
+      db,
+      `SELECT
+  t.*,
+  p.nombre [plan],
+  m.nombre modalidad
+FROM
+  dbo.PlanTarifa t
+  JOIN dbo.PlanComercial p ON p.idPlan = t.idPlan
+  JOIN dbo.Cat_Modalidad m ON m.id = t.idModalidad
+WHERE
+  t.vigenciaDesde <= CAST(${now} AS DATE)
+  AND (
+    t.vigenciaHasta IS NULL
+    OR t.vigenciaHasta >= CAST(${now} AS DATE)
+  )`,
+    ),
+    query(
+      db,
+      `SELECT
+  *
+FROM
+  dbo.Param_Proceso`,
+    ),
+    query(
+      db,
+      `SELECT
+  *
+FROM
+  dbo.Param_AgendaIntento
+ORDER BY
+  numeroIntento`,
+    ),
+    query(
+      db,
+      `SELECT
+  *
+FROM
+  dbo.Cat_CanalCaptacion`,
+    ),
+    query(
+      db,
+      `SELECT
+  *
+FROM
+  dbo.Cat_RolContacto`,
+    ),
+  ]);
+  return {
+    leads: leads.recordset,
+    tariffs: tariffs.recordset,
+    parameters: params.recordset,
+    agenda: agenda.recordset,
+    channels: channels.recordset,
+    roles: roles.recordset,
+  };
+}
+export async function getDetails(id) {
+  const db = await pool();
+  const out = {};
+  for (const [key, text] of Object.entries({
+    messages: `SELECT
+  m.*,
+  ch.nombre canal
+FROM
+  dbo.Mensaje m
+  JOIN dbo.Cat_CanalComunicacion ch ON ch.id = m.idCanal
+WHERE
+  m.idLeadCaso = @id
+ORDER BY
+  m.fechaHora,
+  m.idMensaje`,
+    changes: `SELECT
+  cp.*,
+  f.nombre campo
+FROM
+  dbo.CambioPerfil cp
+  JOIN dbo.Cat_CampoPerfil f ON f.id = cp.idCampoPerfil
+WHERE
+  cp.idLeadCaso = @id
+ORDER BY
+  cp.idCambio DESC`,
+    evaluations: `SELECT
+  e.*,
+  p.nombre prioridad
+FROM
+  dbo.EvaluacionPrioridad e
+  JOIN dbo.Cat_Prioridad p ON p.id = e.idPrioridadAsignada
+WHERE
+  e.idLeadCaso = @id
+ORDER BY
+  e.idEvaluacion DESC`,
+    attempts: `SELECT
+  *
+FROM
+  dbo.IntentoContacto
+WHERE
+  idLeadCaso = @id
+ORDER BY
+  numeroIntento`,
+    proposals: `SELECT
+  pr.*,
+  p.nombre [plan],
+  m.fechaEntrega,
+  m.idEstadoEntrega,
+  m.textoMensaje
+FROM
+  dbo.PropuestaComercial pr
+  JOIN dbo.PlanTarifa t ON t.idPlanTarifa = pr.idPlanTarifa
+  JOIN dbo.PlanComercial p ON p.idPlan = t.idPlan
+  JOIN dbo.Mensaje m ON m.idMensaje = pr.idMensajeEntrega
+WHERE
+  pr.idCaso = (
+    SELECT
+      idCaso
+    FROM
+      dbo.LeadCaso
+    WHERE
+      idLeadCaso = @id
+  )
+ORDER BY
+  pr.idPropuesta DESC`,
+    events: `SELECT
+  e.idEvento,
+  e.fechaEvento,
+  t.nombre
+TYPE
+FROM
+  dbo.EventoCaso e
+  JOIN dbo.Cat_TipoEvento t ON t.id = e.idTipoEvento
+WHERE
+  e.idCaso = (
+    SELECT
+      idCaso
+    FROM
+      dbo.LeadCaso
+    WHERE
+      idLeadCaso = @id
+  )
+ORDER BY
+  e.idEvento DESC`,
+    handoffs: `SELECT
+  d.idDerivacion,
+  d.fechaAtencion,
+  d.fechaRetomaAgente
+FROM
+  dbo.Derivacion d
+  JOIN dbo.Lead l ON l.idContacto = d.idContacto
+  JOIN dbo.LeadCaso lc ON lc.idLead = l.idLead
+WHERE
+  lc.idLeadCaso = @id
+ORDER BY
+  d.idDerivacion DESC`,
+    invitations: `SELECT
+  i.idInvitacion,
+  i.codigoEnlace,
+  i.nombreInvitado,
+  i.fechaVinculacion
+FROM
+  dbo.InvitacionVinculacion i
+  JOIN dbo.NecesidadVinculacion n ON n.idNecesidad = i.idNecesidad
+WHERE
+  n.idCaso = (
+    SELECT
+      idCaso
+    FROM
+      dbo.LeadCaso
+    WHERE
+      idLeadCaso = @id
+  )
+ORDER BY
+  i.idInvitacion DESC`,
+    contracts: `SELECT
+  k.*
+FROM
+  dbo.Contratacion k
+WHERE
+  k.idCaso = (
+    SELECT
+      idCaso
+    FROM
+      dbo.LeadCaso
+    WHERE
+      idLeadCaso = @id
+  )`,
+    trials: `SELECT
+  p.*
+FROM
+  dbo.PruebaGratuita p
+  JOIN dbo.Lead l ON l.idBeneficiario = p.idBeneficiario
+  JOIN dbo.LeadCaso lc ON lc.idLead = l.idLead
+WHERE
+  lc.idLeadCaso = @id`,
+  }))
+    out[key] = (await query(db, text, { id })).recordset;
+  return out;
+}

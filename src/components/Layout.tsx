@@ -1,0 +1,126 @@
+import {
+  BookOpen,
+  CalendarDays,
+  Database,
+  LayoutDashboard,
+  Plus,
+  Settings,
+  Users,
+} from 'lucide-react';
+import type { ReactNode } from 'react';
+import { useWorkspace, type Page } from '../state/Workspace';
+import { Button } from './ui';
+const navigation = [
+  { id: 'overview', name: 'Inicio', icon: LayoutDashboard },
+  { id: 'leads', name: 'LEADS y casos', icon: Users },
+  { id: 'catalog', name: 'Catálogo', icon: BookOpen },
+  { id: 'followup', name: 'Seguimiento', icon: CalendarDays },
+  { id: 'integrations', name: 'Telegram e IA', icon: Settings },
+] satisfies { id: Page; name: string; icon: typeof Users }[];
+export function Layout({ children, onCreate }: { children: ReactNode; onCreate: () => void }) {
+  const { data, page, selected, error, notice, reload, setError, setNotice, navigate } =
+    useWorkspace();
+  return (
+    <div className={`app-shell live-app page-${page}`}>
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">
+            <Database size={19} />
+          </div>
+          <div>
+            <b>LaPreDigital</b>
+            <span>NEGOCIACIONES</span>
+          </div>
+        </div>
+        <div className="workspace">
+          <Database size={18} />
+          <div>
+            <b>Operación UNT</b>
+            <span>Administración local</span>
+          </div>
+        </div>
+        {navigation.map((item) => (
+          <button
+            key={item.id}
+            aria-current={page === item.id ? 'page' : undefined}
+            className={'nav-item ' + (page === item.id ? 'active' : '')}
+            title={item.name}
+            aria-label={item.name}
+            onClick={() => navigate(item.id)}
+          >
+            <item.icon size={17} />
+            <span>{item.name}</span>
+          </button>
+        ))}
+        <div className="side-bottom">
+          <div className="demo-card">
+            <b>Consola de negociación</b>
+            <p>Perfil, propuestas y seguimiento de la fase LEADS.</p>
+          </div>
+        </div>
+      </aside>
+      <main className="main">
+        <header className="topbar">
+          <div className="crumb">LaPreDigital · Gestión comercial</div>
+          <span className="pill green">{data ? 'OLTP conectado' : 'Conectando…'}</span>
+        </header>
+        <div className="content">
+          {(selected || page !== 'catalog') && (
+            <div className="page-heading">
+              <div>
+                <div className="eyebrow">LAPREDIGITAL / GESTIÓN COMERCIAL</div>
+                <h1>
+                  {selected
+                    ? 'Expediente de negociación'
+                    : navigation.find((item) => item.id === page)?.name}
+                </h1>
+                <p>
+                  {selected
+                    ? 'Contacto, beneficiario y participación: cada dato conserva su contexto.'
+                    : {
+                        overview: 'Vista operativa de las negociaciones registradas.',
+                        leads: 'Consulta cada participación por contacto, beneficiario y caso.',
+                        catalog: 'Planes y modalidades del catálogo autorizado.',
+                        followup: 'Agenda de intentos y condiciones del seguimiento autorizado.',
+                        integrations: 'Configuración y disponibilidad de los servicios locales.',
+                      }[page]}
+                </p>
+              </div>
+              <Button onClick={onCreate}>
+                <Plus size={15} />
+                Nuevo LEAD
+              </Button>
+            </div>
+          )}
+          {error && (
+            <div role="alert" className="live-alert">
+              {error}
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setError('');
+                  reload(selected?.id).catch((failure) => setError(failure.message));
+                }}
+              >
+                Reintentar
+              </Button>
+            </div>
+          )}
+          {notice && (
+            <div className="hint-box" role="status">
+              {notice}
+              <button className="text-link" onClick={() => setNotice('')}>
+                Cerrar
+              </button>
+            </div>
+          )}
+          {children}
+          <footer className="footer">
+            <span>LaPreDigital · Información del OLTP</span>
+            <span>Fechas en hora de Lima</span>
+          </footer>
+        </div>
+      </main>
+    </div>
+  );
+}

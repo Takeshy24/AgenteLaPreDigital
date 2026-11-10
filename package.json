@@ -1,0 +1,36 @@
+{
+  "name": "lapredigital-lead-agent",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "server": "node server/index.mjs",
+    "start": "node server/index.mjs",
+    "test": "node --test --test-concurrency=1",
+    "format": "prettier --write . && node tools/format-sql.mjs",
+    "format:check": "prettier --check . && node tools/format-sql.mjs --check",
+    "migrate": "node tools/migrate.mjs",
+    "check:ollama": "node tools/check-ollama.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "dotenv": "^18.0.0",
+    "express": "^5.3.0",
+    "lucide-react": "^0.468.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "recharts": "^2.15.0",
+    "typescript": "~5.8.3",
+    "vite": "latest",
+    "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prettier": "^3.9.10",
+    "sql-formatter": "^15.9.0"
+  }
+}

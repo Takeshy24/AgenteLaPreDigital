@@ -1,0 +1,30 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Configuración y credenciales locales
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Datos y copias locales
+*.bak
+*.bacpac
+*.mdf
+*.ldf
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de trabajo
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

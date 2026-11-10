@@ -1,0 +1,6 @@
+interface:
+  display_name: 'LaPreDigital Backend'
+  short_description: 'Lógica clara, funciones simples y acceso SQL ordenado'
+  default_prompt: 'Usa $lapredigital-backend para implementar este flujo con funciones claras, nombres sencillos y responsabilidades separadas.'
+policy:
+  allow_implicit_invocation: true
