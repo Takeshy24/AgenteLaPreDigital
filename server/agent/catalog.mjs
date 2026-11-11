@@ -1,13 +1,11 @@
 import { readFileSync } from 'node:fs';
+import { mentionedPlans } from './knowledge.mjs';
 const features = JSON.parse(
   readFileSync(new URL('../../src/shared/offer.json', import.meta.url), 'utf8'),
 );
 const names = ['Explora UNT', 'Ruta UNT', 'Meta UNT', 'Meta UNT Plus'];
 export function describePlans(text, tariffs) {
-  const normalized = text.toLocaleLowerCase('es');
-  const selected = names
-    .filter((name) => normalized.includes(name.toLowerCase()))
-    .filter((name) => name !== 'Meta UNT' || !normalized.includes('meta unt plus'));
+  const selected = mentionedPlans(text);
   const plans = (selected.length ? selected : names).filter(
     (name) => name === 'Explora UNT' || tariffs.some((tariff) => tariff.plan === name),
   );

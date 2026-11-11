@@ -12,6 +12,8 @@ import { BusinessError } from '../shared/errors.mjs';
 import { getNeed, addNeed } from '../links/repository.mjs';
 import { inviteGuardian } from '../links/service.mjs';
 import { describePlans } from './catalog.mjs';
+import { words } from './intents.mjs';
+import { answerFromKnowledge } from './knowledge.mjs';
 import { PAYMENT_QUESTION } from './ollama.mjs';
 import {
   findPendingProposal,
@@ -34,14 +36,36 @@ export async function handOff(db, participationId, reason, messageId) {
   }
   return result;
 }
+// Motivos de derivación (sección 2.2) por palabras completas del mensaje.
 export function handoffReason(text) {
-  const value = text.toLowerCase();
-  if (/reembolso|devoluci[oó]n/.test(value)) return 3;
-  if (/disputa|contracargo/.test(value)) return 4;
-  if (/descuento|beca/.test(value)) return 6;
-  if (/hablar.*(persona|asesor|humano)|atienda.*persona/.test(value)) return 1;
-  if (/reclamo|queja/.test(value)) return 2;
-  if (/pag[ué]|ya pag|pago no/.test(value)) return 5;
+  const value = words(text);
+  if (
+    / (reembolso|reembolsen|reembolsar|devolucion|devuelvan|devuelvanme|devolver mi dinero|regresen mi dinero) /.test(
+      value,
+    )
+  )
+    return 3;
+  if (/ (disputa|contracargo|desconozco el cargo) /.test(value)) return 4;
+  if (/ (descuento|descuentos|beca|becas|rebaja) /.test(value)) return 6;
+  if (
+    / (hablar|comunicarme|comuniquenme|contactar|atender|atienda|atiendan|pasame|pasenme|pasar|pasen|comunicar|derivenme|deriven) ([a-z ]* )?(persona|asesor|asesora|humano|alguien|operador|asesores) /.test(
+      value,
+    ) ||
+    / (asesor humano|persona real) /.test(value)
+  )
+    return 1;
+  if (/ (reclamo|reclamar|queja|quejarme|estafa|denuncia|libro de reclamaciones) /.test(value))
+    return 2;
+  if (
+    / (ya pague|pague y|pague pero|hice el pago|realice el pago|deposite|transferi|ya pagamos) /.test(
+      value,
+    ) ||
+    (/ (pago|pague|pagamos) /.test(value) &&
+      / no (me |nos )?(confirman|confirmaron|llega|llego|activan|activaron|aparece|reflejan) /.test(
+        value,
+      ))
+  )
+    return 5;
   return null;
 }
 export async function actOnAnalysis(participationId, messageId, text, analysis) {
@@ -147,8 +171,10 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
       response =
         '¿Qué plan y modalidad quieres contratar? Ruta UNT tiene modalidad mensual; Meta UNT y Meta UNT Plus, mensual o semestral.';
     if (analysis.action === 'catalog') {
-      response = describePlans(text, workspace.tariffs);
-      if (PAYMENT_QUESTION.test(text))
+      // Respuesta extractiva desde la base de conocimiento; si no hay fragmentos, el catálogo completo.
+      const answer = answerFromKnowledge(text, workspace.tariffs);
+      response = answer?.text ?? describePlans(text, workspace.tariffs);
+      if (!answer && PAYMENT_QUESTION.test(text))
         response = `El pago se hace de forma segura desde el enlace de tu propuesta, donde verás los medios disponibles. Para generarlo solo dime qué plan quieres. 😊 ${response}`;
     }
     if (analysis.action === 'trial') {

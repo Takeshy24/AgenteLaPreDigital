@@ -34,7 +34,8 @@ test('pedir pagar o contratar prepara propuesta con nivel Compra', () => {
     [result.action, result.level, result.tariffId, result.understood],
     ['proposal', 3, 2, true],
   );
-  assert.equal(applyIntentRules(base(), '¿Qué incluye Meta UNT?', tariffs).action, 'ask');
+  assert.equal(applyIntentRules(base(), '¿Qué incluye Meta UNT?', tariffs).action, 'catalog');
+  assert.equal(applyIntentRules(base(), 'Ya no quiero contratar, gracias', tariffs).action, 'ask');
 });
 
 test('Explora, objeciones y responsable económico se reconocen por regla', () => {
@@ -54,4 +55,32 @@ test('los datos del responsable se extraen solo si hay nombre, relación y telé
   });
   assert.equal(extractGuardian('Mi mamá se llama Rosa Díaz'), null);
   assert.equal(extractGuardian('Se llama Rosa Díaz, +51 987 654 321'), null);
+});
+
+test('palabras completas: «Carolina» no es objeción y una carrera sin pista no se acepta', () => {
+  const carolina = applyIntentRules(
+    { ...base(), fields: [{ field: 'career', value: 'Carolina', quote: 'Carolina' }] },
+    'Mi hija se llama Carolina',
+    tariffs,
+  );
+  assert.equal(carolina.action, 'ask');
+  assert.deepEqual(carolina.fields, []);
+  const extracted = applyIntentRules(
+    base(),
+    'Postulo a Arquitectura y estudio 3 horas al día con 80 soles',
+    tariffs,
+  );
+  assert.deepEqual(Object.fromEntries(extracted.fields.map((item) => [item.field, item.value])), {
+    career: 'Arquitectura',
+    availability: '3 horas al día',
+    budget: '80',
+  });
+});
+
+test('preguntas de pago son Compra y el contexto resuelve «sí, el mensual»', () => {
+  const payment = applyIntentRules(base(), '¿Qué medios de pago aceptan?', tariffs);
+  assert.deepEqual([payment.action, payment.level], ['catalog', 3]);
+  const context = { requestedPlan: { plan: 'Meta UNT' } };
+  const yes = applyIntentRules(base(), 'sí, el mensual', tariffs, context);
+  assert.deepEqual([yes.action, yes.tariffId, yes.level], ['proposal', 2, 3]);
 });

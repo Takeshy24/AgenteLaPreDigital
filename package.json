@@ -18,7 +18,8 @@
     "format:check": "prettier --check . && node tools/format-sql.mjs --check",
     "migrate": "node tools/migrate.mjs",
     "check:ollama": "node tools/check-ollama.mjs",
-    "seed:scenarios": "node tools/seed-scenarios.mjs"
+    "seed:scenarios": "node tools/seed-scenarios.mjs",
+    "eval:agent": "node tools/eval-agent.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

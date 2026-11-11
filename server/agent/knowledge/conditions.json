@@ -1,0 +1,100 @@
+[
+  {
+    "id": "explora",
+    "title": "Explora UNT, prueba gratuita",
+    "source": "Informe v30, sección 2.4 (condiciones comerciales) y tabla 4",
+    "keywords": ["explora", "prueba", "gratis", "gratuita", "probar", "demo", "14 dias"],
+    "answer": "Explora UNT es una prueba gratuita de 14 días, una sola vez por estudiante. Incluye diagnóstico académico, una muestra del temario, videoclases y ejercicios, y 1 simulacro completo. Al terminar, las funciones de prueba se bloquean hasta contratar un plan."
+  },
+  {
+    "id": "superiores",
+    "title": "Los planes superiores incluyen a los inferiores",
+    "source": "Informe v30, sección 2.4 (condiciones comerciales)",
+    "keywords": [
+      "diferencia",
+      "diferencias",
+      "comparar",
+      "comparacion",
+      "mejor",
+      "incluye",
+      "superior",
+      "vs"
+    ],
+    "answer": "Los planes superiores incluyen todos los beneficios de los inferiores: Ruta UNT < Meta UNT < Meta UNT Plus. Meta UNT añade ruta personalizada, simulacros ilimitados, IA y transmisiones en vivo; Meta UNT Plus suma reportes para apoderados, alertas avanzadas y soporte en 6 horas."
+  },
+  {
+    "id": "cobro",
+    "title": "Cobro por periodo contratado",
+    "source": "Informe v30, sección 2.4 (condiciones comerciales)",
+    "keywords": [
+      "cuotas",
+      "cobro",
+      "mensual",
+      "semestral",
+      "periodo",
+      "renovacion",
+      "cobran",
+      "mes",
+      "semestre"
+    ],
+    "answer": "Las suscripciones se cobran por periodo contratado (mensual o semestral), sin cuotas pendientes."
+  },
+  {
+    "id": "modalidades",
+    "title": "Modalidades disponibles por plan",
+    "source": "Informe v30, formato F5",
+    "keywords": ["modalidad", "modalidades", "mensual", "semestral", "semestre"],
+    "answer": "Ruta UNT solo se contrata mensual; Meta UNT y Meta UNT Plus pueden ser mensuales o semestrales."
+  },
+  {
+    "id": "pago",
+    "title": "Cómo y dónde se paga",
+    "source": "Informe v30, secciones 2.2 y 7.3 (oferta y pasarela de pago)",
+    "keywords": [
+      "pago",
+      "pagar",
+      "pagos",
+      "medio",
+      "medios",
+      "yape",
+      "plin",
+      "tarjeta",
+      "transferencia",
+      "link",
+      "enlace",
+      "comprar",
+      "adquirir",
+      "donde",
+      "deposito"
+    ],
+    "answer": "El pago se hace en el enlace seguro de tu propuesta, en la pasarela de pago, donde ves los medios disponibles. Para generarlo solo dime qué plan y modalidad quieres. Aceptar la propuesta no confirma el pago: se confirma cuando la pasarela lo registra."
+  },
+  {
+    "id": "descuentos",
+    "title": "Descuentos y becas",
+    "source": "Informe v30, secciones 2.2 (derivación) y 2.4",
+    "keywords": ["descuento", "descuentos", "beca", "becas", "promocion", "rebaja", "oferta"],
+    "answer": "Los descuentos y becas los evalúa el personal comercial para cada caso; el agente no puede ofrecerlos. Si lo pides, te paso con un asesor."
+  },
+  {
+    "id": "soporte",
+    "title": "Tiempos de soporte",
+    "source": "Informe v30, sección 2.4 (condiciones comerciales) y tabla 4",
+    "keywords": ["soporte", "ayuda", "responden", "respuesta", "demoran", "atencion", "tiempo"],
+    "answer": "El tiempo máximo de primera respuesta de soporte es de 2 días en Explora UNT, 1 día en Ruta UNT, 12 horas en Meta UNT y 6 horas en Meta UNT Plus. Son tiempos de primera respuesta, no de resolución."
+  },
+  {
+    "id": "ingreso",
+    "title": "Para quién es LaPreDigital",
+    "source": "Informe v30, sección 1.1 (contexto del proyecto)",
+    "keywords": [
+      "lapredigital",
+      "virtual",
+      "presencial",
+      "admision",
+      "preuniversitaria",
+      "academia"
+    ],
+    "answer": "LaPreDigital es una preparación preuniversitaria 100 % virtual para el examen de admisión de la Universidad Nacional de Trujillo (UNT), con materiales, ejercicios, evaluaciones, simulacros y rutas de aprendizaje."
+  }
+]
