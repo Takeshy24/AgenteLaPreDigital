@@ -113,3 +113,7 @@ La consola incluye la página **Indicadores** con los seis KPI del informe (L-1.
 - Los filtros (período, canal, rol, plan y contacto) se aplican solo a los indicadores cuya medida tiene esa dimensión, según la tabla 10 del informe.
 - `GET /api/kpis` devuelve los datos y `GET /api/kpis/report.pdf` descarga el reporte en PDF con los mismos filtros (`from`, `to`, `grain`, `contact`, `channel`, `role`, `plan`).
 - Las ventanas de 7 días aún abiertas se cuentan, pero el resultado se marca como provisional. Los datos de demostración o pruebas son simulados y deben declararse así.
+
+## Escenarios de prueba que dependen del tiempo
+
+`npm run seed:scenarios` siembra 13 escenarios con fechas pasadas en la base del `.env` (contadores de intentos, Nula y reactivación, reevaluación semanal, derivación de 24 horas, propuesta sin respuesta, Explora vencida, inactividad, reapertura dentro y fuera de plazo, solicitud provisional y ventanas de indicadores cerradas). Pide confirmación (`--yes` la omite) y `--apply` ejecuta la revisión de vencimientos al terminar. Solo inserta registros «Escenario E…» con correos `escenario.e…@example.test`; si ya existen, se niega y hay que limpiar antes con `npm run db:clean -- --local`. La guía de cada escenario está en `docs/casos-de-prueba-leads.md`.

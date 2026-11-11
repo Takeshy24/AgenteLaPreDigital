@@ -113,7 +113,9 @@ export async function answerAction(participationId, parsed, { text, channel = 3 
 // Un botón del teclado de respuesta llega como texto normal. Se reconoce comparándolo con los
 // botones del último mensaje del agente, así que no depende de listas duplicadas ni de Ollama.
 export async function matchKeyboardReply(db, participationId, text, { data = null } = {}) {
-  const markup = await repository.lastOutgoingMarkup(db, participationId);
+  const markup = data
+    ? await repository.findRecentButton(db, participationId, data)
+    : await repository.lastOutgoingMarkup(db, participationId);
   const wanted = flow.normalizeLabel(text);
   const buttons = (markup?.inline_keyboard ?? []).flat();
   const button = data

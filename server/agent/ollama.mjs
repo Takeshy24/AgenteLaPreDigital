@@ -1,3 +1,4 @@
+import { applyIntentRules } from './intents.mjs';
 import { z } from 'zod';
 import { integrationConfig } from '../integrations/config.mjs';
 const field = z.object({
@@ -167,7 +168,7 @@ export function validateAnalysis(output, text, tariffs, context = {}) {
     )
   )
     analysis.understood = true;
-  return analysis;
+  return applyIntentRules(analysis, text, tariffs);
 }
 export async function analyzeMessage(text, tariffs, { fetcher = fetch, context = {} } = {}) {
   const config = integrationConfig().ollama;

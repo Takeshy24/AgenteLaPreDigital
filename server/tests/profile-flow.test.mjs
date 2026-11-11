@@ -201,21 +201,41 @@ test('vincular con un enlace de formulario saluda, autoriza Telegram y hace la p
   }
 });
 
-test('un enlace sin consentimiento de formulario saluda igual pero no autoriza Telegram', async () => {
+test('un enlace sin consentimiento saluda, pregunta una sola vez por la autorización y la registra con origen Chat', async () => {
   try {
     await rollbackTest(async (db) => {
       const scenario = await setup(db, { consent: false });
       await send(db, scenario, text(scenario, `/start ${scenario.code}`));
-      assert.equal((await outgoing(db, scenario)).length, 1);
-      assert.equal(
+      const auths = async () =>
         (
           await query(
             db,
-            'SELECT COUNT(*) n FROM dbo.AutorizacionContacto WHERE idContacto=@contact AND idCanal=3',
+            'SELECT idEstadoAutorizacion state, idOrigenAutorizacion origin FROM dbo.AutorizacionContacto WHERE idContacto=@contact AND idCanal=3',
             { contact: scenario.lead.contact },
           )
-        ).recordset[0].n,
-        0,
+        ).recordset;
+      const [greetingMessage, prompt] = await outgoing(db, scenario);
+      assert.match(greetingMessage.text, /^¡Hola/);
+      assert.match(prompt.text, /escribamos por Telegram/);
+      assert.equal((await auths()).length, 0);
+      const sent = await flush(db, scenario);
+      assert.deepEqual(
+        sent
+          .at(-1)
+          .data.reply_markup.inline_keyboard.flat()
+          .map((button) => button.text),
+        ['Sí, escríbanme', 'No, gracias'],
+      );
+      await send(db, scenario, press(scenario, `ok:${scenario.lead.id}:1`));
+      assert.deepEqual(await auths(), [{ state: 1, origin: 3 }]);
+      assert.match((await outgoing(db, scenario)).at(-1).text, /Te escribiremos por Telegram/);
+      await send(db, scenario, press(scenario, `ok:${scenario.lead.id}:0`));
+      assert.equal((await auths()).length, 1);
+      await send(db, scenario, text(scenario, '¿Cuánto cuesta Ruta UNT?'));
+      assert.equal(
+        (await outgoing(db, scenario)).filter((row) => /escribamos por Telegram/.test(row.text))
+          .length,
+        1,
       );
     });
   } finally {

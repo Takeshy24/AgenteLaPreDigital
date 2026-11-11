@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { greeting, welcomeBack } from '../agent/profile-flow.mjs';
 import { getProfile } from '../agent/repository.mjs';
 import { queueNextStep } from '../agent/profile-service.mjs';
+import { answerConsent, askChannelConsent, parseConsent } from '../agent/consent-prompt.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, transaction } from '../db.mjs';
 import { assignUnassigned, recordIncoming, recordUnassigned } from '../messages/service.mjs';
@@ -192,6 +193,7 @@ async function welcome(item, target, text, context) {
     await queueNextStep(db, participation, incoming.id, {
       intro: known ? welcomeBack(name) : greeting(name),
     });
+    await askChannelConsent(db, participation, 1, incoming.id);
     await context.finish(db, incoming.id);
   });
 }
@@ -214,6 +216,19 @@ async function processWhatsAppMessage(item, client) {
   const participants = await repository.listContactParticipations(db, contact);
   if (NO_CONTACT.test(read.text))
     return handleNoContact(item, contact, read.text, participants, client);
+  if (read.data?.startsWith('ok:')) {
+    const parsed = parseConsent(read.data);
+    if (!parsed || !participants.some((participant) => participant.id === parsed.participationId))
+      return finish('Selección inválida');
+    const result = await answerConsent(parsed.participationId, {
+      granted: parsed.granted,
+      channel: 1,
+      text: read.text,
+    });
+    return transaction((tx) =>
+      repository.finishWhatsAppEvent(tx, item.eventKey, result.messageId ?? null),
+    );
+  }
   if (read.data?.startsWith('case:')) {
     const id = Number(read.data.slice(5));
     if (!participants.some((participant) => participant.id === id))

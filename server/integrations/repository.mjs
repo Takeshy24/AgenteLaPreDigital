@@ -304,7 +304,7 @@ SET
   error = @error
 WHERE
   updateId = @id`,
-    { id, messageId, error },
+    { id, messageId, error: error ? String(error).slice(0, 500) : null },
   );
 }
 export async function createReply(db, participant, text, replyTo) {
@@ -491,7 +491,7 @@ SET
   END
 WHERE
   idMensaje = @id`,
-    { id, state: uncertain ? 'unknown' : 'failed', error, uncertain },
+    { id, state: uncertain ? 'unknown' : 'failed', error: String(error).slice(0, 500), uncertain },
   );
 }
 export async function hasConsent(db, contact, channel) {

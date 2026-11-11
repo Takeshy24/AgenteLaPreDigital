@@ -272,3 +272,56 @@ test('un mensaje de agenda fuera de las 24 horas usa la plantilla y queda entreg
     await close();
   }
 });
+
+test('WhatsApp sin autorización: pregunta una vez con botones y registra el «No» como denegada', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup();
+      await query(
+        db,
+        'DELETE FROM dbo.AutorizacionContacto WHERE idContacto=@contact AND idCanal=1',
+        {
+          contact: scenario.lead.contact,
+        },
+      );
+      await receive(db, scenario, typed('Hola'));
+      await flush(db, scenario);
+      const prompt = scenario.client.calls.at(-1);
+      assert.equal(prompt.interactive.type, 'button');
+      const no = prompt.interactive.action.buttons.find(
+        (button) => button.reply.title === 'No, gracias',
+      );
+      assert.ok(
+        prompt.interactive.action.buttons.every((button) => button.reply.title.length <= 20),
+      );
+      await receive(db, scenario, {
+        type: 'interactive',
+        interactive: {
+          type: 'button_reply',
+          button_reply: { id: no.reply.id, title: no.reply.title },
+        },
+      });
+      const auth = (
+        await query(
+          db,
+          'SELECT idEstadoAutorizacion state, idOrigenAutorizacion origin FROM dbo.AutorizacionContacto WHERE idContacto=@contact AND idCanal=1',
+          { contact: scenario.lead.contact },
+        )
+      ).recordset;
+      assert.deepEqual(auth, [{ state: 3, origin: 3 }]);
+      const rows = await incomingRows(db, scenario);
+      assert.equal(rows.at(-1).text, 'No, gracias');
+      await receive(db, scenario, typed('¿Cuánto cuesta Meta UNT?'));
+      const prompts = (
+        await query(
+          db,
+          "SELECT COUNT(*) n FROM dbo.Mensaje WHERE idContacto=@contact AND idDireccion=2 AND textoMensaje LIKE N'%escribamos por WhatsApp%'",
+          { contact: scenario.lead.contact },
+        )
+      ).recordset[0].n;
+      assert.equal(prompts, 1);
+    });
+  } finally {
+    await close();
+  }
+});

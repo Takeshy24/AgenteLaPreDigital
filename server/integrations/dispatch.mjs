@@ -9,6 +9,7 @@ import { whatsappPayload } from './whatsapp-payload.mjs';
 function telegramMarkup(stored) {
   if (!stored) return null;
   const markup = JSON.parse(stored);
+  if (markup.inline && markup.inline_keyboard) return { inline_keyboard: markup.inline_keyboard };
   return markup.inline_keyboard || markup.remove_keyboard ? replyMarkup(markup) : null;
 }
 export async function dispatchMessage(id, client, { whatsapp = null } = {}) {

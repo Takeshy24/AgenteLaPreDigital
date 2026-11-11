@@ -17,6 +17,21 @@ export async function whatsappPayload(message, config) {
       .flat()
       .slice(0, 10)
       .map((button) => ({ id: button.callback_data, title: button.text.slice(0, 24) }));
+    if (markup?.consent_prompt)
+      return {
+        to,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text: message.textoMensaje.slice(0, 1024) },
+          action: {
+            buttons: rows.slice(0, 3).map((row) => ({
+              type: 'reply',
+              reply: { id: row.id, title: row.title.slice(0, 20) },
+            })),
+          },
+        },
+      };
     if (rows.length)
       return {
         to,

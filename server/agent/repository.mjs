@@ -79,17 +79,32 @@ export async function attachMarkup(db, messageId, markup) {
     { id: messageId, markup: JSON.stringify(markup) },
   );
 }
-export async function lastOutgoingMarkup(db, participationId) {
-  const row = (
+// Botones vigentes de la conversación: los del último mensaje del agente, sin contar la pregunta de
+// autorización ni el aviso de derivación, que se envían aparte y tienen sus propios botones.
+async function recentMarkups(db, participationId) {
+  return (
     await query(
       db,
-      `SELECT TOP 1 d.markup
+      `SELECT TOP 4 d.markup
     FROM dbo.Mensaje m LEFT JOIN dbo.App_Dispatch d ON d.idMensaje=m.idMensaje
     WHERE m.idLeadCaso=@id AND m.idDireccion=2 ORDER BY m.idMensaje DESC`,
       { id: participationId },
     )
-  ).recordset[0];
-  return row?.markup ? JSON.parse(row.markup) : null;
+  ).recordset.map((row) => (row.markup ? JSON.parse(row.markup) : null));
+}
+const aside = (markup) => markup?.consent_prompt || markup?.handoff_notice;
+export async function lastOutgoingMarkup(db, participationId) {
+  return (await recentMarkups(db, participationId)).find((markup) => !aside(markup)) ?? null;
+}
+// Una opción elegida en una lista de WhatsApp trae su identificador: se busca en los mensajes recientes.
+export async function findRecentButton(db, participationId, data) {
+  for (const markup of await recentMarkups(db, participationId))
+    if (
+      !aside(markup) &&
+      markup?.inline_keyboard?.flat().some((button) => button.callback_data === data)
+    )
+      return markup;
+  return null;
 }
 export async function lastOutgoingText(db, participationId) {
   return (

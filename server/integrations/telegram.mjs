@@ -9,6 +9,7 @@ import {
 } from '../agent/profile-service.mjs';
 import { actOnAnalysis, handOff, handoffReason } from '../agent/service.mjs';
 import { isSocialMessage, SOCIAL_ANALYSIS } from '../agent/social.mjs';
+import { answerConsent, askChannelConsent, parseConsent } from '../agent/consent-prompt.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, query, transaction } from '../db.mjs';
 import { getRecentHistory, updateFailures, getRequestedPlan } from '../agent/repository.mjs';
@@ -98,8 +99,48 @@ async function handleProfileCallback(item, callback, client) {
       reply_markup: { inline_keyboard: [] },
     });
 }
+async function handleConsentCallback(item, callback, client) {
+  const chat = await repository.getChat(await pool(), item.chatId);
+  const parsed = parseConsent(callback.data);
+  const owned =
+    chat &&
+    parsed &&
+    (await repository.listContactParticipations(await pool(), chat.idContacto)).some(
+      (participant) => participant.id === parsed.participationId,
+    );
+  if (!owned) {
+    await transaction((db) =>
+      repository.finishUpdate(db, item.updateId, null, 'Selección inválida'),
+    );
+    return;
+  }
+  let feedback = parsed.granted ? '¡Gracias!' : 'Entendido';
+  try {
+    await transaction(async (db) => {
+      if ((await repository.getUpdate(db, item.updateId))?.processedAt) return;
+      const result = await answerConsent(parsed.participationId, {
+        granted: parsed.granted,
+        channel: 3,
+      });
+      if (result.already) feedback = 'Ya lo tengo anotado 😊';
+      await repository.finishUpdate(db, item.updateId, result.messageId ?? null);
+    });
+  } catch (error) {
+    if (!(error instanceof BusinessError)) throw error;
+    feedback = 'No pude anotar tu respuesta.';
+    await transaction((db) => repository.finishUpdate(db, item.updateId, null, error.message));
+  }
+  notify(client, 'answerCallbackQuery', { callback_query_id: callback.id, text: feedback });
+  if (callback.message)
+    notify(client, 'editMessageReplyMarkup', {
+      chat_id: item.chatId,
+      message_id: callback.message.message_id,
+      reply_markup: { inline_keyboard: [] },
+    });
+}
 async function handleCallback(item, callback, client) {
   if (callback.data?.startsWith('pf:')) return handleProfileCallback(item, callback, client);
+  if (callback.data?.startsWith('ok:')) return handleConsentCallback(item, callback, client);
   const chat = await repository.getChat(await pool(), item.chatId);
   const id = Number(callback.data?.replace('case:', ''));
   const owned =
@@ -146,9 +187,11 @@ async function welcome(db, contact, replyTo, withConsent) {
   const known = ['career', 'availability', 'budget'].some(
     (key) => profile[key] != null && String(profile[key]).trim() !== '',
   );
-  await queueNextStep(db, await getParticipation(db, open[0].id), replyTo, {
+  const participation = await getParticipation(db, open[0].id);
+  await queueNextStep(db, participation, replyTo, {
     intro: known ? welcomeBack(name) : greeting(name),
   });
+  await askChannelConsent(db, participation, 3, replyTo);
   return { queued: true };
 }
 async function handleStart(item, text, client) {
@@ -300,6 +343,14 @@ export async function processMessage(context, target, text) {
           message.id,
         );
     }
+    const handoffNow = await getOpenHandoff(db, participant.idContacto);
+    if (!result.error && (!handoffNow || handoffNow.fechaRetomaAgente))
+      await askChannelConsent(
+        db,
+        await getParticipation(db, message.participationId),
+        context.channel,
+        message.id,
+      );
     await context.finish(db, message.id, result.error);
   });
 }
