@@ -55,7 +55,7 @@ export async function saveLead(db, data, options = {}) {
         channel: data.channel,
         text: `Solicitud pública: el estudiante "${beneficiaryName}" coincide con un beneficiario ya registrado. Confirmar su identidad antes de vincularlo.`,
       });
-      return { review: true };
+      return { review: true, contact };
     }
     if (candidates.length)
       throw new BusinessError(
@@ -86,7 +86,7 @@ export async function saveLead(db, data, options = {}) {
       for (const row of (await listActive(db, { contact })).recordset)
         await scheduleAttempts(db, row.id);
     }
-    return { id: old.id };
+    return { id: old.id, contact };
   }
   const authorized = (await repository.findConsent(db, { contact })).recordset.length > 0;
   const id = await repository.insertParticipation(
@@ -95,7 +95,7 @@ export async function saveLead(db, data, options = {}) {
     { authorized },
   );
   if (authorized) await scheduleAttempts(db, id);
-  return { id };
+  return { id, contact };
 }
 async function grantConsents(db, params, contact, channels) {
   for (const communicationChannel of channels)

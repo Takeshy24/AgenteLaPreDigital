@@ -12,7 +12,13 @@ import { BusinessError } from '../shared/errors.mjs';
 import { getNeed, addNeed } from '../links/repository.mjs';
 import { inviteGuardian } from '../links/service.mjs';
 import { describePlans } from './catalog.mjs';
-import { findPendingProposal, appendOfferLink, recordQuestion } from './repository.mjs';
+import {
+  findPendingProposal,
+  appendOfferLink,
+  recordQuestion,
+  attachMarkup,
+} from './repository.mjs';
+import { keyboard, KEY_BY_FIELD } from './profile-flow.mjs';
 export function handoffReason(text) {
   const value = text.toLowerCase();
   if (/reembolso|devoluci[oó]n/.test(value)) return 3;
@@ -128,7 +134,16 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
     const reply = await createReply(db, participation, response, messageId);
     if (analysis.action === 'ask') {
       const field = !known.career ? 2 : !known.availability ? 6 : known.budget == null ? 7 : null;
-      if (field) await recordQuestion(db, participation, reply, field);
+      if (field) {
+        await recordQuestion(db, participation, reply, field);
+        await attachMarkup(db, reply, {
+          inline_keyboard: keyboard(
+            participation.idLeadCaso,
+            KEY_BY_FIELD[field],
+            workspace.tariffs,
+          ),
+        });
+      }
     }
   });
 }

@@ -172,6 +172,39 @@ body:has(.landing) {
   outline: 3px solid rgba(37, 94, 226, 0.4);
   outline-offset: 2px;
 }
+.landing-telegram-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.landing-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--landing-muted);
+}
+.landing-success a.landing-telegram {
+  display: inline-block;
+  padding: 14px 24px;
+  border-radius: 12px;
+  background: var(--landing-blue);
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: var(--landing-shadow-sm);
+  transition:
+    transform 140ms,
+    background-color 160ms;
+}
+@media (hover: hover) and (pointer: fine) {
+  .landing-success a.landing-telegram:hover {
+    background: var(--landing-blue-deep);
+    transform: translateY(-1px);
+  }
+}
+.landing-success a.landing-telegram:focus-visible {
+  outline: 3px solid var(--landing-navy);
+  outline-offset: 3px;
+}
 .landing-field-error {
   font-size: 0.85rem;
   font-weight: 600;

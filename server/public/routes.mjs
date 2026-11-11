@@ -22,13 +22,17 @@ const landingForm = z
     beneficiaryName: z.string().trim().max(150).optional(),
     channels: z
       .array(z.union([z.literal(1), z.literal(2)]))
-      .min(1)
-      .max(2),
+      .max(2)
+      .default([]),
+    telegram: z.boolean().default(false),
     website: z.string().max(200).optional(),
   })
   .strict()
   .refine((data) => data.role === 1 || data.beneficiaryName?.length >= 2, {
     message: 'Escribe el nombre completo del estudiante',
+  })
+  .refine((data) => data.channels.length > 0 || data.telegram, {
+    message: 'Elige al menos un canal de contacto',
   });
 const inquiry = z
   .object({

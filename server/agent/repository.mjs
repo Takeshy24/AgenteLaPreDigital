@@ -56,3 +56,26 @@ export async function recordQuestion(db, participant, message, field) {
     { id: participant.idLeadCaso, contact: participant.idContacto, field, message },
   );
 }
+export async function getProfile(db, participationId) {
+  return (
+    (
+      await query(
+        db,
+        `SELECT pb.carreraDeseada career, pb.disponibilidadEstudio availability, pc.presupuestoMensual budget
+    FROM dbo.LeadCaso lc JOIN dbo.Lead l ON l.idLead=lc.idLead
+    LEFT JOIN dbo.PerfilBeneficiario pb ON pb.idBeneficiario=l.idBeneficiario
+    LEFT JOIN dbo.PerfilContacto pc ON pc.idContacto=l.idContacto
+    WHERE lc.idLeadCaso=@id`,
+        { id: participationId },
+      )
+    ).recordset[0] || {}
+  );
+}
+export async function attachMarkup(db, messageId, markup) {
+  await query(
+    db,
+    `IF EXISTS(SELECT 1 FROM dbo.App_Dispatch WHERE idMensaje=@id) UPDATE dbo.App_Dispatch SET markup=@markup WHERE idMensaje=@id;
+    ELSE INSERT dbo.App_Dispatch(idMensaje,state,markup) VALUES(@id,N'pending',@markup)`,
+    { id: messageId, markup: JSON.stringify(markup) },
+  );
+}

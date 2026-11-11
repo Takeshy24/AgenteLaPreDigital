@@ -8,6 +8,7 @@ type Fields = {
   role: string;
   beneficiaryName: string;
   channels: number[];
+  telegram: boolean;
   website: string;
 };
 type FieldName = 'name' | 'email' | 'phone' | 'role' | 'beneficiaryName' | 'channels';
@@ -31,8 +32,14 @@ const emptyFields: Fields = {
   role: '',
   beneficiaryName: '',
   channels: [],
+  telegram: false,
   website: '',
 };
+
+// El servidor decide el enlace; la página solo lo usa si apunta a Telegram.
+function safeTelegramUrl(url?: string) {
+  return url && /^https:\/\/t\.me\/[A-Za-z0-9_]+(\?start=[A-Za-z0-9_-]+)?$/.test(url) ? url : '';
+}
 
 function validate(fields: Fields): Errors {
   const errors: Errors = {};
@@ -45,7 +52,8 @@ function validate(fields: Fields): Errors {
   if (!fields.role) errors.role = 'Elige tu rol.';
   if (fields.role && fields.role !== '1' && fields.beneficiaryName.trim().length < 2)
     errors.beneficiaryName = 'Escribe el nombre completo del estudiante.';
-  if (!fields.channels.length) errors.channels = 'Elige al menos un canal de contacto.';
+  if (!fields.channels.length && !fields.telegram)
+    errors.channels = 'Elige al menos un canal de contacto.';
   return errors;
 }
 
@@ -79,6 +87,8 @@ export function LandingForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [status, setStatus] = useState<Status>('editing');
   const [failure, setFailure] = useState('');
+  const [telegramUrl, setTelegramUrl] = useState('');
+  const [emailed, setEmailed] = useState(false);
 
   function setField(name: keyof Fields) {
     return (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -91,6 +101,9 @@ export function LandingForm() {
         ? current.channels.filter((item) => item !== id)
         : [...current.channels, id],
     }));
+  }
+  function toggleTelegram() {
+    setFields((current) => ({ ...current, telegram: !current.telegram }));
   }
   function inputProps(name: FieldName) {
     const id = `${formId}-${name}`;
@@ -109,15 +122,22 @@ export function LandingForm() {
     if (Object.keys(found).length) return;
     setStatus('sending');
     try {
-      await request('/public/landing', 'POST', {
+      const result = await request<{
+        registered: boolean;
+        telegramUrl?: string;
+        emailed?: boolean;
+      }>('/public/landing', 'POST', {
         name: fields.name.trim(),
         email: fields.email.trim(),
         phone: fields.phone.trim(),
         role: Number(fields.role),
         beneficiaryName: fields.role === '1' ? undefined : fields.beneficiaryName.trim(),
         channels: fields.channels,
+        telegram: fields.telegram,
         website: fields.website,
       });
+      setTelegramUrl(safeTelegramUrl(result.telegramUrl));
+      setEmailed(result.emailed === true);
       setStatus('done');
     } catch (error) {
       setFailure(
@@ -133,7 +153,33 @@ export function LandingForm() {
     return (
       <div className="landing-success" role="status">
         <h2>¡Gracias! Recibimos tus datos</h2>
-        <p>Te contactaremos por los canales que autorizaste.</p>
+        <p>
+          {fields.channels.length
+            ? 'Te contactaremos por los canales que autorizaste.'
+            : 'Continúa en Telegram para conversar con nuestro agente.'}
+        </p>
+        {telegramUrl && (
+          <>
+            <a
+              className="landing-telegram"
+              href={telegramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Continuar en Telegram
+            </a>
+            <p className="landing-hint">
+              Pulsa Iniciar en el bot. El enlace vence en 10 minutos.
+              {emailed ? ' También lo enviamos a tu correo.' : ''}
+            </p>
+          </>
+        )}
+        {!telegramUrl && fields.telegram && (
+          <p className="landing-hint">
+            Si el correo es tuyo, te enviamos un enlace para continuar en Telegram. Revisa también
+            la carpeta de spam; vence en 10 minutos.
+          </p>
+        )}
       </div>
     );
 
@@ -217,6 +263,15 @@ export function LandingForm() {
           </span>
         )}
       </fieldset>
+      <div className="landing-telegram-option">
+        <label className="landing-check">
+          <input type="checkbox" checked={fields.telegram} onChange={toggleTelegram} />
+          Prefiero conversar por Telegram
+        </label>
+        <p className="landing-hint">
+          Te daremos un enlace para abrir nuestro bot. Allí podrás autorizar el seguimiento.
+        </p>
+      </div>
       <input
         className="landing-trap"
         type="text"

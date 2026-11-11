@@ -14,5 +14,12 @@ export function integrationConfig() {
       enabled: process.env.FOLLOWUP_ENABLED === 'true',
       interval: Number(process.env.FOLLOWUP_INTERVAL_MS || 60000),
     },
+    smtp: {
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: Number(process.env.SMTP_PORT || 465),
+      user: (process.env.SMTP_USER || '').trim(),
+      password: (process.env.SMTP_PASSWORD || '').replace(/\s/g, ''),
+      from: (process.env.SMTP_FROM || '').trim(),
+    },
   };
 }

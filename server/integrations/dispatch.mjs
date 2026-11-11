@@ -33,6 +33,9 @@ export async function dispatchMessage(id, client) {
     result = await client.call('sendMessage', {
       chat_id: message.chatId,
       text: message.textoMensaje,
+      ...(message.markup
+        ? { reply_markup: { inline_keyboard: JSON.parse(message.markup).inline_keyboard } }
+        : {}),
     });
     if (!Number.isInteger(result.message_id))
       throw new Error('Telegram no confirmó un identificador de mensaje.');

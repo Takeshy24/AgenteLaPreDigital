@@ -16,7 +16,9 @@ export async function saveAnalysis(db, message, model, payload) {
     { message, model, payload: JSON.stringify(payload) },
   );
 }
-export async function saveLink(db, contact, hash) {
+// consent = true cuando el enlace nace de un formulario donde la persona pidió Telegram: abrirlo
+// y pulsar Iniciar completa la autorización de ese canal (ver handleStart).
+export async function saveLink(db, contact, hash, consent = false) {
   await query(
     db,
     `DELETE dbo.App_TelegramLink
@@ -25,10 +27,71 @@ WHERE
   AND usedAt IS NULL;
 
 INSERT
-  dbo.App_TelegramLink (codeHash, idContacto, expiresAt)
+  dbo.App_TelegramLink (codeHash, idContacto, expiresAt, consentimiento)
 VALUES
-  (@hash, @contact, DATEADD(MINUTE, 10, ${now}))`,
-    { contact, hash },
+  (@hash, @contact, DATEADD(MINUTE, 10, ${now}), @consent)`,
+    { contact, hash, consent },
+  );
+}
+export async function linkHadConsent(db, hash) {
+  return (
+    (
+      await query(db, 'SELECT consentimiento FROM dbo.App_TelegramLink WHERE codeHash = @hash', {
+        hash,
+      })
+    ).recordset[0]?.consentimiento === true
+  );
+}
+// Un chat que escribió /start sin código queda ligado a un contacto provisional, sin correo,
+// teléfono ni LEADs. Un enlace válido, enviado al dueño del correo, lo reemplaza.
+async function takeOverProvisionalChat(db, conflicts, chatId, contact) {
+  if (conflicts.length !== 1 || conflicts[0].chatId !== chatId) return false;
+  const provisional = (
+    await query(
+      db,
+      `SELECT
+  1 ok
+FROM
+  dbo.Contacto c
+WHERE
+  c.idContacto = @owner
+  AND c.correo IS NULL
+  AND c.telefono IS NULL
+  AND c.nombreCompleto IS NULL
+  AND NOT EXISTS (
+    SELECT
+      1
+    FROM
+      dbo.Lead l
+    WHERE
+      l.idContacto = c.idContacto
+  )`,
+      { owner: conflicts[0].idContacto },
+    )
+  ).recordset.length;
+  if (!provisional) return false;
+  await query(db, 'UPDATE dbo.App_TelegramChat SET idContacto = @contact WHERE chatId = @chatId', {
+    contact,
+    chatId,
+  });
+  return true;
+}
+export async function hasActiveLink(db, contact) {
+  return (
+    (
+      await query(
+        db,
+        `SELECT
+  1 ok
+FROM
+  dbo.App_TelegramLink
+WHERE
+  idContacto = @contact
+  AND usedAt IS NULL
+  AND expiresAt > ${now}`,
+        { contact },
+      )
+    ).recordset.length > 0
   );
 }
 export async function useLink(db, hash, chatId) {
@@ -49,26 +112,25 @@ WHERE
     )
   ).recordset[0];
   if (!link) return null;
-  const conflict = (
+  const rows = (
     await query(
       db,
       `SELECT
-  *
+  idContacto,
+  chatId
 FROM
   dbo.App_TelegramChat
 WHERE
-  (
-    chatId = @chatId
-    OR idContacto = @contact
-  )
-  AND NOT (
-    chatId = @chatId
-    AND idContacto = @contact
-  )`,
+  chatId = @chatId
+  OR idContacto = @contact`,
       { chatId, contact: link.idContacto },
     )
-  ).recordset[0];
-  if (conflict) return null;
+  ).recordset;
+  const conflicts = rows.filter(
+    (row) => !(row.chatId === chatId && Number(row.idContacto) === Number(link.idContacto)),
+  );
+  if (conflicts.length && !(await takeOverProvisionalChat(db, conflicts, chatId, link.idContacto)))
+    return null;
   await query(
     db,
     `IF NOT EXISTS (
@@ -370,6 +432,7 @@ WHERE
   idMensaje = @id`,
     { id },
   );
+  row.markup = prior?.markup ?? null;
   return row;
 }
 export async function markSent(db, id, externalId) {

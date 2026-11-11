@@ -6,6 +6,7 @@ import { app } from '../app.mjs';
 import { close, query, rollbackTest } from '../db.mjs';
 import { normalizePhone, registerLanding } from '../public/landing.mjs';
 
+process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
 const count = async (db, sql, params) => (await query(db, sql, params)).recordset[0].n;
 const uniqueEmail = (label) => `${label}-${Date.now()}@example.test`;
 
@@ -202,6 +203,173 @@ test('landing: el campo trampa descarta el envío sin escribir en la base', asyn
         0,
       );
     });
+  } finally {
+    await close();
+  }
+});
+
+function withBot(username, work) {
+  const previous = process.env.TELEGRAM_BOT_USERNAME;
+  process.env.TELEGRAM_BOT_USERNAME = username;
+  return work().finally(() => {
+    if (previous === undefined) delete process.env.TELEGRAM_BOT_USERNAME;
+    else process.env.TELEGRAM_BOT_USERNAME = previous;
+  });
+}
+
+test('landing con Telegram: un contacto nuevo recibe un enlace de un solo uso sin consentimiento de canal', async () => {
+  const email = uniqueEmail('landing-telegram');
+  try {
+    await withBot('bot_de_prueba', () =>
+      rollbackTest(async (db) => {
+        const result = await registerLanding({
+          name: 'Estudiante Telegram',
+          email,
+          phone: '+51933333333',
+          role: 1,
+          channels: [],
+          telegram: true,
+        });
+        assert.match(
+          result.telegramUrl,
+          /^https:\/\/t\.me\/bot_de_prueba\?start=[A-Za-z0-9_-]{20,}$/,
+        );
+        const contact = (
+          await query(db, 'SELECT idContacto id FROM dbo.Contacto WHERE correo=@email', { email })
+        ).recordset[0];
+        assert.equal(
+          await count(
+            db,
+            'SELECT COUNT(*) n FROM dbo.App_TelegramLink WHERE idContacto=@id AND usedAt IS NULL',
+            contact,
+          ),
+          1,
+        );
+        assert.equal(
+          await count(
+            db,
+            'SELECT COUNT(*) n FROM dbo.AutorizacionContacto WHERE idContacto=@id',
+            contact,
+          ),
+          0,
+        );
+        const participation = (
+          await query(
+            db,
+            `SELECT lc.idEstadoParticipacion state, lc.idMotivoSuspension reason,
+              (SELECT COUNT(*) FROM dbo.IntentoContacto i WHERE i.idLeadCaso=lc.idLeadCaso) attempts
+            FROM dbo.LeadCaso lc JOIN dbo.Lead l ON l.idLead=lc.idLead WHERE l.idContacto=@id`,
+            contact,
+          )
+        ).recordset[0];
+        assert.equal(participation.state, 2);
+        assert.equal(participation.reason, 2);
+        assert.equal(participation.attempts, 0);
+      }),
+    );
+  } finally {
+    await close();
+  }
+});
+
+test('landing sin Telegram configurado o sin pedirlo no devuelve enlace', async () => {
+  try {
+    await withBot('', () =>
+      rollbackTest(async () => {
+        const noBot = await registerLanding({
+          name: 'Sin Bot Configurado',
+          email: uniqueEmail('landing-sin-bot'),
+          phone: '+51944444444',
+          role: 1,
+          channels: [2],
+          telegram: true,
+        });
+        assert.deepEqual(noBot, { registered: true });
+      }),
+    );
+    await withBot('bot_de_prueba', () =>
+      rollbackTest(async () => {
+        const notRequested = await registerLanding({
+          name: 'Sin Pedir Telegram',
+          email: uniqueEmail('landing-no-pidio'),
+          phone: '+51955555555',
+          role: 1,
+          channels: [2],
+          telegram: false,
+        });
+        assert.deepEqual(notRequested, { registered: true });
+      }),
+    );
+  } finally {
+    await close();
+  }
+});
+
+test('landing: un correo ya registrado no se vincula, no recibe enlace con código y queda en revisión', async () => {
+  const email = uniqueEmail('landing-existente');
+  try {
+    await withBot('bot_de_prueba', () =>
+      rollbackTest(async (db) => {
+        await registerLanding({
+          name: 'Rosa Titular',
+          email,
+          phone: '+51966666666',
+          role: 3,
+          beneficiaryName: 'Hijo De Rosa Titular',
+          channels: [2],
+        });
+        const state = async () => ({
+          consents: await count(
+            db,
+            `SELECT COUNT(*) n FROM dbo.AutorizacionContacto a JOIN dbo.Contacto c ON c.idContacto=a.idContacto
+            WHERE c.correo=@email AND a.idEstadoAutorizacion=1`,
+            { email },
+          ),
+          leads: await count(
+            db,
+            `SELECT COUNT(*) n FROM dbo.Lead l JOIN dbo.Contacto c ON c.idContacto=l.idContacto
+            WHERE c.correo=@email`,
+            { email },
+          ),
+          links: await count(
+            db,
+            `SELECT COUNT(*) n FROM dbo.App_TelegramLink t JOIN dbo.Contacto c ON c.idContacto=t.idContacto
+            WHERE c.correo=@email`,
+            { email },
+          ),
+        });
+        const before = await state();
+        const attacker = {
+          name: 'Otra Persona',
+          email: email.toUpperCase(),
+          phone: '+51977777777',
+          role: 2,
+          beneficiaryName: 'Estudiante Inventado',
+          channels: [1, 2],
+          telegram: true,
+        };
+        const result = await registerLanding(attacker, { send: null });
+        assert.deepEqual(result, { registered: true, telegramUrl: 'https://t.me/bot_de_prueba' });
+        assert.deepEqual(await state(), before);
+        await registerLanding(attacker, { send: null });
+        const reviews = (
+          await query(
+            db,
+            `SELECT estado, nombre, autorizaCorreo FROM dbo.App_PublicInquiry WHERE correo=@email`,
+            { email },
+          )
+        ).recordset;
+        assert.equal(reviews.length, 1);
+        assert.equal(reviews[0].estado, 'Revisar identidad');
+        const contact = (
+          await query(db, 'SELECT nombreCompleto, telefono FROM dbo.Contacto WHERE correo=@email', {
+            email,
+          })
+        ).recordset[0];
+        assert.equal(contact.nombreCompleto, 'Rosa Titular');
+        assert.equal(contact.telefono, '+51966666666');
+      }),
+    );
   } finally {
     await close();
   }

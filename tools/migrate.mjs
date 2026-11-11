@@ -15,7 +15,7 @@ if (process.argv.includes('--check')) {
 }
 const result = spawnSync(
   'sqlcmd',
-  ['-S', server, ...login, '-C', '-b', '-f', '65001', '-i', script],
+  ['-S', server, ...login, '-C', '-I', '-b', '-f', '65001', '-i', script],
   { stdio: 'inherit' },
 );
 if (result.error) {

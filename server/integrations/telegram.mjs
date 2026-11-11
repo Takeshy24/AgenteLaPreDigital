@@ -1,8 +1,11 @@
 import { analyzeMessage } from '../agent/ollama.mjs';
+import { greeting, parseCallback } from '../agent/profile-flow.mjs';
+import { answerAction, answerProfile, queueNextStep } from '../agent/profile-service.mjs';
 import { actOnAnalysis, handoffReason } from '../agent/service.mjs';
 import { saveConsent } from '../consents/service.mjs';
-import { pool, transaction } from '../db.mjs';
+import { pool, query, transaction } from '../db.mjs';
 import { getRecentHistory, updateFailures, getRequestedPlan } from '../agent/repository.mjs';
+import { BusinessError } from '../shared/errors.mjs';
 import { getParticipation } from '../shared/repository.mjs';
 import { getOpenHandoff } from '../handoffs/repository.mjs';
 import { openHandoff } from '../handoffs/service.mjs';
@@ -40,7 +43,49 @@ async function analyze(text, participantId) {
     return { analysis: null, error: error.message };
   }
 }
+async function handleProfileCallback(item, callback, client) {
+  const chat = await repository.getChat(await pool(), item.chatId);
+  const parsed = parseCallback(callback.data);
+  const owned =
+    chat &&
+    parsed &&
+    (await repository.listContactParticipations(await pool(), chat.idContacto)).some(
+      (participant) => participant.id === parsed.participationId && participant.idEstadoCaso === 1,
+    );
+  if (!owned) {
+    await transaction((db) =>
+      repository.finishUpdate(db, item.updateId, null, 'Selección inválida'),
+    );
+    return;
+  }
+  let feedback = 'Listo';
+  try {
+    await transaction(async (db) => {
+      if ((await repository.getUpdate(db, item.updateId))?.processedAt) return;
+      const result = ['c', 'a', 'b'].includes(parsed.letter)
+        ? await answerProfile(parsed.participationId, parsed)
+        : await answerAction(parsed.participationId, parsed);
+      if (result.alreadyAnswered) feedback = 'Ya tengo esa respuesta';
+      await repository.finishUpdate(db, item.updateId);
+    });
+  } catch (error) {
+    // Un clic que no se puede aplicar no debe dejar la cola detenida: se cierra con su motivo.
+    if (!(error instanceof BusinessError)) throw error;
+    feedback = 'No pude registrar esa opción';
+    await transaction((db) => repository.finishUpdate(db, item.updateId, null, error.message));
+  }
+  await client.call('answerCallbackQuery', { callback_query_id: callback.id, text: feedback });
+  if (callback.message)
+    await client
+      .call('editMessageReplyMarkup', {
+        chat_id: item.chatId,
+        message_id: callback.message.message_id,
+        reply_markup: { inline_keyboard: [] },
+      })
+      .catch(() => {});
+}
 async function handleCallback(item, callback, client) {
+  if (callback.data?.startsWith('pf:')) return handleProfileCallback(item, callback, client);
   const chat = await repository.getChat(await pool(), item.chatId);
   const id = Number(callback.data?.replace('case:', ''));
   const owned =
@@ -63,19 +108,47 @@ async function handleCallback(item, callback, client) {
       repository.finishUpdate(db, item.updateId, null, 'Selección inválida'),
     );
 }
+// Tras vincular, el agente saluda por su nombre y empieza a conocer a la persona con preguntas
+// cortas con botones. Si el enlace nació de un formulario donde se pidió Telegram, abrirlo y pulsar
+// Iniciar ya es la autorización de ese canal: no se vuelve a pedir.
+async function welcome(db, contact, replyTo, withConsent) {
+  const onboarding = await onboardingQuestion(contact);
+  if (onboarding) return { text: onboarding };
+  const open = (await repository.listContactParticipations(db, contact)).filter(
+    (participant) => participant.idEstadoCaso === 1,
+  );
+  if (open.length !== 1)
+    return { text: 'Contacto vinculado. Cuéntame sobre qué estudiante quieres conversar.' };
+  if (withConsent)
+    await saveConsent(open[0].id, { channel: 3, granted: true, version: 'landing-telegram-v1' });
+  const name = (
+    await query(db, 'SELECT nombreCompleto name FROM dbo.Contacto WHERE idContacto = @contact', {
+      contact,
+    })
+  ).recordset[0]?.name;
+  await queueNextStep(db, await getParticipation(db, open[0].id), replyTo, {
+    intro: greeting(name),
+  });
+  return { queued: true };
+}
 async function handleStart(item, text, client) {
   const code = text.slice(7).trim();
-  const contact = await transaction(async (db) => {
-    const contact = await repository.useLink(db, hashCode(code), item.chatId);
-    if (contact) await recordUnassigned(contact, text);
+  const result = await transaction(async (db) => {
+    const hash = hashCode(code);
+    const contact = await repository.useLink(db, hash, item.chatId);
+    let reply = null;
+    if (contact) {
+      const incoming = await recordUnassigned(contact, text);
+      reply = await welcome(db, contact, incoming.id, await repository.linkHadConsent(db, hash));
+    }
     await repository.finishUpdate(db, item.updateId);
-    return contact;
+    return { contact, reply };
   });
+  if (result.reply?.queued) return;
   await client.call('sendMessage', {
     chat_id: item.chatId,
-    text: contact
-      ? (await onboardingQuestion(contact)) ||
-        'Contacto vinculado. Puedes escribir tu consulta. Usa /autorizar para permitir seguimiento por Telegram o /revocar para retirarlo.'
+    text: result.contact
+      ? result.reply.text
       : 'El enlace no es válido, expiró o ya fue utilizado. Solicita uno nuevo a tu asesor.',
   });
 }

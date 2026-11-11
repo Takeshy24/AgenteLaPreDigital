@@ -8,11 +8,11 @@ import { createRequest, saveState, linkRequest } from '../onboarding/repository.
 import { BusinessError } from '../shared/errors.mjs';
 import * as repository from './repository.mjs';
 
-export async function telegramLink(db, contact) {
+export async function telegramLink(db, contact, { consent = false } = {}) {
   const config = integrationConfig().telegram;
   if (!config.username) return null;
   const token = randomBytes(24).toString('base64url');
-  await saveLink(db, contact, createHash('sha256').update(token).digest('hex'));
+  await saveLink(db, contact, createHash('sha256').update(token).digest('hex'), consent);
   return `https://t.me/${config.username.replace(/^@/, '')}?start=${token}`;
 }
 

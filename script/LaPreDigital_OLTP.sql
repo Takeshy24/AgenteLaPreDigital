@@ -2166,6 +2166,22 @@ END;
 
 GO
 
+IF COL_LENGTH('dbo.App_TelegramLink', 'consentimiento') IS NULL BEGIN
+ALTER TABLE dbo.App_TelegramLink
+ADD consentimiento BIT NOT NULL DEFAULT 0;
+
+END;
+
+GO
+
+IF COL_LENGTH('dbo.App_Dispatch', 'markup') IS NULL BEGIN
+ALTER TABLE dbo.App_Dispatch
+ADD markup NVARCHAR(MAX) NULL;
+
+END;
+
+GO
+
 USE master;
 
 GO
