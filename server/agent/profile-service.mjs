@@ -63,11 +63,23 @@ export async function answerProfile(participationId, parsed, { text, channel = 3
       { text: text ?? `${name}: ${option.label}`, channel, level: 1 },
       { source: 2 },
     );
-    await saveProfile(
-      participationId,
-      { fields: { [key]: key === 'budget' ? Number(option.value) : option.value }, channel },
-      { messageId: incoming.id },
-    );
+    // «Ninguno en especial» no es un curso: se responde y se sigue sin registrar un dato.
+    if (option.value !== flow.NO_COURSES)
+      await saveProfile(
+        participationId,
+        {
+          fields: {
+            [key]:
+              key === 'budget'
+                ? Number(option.value)
+                : key === 'courses'
+                  ? [option.value]
+                  : option.value,
+          },
+          channel,
+        },
+        { messageId: incoming.id },
+      );
     await queueNextStep(db, await getParticipation(db, participationId), incoming.id, {
       intro: flow.ACKNOWLEDGEMENT[key] ?? '',
     });
@@ -127,7 +139,7 @@ export async function matchKeyboardReply(db, participationId, text, { data = nul
       );
   const parsed = button ? flow.parseCallback(button.callback_data) : null;
   if (!parsed || parsed.participationId !== participationId) return null;
-  if (['c', 'a', 'b'].includes(parsed.letter)) {
+  if (['c', 'a', 'b', 'd', 'e'].includes(parsed.letter)) {
     const profile = await repository.getProfile(db, participationId);
     const key = flow.KEY_BY_LETTER[parsed.letter];
     if (profile[key] != null && String(profile[key]).trim() !== '') return null;

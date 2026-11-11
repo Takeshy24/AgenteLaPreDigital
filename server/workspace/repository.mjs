@@ -50,6 +50,9 @@ export async function getWorkspace() {
   pb.carreraDeseada career,
   pb.disponibilidadEstudio availability,
   pc.presupuestoMensual budget,
+  pb.ultimoPuntaje score,
+  (SELECT STRING_AGG(cd.curso, ', ') FROM dbo.BeneficiarioCursoDificil cd WHERE cd.idBeneficiario = l.idBeneficiario) courses,
+  (SELECT TOP 1 pa.descripcion FROM dbo.BeneficiarioPostulacionAnterior pa WHERE pa.idBeneficiario = l.idBeneficiario ORDER BY pa.idPostulacion DESC) applications,
 lc.idEstadoParticipacion,
 lc.idPrioridadActual,
 ca.idEstadoCaso,
@@ -187,6 +190,7 @@ ORDER BY
     proposals: `SELECT
   pr.*,
   p.nombre [plan],
+  t.precio precioCatalogo,
   m.fechaEntrega,
   m.idEstadoEntrega,
   m.textoMensaje

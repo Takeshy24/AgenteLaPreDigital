@@ -17,6 +17,9 @@ export interface Participation {
   career: string | null;
   availability: string | null;
   budget: number | null;
+  score: number | null;
+  courses: string | null;
+  applications: string | null;
   authorized: number;
   idEstadoCaso: number;
 }
@@ -106,6 +109,8 @@ export interface Details {
     idMensajeEntrega: number;
     plan: string;
     precioAutorizado: number;
+    precioCatalogo: number;
+    idOperadorAprueba: number | null;
     idResultado: number | null;
     idEstadoEntrega: number;
   }[];

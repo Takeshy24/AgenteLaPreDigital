@@ -14,12 +14,24 @@ const AVAILABILITY = [
   'Solo fines de semana',
 ];
 
+const COURSES = [
+  'Razonamiento matemático',
+  'Matemática',
+  'Física',
+  'Química',
+  'Biología',
+  'Lenguaje y razonamiento verbal',
+];
+export const NO_COURSES = 'Ninguno en especial';
+const APPLICATIONS = ['Es mi primera vez', 'Ya postulé una vez', 'Ya postulé dos veces o más'];
+
 export const OTHER_ANSWER_PROMPT = '¡Claro! Escríbeme tu respuesta en un mensaje y la anoto.';
 
 // Se antepone a la siguiente pregunta cuando la respuesta llegó con un botón.
 export const ACKNOWLEDGEMENT = {
   career: '¡Excelente elección! ',
   availability: '¡Perfecto! Ya casi terminamos. ',
+  courses: '¡Anotado! ',
 };
 
 export const QUESTIONS = {
@@ -36,8 +48,23 @@ export const QUESTIONS = {
     field: 7,
     text: '¿Cuánto podrías invertir al mes en tu preparación? Es solo para recomendarte lo que mejor te convenga.',
   },
+  courses: {
+    name: 'Cursos difíciles',
+    letter: 'd',
+    field: 3,
+    text: 'Para afinar la recomendación, dos preguntas opcionales: ¿qué cursos se te hacen más difíciles?',
+  },
+  applications: {
+    name: 'Postulaciones anteriores',
+    letter: 'e',
+    field: 4,
+    text: '¿Ya postulaste antes a la UNT?',
+  },
 };
+// Las tres primeras son necesarias para recomendar; las opcionales (tabla 3, necesidades
+// académicas) se preguntan una sola vez y solo si el dato no se conoce.
 const ORDER = ['career', 'availability', 'budget'];
+const OPTIONAL = ['courses', 'applications'];
 export const KEY_BY_LETTER = Object.fromEntries(
   Object.entries(QUESTIONS).map(([key, question]) => [question.letter, key]),
 );
@@ -55,6 +82,12 @@ const monthly = (tariffs) =>
 export function optionsFor(key, tariffs = []) {
   if (key === 'career') return CAREERS.map((label) => ({ label, value: label }));
   if (key === 'availability') return AVAILABILITY.map((label) => ({ label, value: label }));
+  if (key === 'courses') return [...COURSES, NO_COURSES].map((label) => ({ label, value: label }));
+  if (key === 'applications')
+    return APPLICATIONS.map((label, index) => ({
+      label,
+      value: index === 0 ? 'Primera postulación (no postuló antes)' : label.replace('Ya p', 'P'),
+    }));
   const caps = [...new Set(monthly(tariffs).map((tariff) => Math.ceil(Number(tariff.precio))))];
   return caps.map((cap, index) => ({
     label: index === caps.length - 1 ? `S/ ${cap} o más` : `Hasta S/ ${cap}`,
@@ -99,14 +132,23 @@ export const normalizeLabel = (value) =>
     .trim();
 
 export function parseCallback(data) {
-  const match = /^pf:(\d+):([cabpti])(?::(\d+|x))?$/.exec(data ?? '');
+  const match = /^pf:(\d+):([cabdepti])(?::(\d+|x))?$/.exec(data ?? '');
   if (!match) return null;
   return { participationId: Number(match[1]), letter: match[2], index: match[3] ?? null };
 }
 
+const missing = (profile, key) => profile[key] == null || String(profile[key]).trim() === '';
 export function nextKey(profile) {
-  return ORDER.find((key) => profile[key] == null || String(profile[key]).trim() === '') ?? null;
+  const core = ORDER.find((key) => missing(profile, key));
+  if (core) return core;
+  const asked = String(profile.asked ?? '').split(',');
+  return (
+    OPTIONAL.find(
+      (key) => missing(profile, key) && !asked.includes(String(QUESTIONS[key].field)),
+    ) ?? null
+  );
 }
+export const isCoreKey = (key) => ORDER.includes(key);
 
 export function greeting(name) {
   const first = String(name ?? '')
@@ -128,9 +170,13 @@ export function recommend(profile, tariffs) {
   const fits = monthly(tariffs).filter((tariff) => Number(tariff.precio) <= budget);
   const chosen = fits.at(-1);
   const summary = `${profile.career}, ${String(profile.availability).toLowerCase()}, hasta S/ ${budget} al mes`;
+  // Tabla 4: los planes pagados incluyen videoclases y ejercicios por curso y tema.
+  const courses = profile.courses
+    ? ` Para reforzar ${String(profile.courses).toLowerCase()}, los planes pagados incluyen videoclases y ejercicios por curso y tema.`
+    : '';
   if (!chosen)
     return {
-      text: `¡Gracias por contarme! Con lo que me compartiste (${summary}), lo mejor para empezar es Explora UNT: 14 días gratis, una vez por estudiante. Después vemos juntos qué plan te conviene.`,
+      text: `¡Gracias por contarme! Con lo que me compartiste (${summary}), lo mejor para empezar es Explora UNT: 14 días gratis, una vez por estudiante. Después vemos juntos qué plan te conviene.${courses}`,
       tariff: null,
     };
   const semester = tariffs.find(
@@ -138,7 +184,7 @@ export function recommend(profile, tariffs) {
   );
   const prices = `S/ ${Number(chosen.precio).toFixed(2)} al mes${semester ? ` o S/ ${Number(semester.precio).toFixed(2)} el semestre` : ''}`;
   return {
-    text: `¡Listo, gracias por contarme! Con lo que me compartiste (${summary}), creo que lo que mejor te va es ${chosen.plan}: ${prices}. Si quieres, también puedes empezar probando Explora UNT gratis por 14 días (una vez por estudiante).`,
+    text: `¡Listo, gracias por contarme! Con lo que me compartiste (${summary}), creo que lo que mejor te va es ${chosen.plan}: ${prices}. Si quieres, también puedes empezar probando Explora UNT gratis por 14 días (una vez por estudiante).${courses}`,
     tariff: chosen,
   };
 }

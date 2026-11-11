@@ -12,16 +12,21 @@ import { BusinessError } from '../shared/errors.mjs';
 import { getNeed, addNeed } from '../links/repository.mjs';
 import { inviteGuardian } from '../links/service.mjs';
 import { describePlans } from './catalog.mjs';
-import { words } from './intents.mjs';
+import { unavailableOption, words } from './intents.mjs';
+import { recordProposalResponse } from '../proposals/service.mjs';
 import { answerFromKnowledge } from './knowledge.mjs';
 import { PAYMENT_QUESTION } from './ollama.mjs';
 import {
   findPendingProposal,
+  latestOpenProposal,
+  getProfile,
+  saveObjection,
   appendOfferLink,
   recordQuestion,
   attachMarkup,
 } from './repository.mjs';
-import { keyboard, KEY_BY_FIELD } from './profile-flow.mjs';
+import { isCoreKey, keyboard, KEY_BY_FIELD, nextKey } from './profile-flow.mjs';
+import { queueNextStep } from './profile-service.mjs';
 export const HANDOFF_NOTICE =
   'Voy a pasar tu consulta a un asesor del equipo para que te ayude mejor. Te escribirán pronto. 😊';
 
@@ -46,7 +51,15 @@ export function handoffReason(text) {
   )
     return 3;
   if (/ (disputa|contracargo|desconozco el cargo) /.test(value)) return 4;
-  if (/ (descuento|descuentos|beca|becas|rebaja) /.test(value)) return 6;
+  // Solo un pedido expreso de descuento o beca se deriva; la pregunta «¿hay becas?» la responde el
+  // agente con la base de conocimiento.
+  if (
+    / (descuento|descuentos|descuentito|beca|becas|rebaja|rebajita|promocion) /.test(value) &&
+    / (quiero|quisiera|necesito|solicito|solicitar|pido|pedir|aplicar|aplicame|aplica|ponme|hazme|postular|acceder|dame|denme|hagan|hacer|hacerme|hacen|haces|dan|darian|dar|me (puede|pueden|podria|podrian)) /.test(
+      value,
+    )
+  )
+    return 6;
   if (
     / (hablar|comunicarme|comuniquenme|contactar|atender|atienda|atiendan|pasame|pasenme|pasar|pasen|comunicar|derivenme|deriven) ([a-z ]* )?(persona|asesor|asesora|humano|alguien|operador|asesores) /.test(
       value,
@@ -81,7 +94,7 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
       const fields = Object.fromEntries(
         analysis.fields.map((item) => [
           item.field,
-          item.field === 'budget' ? Number(item.value) : item.value,
+          ['budget', 'score'].includes(item.field) ? Number(item.value) : item.value,
         ]),
       );
       await saveProfile(participationId, { fields, channel }, { messageId });
@@ -147,6 +160,54 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
       else await appendOfferLink(db, proposal.messageId, link.url);
       return proposal;
     }
+    if (analysis.objection && participation.idEstadoCaso === 1)
+      await saveObjection(db, {
+        id: participationId,
+        type: analysis.objection,
+        text,
+        messageId,
+      });
+    // Rechazo expreso de la propuesta vigente por el chat (F5, tabla 5: baja el nivel a Consulta).
+    if (analysis.retraction && participation.idEstadoCaso === 1) {
+      const open = await latestOpenProposal(db, participationId);
+      if (open) await recordProposalResponse(open.id, { messageId, result: 2 });
+      await createReply(
+        db,
+        participation,
+        open
+          ? 'Entendido, dejo esa propuesta como no aceptada. Si más adelante quieres revisar otro plan o probar Explora UNT gratis, escríbeme. 😊'
+          : 'Entendido, no hay problema. Si más adelante quieres revisar un plan o probar Explora UNT gratis, escríbeme. 😊',
+        messageId,
+      );
+      return;
+    }
+    // Aceptación por el chat: la aceptación y las condiciones se registran en la oferta personal.
+    if (analysis.accepts && participation.idEstadoCaso === 1) {
+      const open = await latestOpenProposal(db, participationId);
+      if (open) {
+        const link = await createOfferLink(
+          open.id,
+          process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3001}`,
+        );
+        await createReply(
+          db,
+          participation,
+          `¡Genial! Para aceptarla, revisa y acepta la propuesta y las condiciones en tu enlace personal; desde allí puedes pagar: ${link.url}
+La aceptación no confirma el pago.`,
+          messageId,
+        );
+        return;
+      }
+    }
+    if (analysis.attachment) {
+      await createReply(
+        db,
+        participation,
+        'Recibí tu archivo, pero solo puedo leer mensajes de texto. Si es un comprobante: el pago se confirma cuando la pasarela lo registra, no con una captura; si ya pagaste y no se refleja, cuéntamelo por escrito y te paso con un asesor. ¿Me escribes tu consulta?',
+        messageId,
+      );
+      return;
+    }
     const known = {
       ...contact,
       ...Object.fromEntries(analysis.fields.map((item) => [item.field, item.value])),
@@ -158,6 +219,25 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
         : known.budget == null
           ? '¿Cuánto podrías invertir al mes en tu preparación?'
           : '¿Quieres que te cuente qué incluye cada plan o prefieres que te prepare una propuesta?';
+    // Con las tres preguntas básicas respondidas, el agente hace una sola vez las opcionales (cursos
+    // difíciles y postulaciones) y, al terminar, recomienda el plan.
+    if (
+      analysis.action === 'ask' &&
+      !analysis.social &&
+      participation.idEstadoCaso === 1 &&
+      known.career &&
+      known.availability &&
+      known.budget != null
+    ) {
+      const pending = nextKey(await getProfile(db, participationId));
+      const answered = analysis.fields.some((item) =>
+        ['courses', 'applications', 'score'].includes(item.field),
+      );
+      if ((pending && !isCoreKey(pending)) || (!pending && answered)) {
+        await queueNextStep(db, participation, messageId, { intro: answered ? '¡Anotado! ' : '' });
+        return;
+      }
+    }
     let response = analysis.social
       ? `¡Qué amable! 😊 Sigo aquí para ayudarte a elegir tu plan. ${nextQuestion}`
       : !known.career
@@ -168,12 +248,21 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
             ? '¡Gracias! Una última pregunta: ¿cuánto podrías invertir al mes en tu preparación?'
             : '¿Qué plan o modalidad te interesa? Con gusto te aclaro los precios y te ayudo a preparar una propuesta.';
     if (analysis.action === 'proposal' && !analysis.tariffId)
-      response =
-        '¿Qué plan y modalidad quieres contratar? Ruta UNT tiene modalidad mensual; Meta UNT y Meta UNT Plus, mensual o semestral.';
+      response = `${unavailableOption(text, workspace.tariffs) ?? '¿Qué plan y modalidad quieres contratar?'} Ruta UNT tiene modalidad mensual; Meta UNT y Meta UNT Plus, mensual o semestral.`;
     if (analysis.action === 'catalog') {
       // Respuesta extractiva desde la base de conocimiento; si no hay fragmentos, el catálogo completo.
       const answer = answerFromKnowledge(text, workspace.tariffs);
       response = answer?.text ?? describePlans(text, workspace.tariffs);
+      const invalid = unavailableOption(text, workspace.tariffs);
+      if (invalid) response = `${invalid} ${response}`;
+      // Objeciones sin fragmento propio: tiempo se convierte en la pregunta de disponibilidad;
+      // confianza y alternativas se atienden con la prueba gratuita.
+      if (analysis.objection === 3)
+        response =
+          'Entiendo, el tiempo importa. Cuéntame cuánto tiempo podrías dedicar a estudiar y te recomiendo el plan que mejor encaje contigo.';
+      if ([2, 5].includes(analysis.objection))
+        response =
+          'Es normal querer comparar antes de decidir. LaPreDigital es una preparación 100 % virtual para la admisión a la UNT, y con Explora UNT puedes probarla gratis 14 días antes de pagar. Si quieres probarla, escríbeme «quiero probar Explora».';
       if (!answer && PAYMENT_QUESTION.test(text))
         response = `El pago se hace de forma segura desde el enlace de tu propuesta, donde verás los medios disponibles. Para generarlo solo dime qué plan quieres. 😊 ${response}`;
     }

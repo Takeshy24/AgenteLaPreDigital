@@ -30,6 +30,26 @@ const TRIAL = new RegExp(
 const TRIAL_WORDS = / (explora|prueba|probar) /;
 const OBJECTION =
   / (caro|cara|carisimo|carisima|barato|barata|economico|economica|accesible|costoso|costosa|no me alcanza) /;
+// Tipos de objeción de la tabla 3 (Cat_TipoObjecion): 1 precio, 2 confianza, 3 tiempo,
+// 4 características y 5 alternativas.
+const OBJECTION_TYPES = [
+  [1, OBJECTION],
+  [
+    2,
+    / (es seguro|es confiable|son confiables|confiable|confianza|funciona de verdad|es real|garantia|desconfio|me da miedo|no confio) /,
+  ],
+  [
+    3,
+    / (no tengo tiempo|no tiene tiempo|no tienen tiempo|tengo poco tiempo|no me da el tiempo|no me alcanza el tiempo|muy ocupado|muy ocupada|trabajo y estudio) /,
+  ],
+  [4, / (no tiene|no incluye|le falta|les falta|no trae) /],
+  [
+    5,
+    / (otra academia|otras academias|otra plataforma|otras plataformas|academia presencial|ya estoy en una academia|en otra pre|otra pre) /,
+  ],
+];
+const ACCEPTANCE =
+  / (acepto|aceptamos|la acepto|lo acepto|acepto la propuesta|de acuerdo con la propuesta|me quedo con la propuesta) /;
 const RELATIVE =
   '(mama|madre|papa|padre|padres|apoderado|apoderada|tutor|tutora|abuelo|abuela|tio|tia|hermano|hermana)';
 const GUARDIAN = new RegExp(
@@ -63,6 +83,28 @@ const CAREERS = [
   'Ciencias de la Comunicación',
 ];
 
+// Cursos del examen de admisión que se reconocen en un mensaje libre (tabla 3: cursos difíciles).
+const COURSES = [
+  ['Razonamiento matemático', / razonamiento matematico /],
+  ['Razonamiento verbal', / razonamiento verbal /],
+  ['Matemática', / (matematica|matematicas|mate) /],
+  ['Aritmética', / aritmetica /],
+  ['Álgebra', / algebra /],
+  ['Geometría', / geometria /],
+  ['Trigonometría', / trigonometria /],
+  ['Física', / fisica /],
+  ['Química', / quimica /],
+  ['Biología', / biologia /],
+  ['Lenguaje', / lenguaje /],
+  ['Literatura', / literatura /],
+  ['Historia', / historia /],
+  ['Geografía', / geografia /],
+];
+const COURSE_CUE =
+  / (me cuesta|me cuestan|dificil|dificiles|me va mal|flojo|floja|no entiendo|complicado|complicada|reforzar|debil|debiles) /;
+const APPLICATION_CUE =
+  / (postule|postulamos|postulo antes|di el examen|rendi el examen|primera vez|mi primera postulacion|nunca postule|ya postule|postulaciones) /;
+
 export function resolveTariff(text, tariffs) {
   const value = words(text);
   const names = [...new Set(tariffs.map((tariff) => tariff.plan))].sort(
@@ -95,6 +137,30 @@ export function resolveTariff(text, tariffs) {
 export const isPurchaseRequest = (text) => PURCHASE.test(words(text)) && !NEGATED.test(words(text));
 export const isTrialRequest = (text) => TRIAL.test(words(text));
 export const isObjection = (text) => OBJECTION.test(words(text));
+export const objectionType = (text) =>
+  OBJECTION_TYPES.find(([, pattern]) => pattern.test(words(text)))?.[0] ?? null;
+export const isAcceptance = (text) =>
+  ACCEPTANCE.test(words(text)) && !/ no (la |lo )?acept/.test(words(text));
+
+// Plan mencionado con una modalidad que no existe (F5: Ruta UNT solo mensual).
+export function unavailableOption(text, tariffs) {
+  const value = words(text);
+  const period = / (semestral|semestre) /.test(value)
+    ? 'Semestral'
+    : / (mensual|al mes|por mes) /.test(value)
+      ? 'Mensual'
+      : null;
+  if (!period) return null;
+  const plan = mentionedPlans(text).find((name) => name !== 'Explora UNT');
+  if (!plan || tariffs.some((tariff) => tariff.plan === plan && tariff.modalidad === period))
+    return null;
+  const options = tariffs
+    .filter((tariff) => tariff.plan === plan)
+    .map((tariff) => tariff.modalidad.toLowerCase());
+  return options.length
+    ? `${plan} no tiene modalidad ${period.toLowerCase()}; solo se contrata ${options.join(' o ')}.`
+    : `${plan} no tiene una tarifa vigente.`;
+}
 export const isPaymentQuestion = (text) => PAYMENT_ASK.test(words(text));
 export const isRetraction = (text) => RETRACTION.test(words(text));
 export const needsGuardianText = (text) => GUARDIAN.test(words(text));
@@ -142,6 +208,40 @@ function extractFields(text, context) {
       });
     }
   }
+  const lastQuestion =
+    (context.history ?? []).filter((item) => item.direction === 2).at(-1)?.text ?? '';
+  if (COURSE_CUE.test(value) || /cursos/i.test(lastQuestion)) {
+    const courses = COURSES.filter(([, pattern]) => pattern.test(value)).map(([name]) => name);
+    if (courses.length)
+      fields.push({ field: 'courses', value: courses.join(', '), quote: text.slice(0, 200) });
+  }
+  if (
+    APPLICATION_CUE.test(value) ||
+    (/postulaste/i.test(lastQuestion) && / (si|no) /.test(value))
+  ) {
+    const first =
+      / (primera vez|nunca postule|no) /.test(value) && !/ (ya postule|postule) /.test(value);
+    const times = / (dos|tres|2|3|varias) (veces|vez) /.exec(value)?.[1];
+    fields.push({
+      field: 'applications',
+      value: first
+        ? 'Primera postulación (no postuló antes)'
+        : times
+          ? `Postuló ${times} veces`
+          : text.trim().slice(0, 200),
+      quote: text.slice(0, 200),
+    });
+  }
+  const score =
+    /(?:saqu[eé]|obtuve|puntaje(?: de)?|tuve)\s+(\d{2,4}(?:[.,]\d{1,2})?)\s*(?:puntos)?/i.exec(
+      text,
+    );
+  if (score)
+    fields.push({
+      field: 'score',
+      value: String(Number(score[1].replace(',', '.'))),
+      quote: score[0],
+    });
   const hours =
     /\b(\d+|una|dos|tres|cuatro|cinco|seis)\s+horas?(\s+(al|por)\s+(d[ií]a|semana)|\s+diarias)?/i.exec(
       text,
@@ -221,7 +321,11 @@ export function applyIntentRules(analysis, text, tariffs, context = {}) {
     analysis.level = 3;
     if (analysis.action !== 'proposal') analysis.action = 'catalog';
     analysis.understood = true;
-  } else if (isObjection(text)) {
+  } else if (isAcceptance(text)) {
+    analysis.accepts = true;
+    analysis.level = 3;
+    analysis.understood = true;
+  } else if (objectionType(text)) {
     if (['ask', 'handoff', 'trial'].includes(analysis.action) || !analysis.understood)
       analysis.action = 'catalog';
     analysis.level = Math.max(analysis.level, 2);
@@ -236,6 +340,7 @@ export function applyIntentRules(analysis, text, tariffs, context = {}) {
     analysis.understood = true;
   }
   if (analysis.action === 'trial' && !TRIAL_WORDS.test(value)) analysis.action = 'catalog';
+  if (!analysis.retraction && !analysis.accepts) analysis.objection = objectionType(text);
   if (needsGuardianText(text)) {
     analysis.needsGuardian = true;
     analysis.understood = true;

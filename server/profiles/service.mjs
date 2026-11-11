@@ -36,6 +36,16 @@ export async function saveProfile(id, data, options = {}) {
         'idBeneficiario',
         participation.idBeneficiario,
       ],
+      score: [
+        'PerfilBeneficiario',
+        'ultimoPuntaje',
+        5,
+        2,
+        'idBeneficiario',
+        participation.idBeneficiario,
+      ],
+      courses: [null, null, 3, 2, 'idBeneficiario', participation.idBeneficiario],
+      applications: [null, null, 4, 2, 'idBeneficiario', participation.idBeneficiario],
       budget: [
         'PerfilContacto',
         'presupuestoMensual',
@@ -45,11 +55,35 @@ export async function saveProfile(id, data, options = {}) {
         participation.idContacto,
       ],
     };
-    for (const [key, value] of Object.entries(data.fields)) {
+    for (let [key, value] of Object.entries(data.fields)) {
       const [table, column, field, type, pk, entity] = fields[key];
-      const old = (await repository.getField(db, { entity }, { column, table, pk })).recordset[0]
-        .value;
-      if (String(old ?? '') === String(value ?? '')) continue;
+      let old;
+      if (key === 'courses') {
+        const list = [
+          ...new Set(
+            []
+              .concat(value)
+              .flatMap((item) => String(item).split(/\s*(?:,|;|y|e)\s*/))
+              .map((item) => item.trim())
+              .filter((item) => item.length > 1),
+          ),
+        ]
+          .map((item) => item.slice(0, 100))
+          .sort();
+        const current = await repository.getCourses(db, entity);
+        if (current.join(', ') === list.join(', ') || !list.length) continue;
+        await repository.replaceCourses(db, entity, list);
+        old = current.length ? current.join(', ') : null;
+        value = list.join(', ');
+      } else if (key === 'applications') {
+        value = String(value).trim().slice(0, 200);
+        old = await repository.getLastApplication(db, entity);
+        if (!value || old === value) continue;
+        await repository.addApplication(db, entity, value);
+      } else {
+        old = (await repository.getField(db, { entity }, { column, table, pk })).recordset[0].value;
+        if (String(old ?? '') === String(value ?? '')) continue;
+      }
       await repository.saveField(
         db,
         {

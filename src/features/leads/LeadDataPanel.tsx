@@ -45,6 +45,12 @@ export function LeadDataPanel() {
             <Value value={selected.availability} />
             <dt>Presupuesto mensual</dt>
             <Value value={selected.budget == null ? null : `S/ ${selected.budget}`} />
+            <dt>Cursos difíciles</dt>
+            <Value value={selected.courses} />
+            <dt>Postulaciones anteriores</dt>
+            <Value value={selected.applications} />
+            <dt>Último puntaje</dt>
+            <Value value={selected.score == null ? null : String(selected.score)} />
           </dl>
         </section>
         <section>

@@ -1206,7 +1206,8 @@ INSERT INTO
 VALUES
     (1, N'Ninguno'),
     (2, N'Consulta'),
-    (3, N'Compra');
+    (3, N'Compra'),
+    (4, N'Intento de compra');
 
 GO
 

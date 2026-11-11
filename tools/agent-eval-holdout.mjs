@@ -31,7 +31,7 @@ export const HOLDOUT = [
   ['Quiero presentar un reclamo formal', null, ['handoff:2']],
   ['Ya deposité y no me han activado nada', null, ['handoff:5', H]],
   ['¿Me pueden dar una beca?', null, ['handoff:6']],
-  ['Ya no me interesa, gracias', [1, 2], ['ask', 'catalog'], { retraction: true }],
+  ['Ya no me interesa, gracias', [1, 2], ['retraction'], { retraction: true }],
   ['Mejor lo dejo para el próximo año', [1, 2], ['ask', 'catalog']],
   ['jsjsjs', 1, ['social']],
   ['👍', 1, ['social']],
@@ -43,4 +43,9 @@ export const HOLDOUT = [
     { career: 'civil' },
   ],
   ['Quiero que me regalen el plan', null, ['ask', 'catalog', 'handoff:6', 'unintelligible']],
+  ['Ok, acepto la propuesta', 3, ['accept']],
+  ['Meta UNT Plus semestral pero de Ruta', null, ['proposal-ask', 'catalog', 'ask']],
+  ['Mi hijo no tiene tiempo para estudiar tanto', [1, 2], ['catalog'], { objection: 3 }],
+  ['¿Hay becas para alumnos de colegio nacional?', [1, 2], ['catalog']],
+  ['Denme un descuentito pues', null, ['handoff:6']],
 ];

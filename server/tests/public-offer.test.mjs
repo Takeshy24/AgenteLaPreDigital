@@ -103,3 +103,83 @@ test('solicitud pública se guarda para revisión sin crear un contacto ni expon
     await close();
   }
 });
+
+test('descuento: solo el operador lo aprueba, menor al catálogo; abrir el pago es Intento de compra y queda en pendientes', async () => {
+  const { simulateOfferPayment } = await import('../public/service.mjs');
+  const { listPending } = await import('../pending/service.mjs');
+  const previous = process.env.DEMO_PAYMENTS;
+  process.env.DEMO_PAYMENTS = '1';
+  try {
+    await rollbackTest(async (db) => {
+      const lead = await createLead({
+        name: 'Estudiante descuento',
+        email: `descuento-${Date.now()}@example.test`,
+        phone: '',
+        role: 1,
+        channel: 1,
+        communicationChannel: 2,
+        consent: true,
+      });
+      const incoming = await recordIncoming(lead.id, {
+        text: 'Quiero solicitar un descuento para Ruta UNT',
+        channel: 2,
+        level: 3,
+      });
+      const tariff = (
+        await query(
+          db,
+          "SELECT TOP 1 t.idPlanTarifa id,t.precio FROM dbo.PlanTarifa t JOIN dbo.PlanComercial p ON p.idPlan=t.idPlan WHERE p.nombre=N'Ruta UNT'",
+        )
+      ).recordset[0];
+      const data = {
+        tariff: tariff.id,
+        replyTo: incoming.id,
+        channel: 2,
+        justification: 'Descuento aprobado por el área comercial.',
+      };
+      await assert.rejects(
+        () => prepareProposal(lead.id, { ...data, price: Number(tariff.precio) + 1 }),
+        /menor al del catálogo/,
+      );
+      await assert.rejects(
+        () => prepareProposal(lead.id, { ...data, price: 30 }, { agent: true }),
+        /no puede aplicar descuentos/,
+      );
+      const plain = await prepareProposal(lead.id, data);
+      const discounted = await prepareProposal(lead.id, { ...data, price: 30 });
+      const rows = (
+        await query(
+          db,
+          'SELECT idPropuesta id,precioAutorizado price,idOperadorAprueba op FROM dbo.PropuestaComercial WHERE idPropuesta IN (@a,@b) ORDER BY idPropuesta',
+          { a: plain.id, b: discounted.id },
+        )
+      ).recordset;
+      assert.equal(rows[0].op, null);
+      assert.equal(Number(rows[1].price), 30);
+      assert.ok(rows[1].op);
+      await confirmExternalDelivery(discounted.messageId, {
+        reference: 'entrega externa verificada',
+      });
+      const token = (await createOfferLink(discounted.id, 'http://127.0.0.1:3067')).url
+        .split('/')
+        .at(-1);
+      await acceptOffer(token);
+      await simulateOfferPayment(token);
+      const participation = (
+        await query(
+          db,
+          'SELECT idNivelInteres level,idPrioridadActual priority FROM dbo.LeadCaso WHERE idLeadCaso=@id',
+          {
+            id: lead.id,
+          },
+        )
+      ).recordset[0];
+      assert.deepEqual([participation.level, participation.priority], [4, 2]);
+      const pending = (await listPending()).filter((item) => item.participationId === lead.id);
+      assert.ok(pending.some((item) => item.type === 'payment' && /S\/ 30/.test(item.detail)));
+    });
+  } finally {
+    process.env.DEMO_PAYMENTS = previous;
+    await close();
+  }
+});

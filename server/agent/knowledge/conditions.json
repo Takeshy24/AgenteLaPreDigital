@@ -80,7 +80,16 @@
     "id": "soporte",
     "title": "Tiempos de soporte",
     "source": "Informe v30, sección 2.4 (condiciones comerciales) y tabla 4",
-    "keywords": ["soporte", "ayuda", "responden", "respuesta", "demoran", "atencion", "tiempo"],
+    "keywords": [
+      "soporte",
+      "ayuda",
+      "responden",
+      "demoran",
+      "atencion",
+      "tiempo de respuesta",
+      "tiempos de respuesta",
+      "cuanto tardan"
+    ],
     "answer": "El tiempo máximo de primera respuesta de soporte es de 2 días en Explora UNT, 1 día en Ruta UNT, 12 horas en Meta UNT y 6 horas en Meta UNT Plus. Son tiempos de primera respuesta, no de resolución."
   },
   {

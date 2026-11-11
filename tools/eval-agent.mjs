@@ -26,6 +26,8 @@ function behavior(text, analysis, error) {
   if (reason) return `handoff:${reason}`;
   if (analysis.guardian) return 'guardian-data';
   if (analysis.needsGuardian) return 'guardian-need';
+  if (analysis.retraction) return 'retraction';
+  if (analysis.accepts) return 'accept';
   if (analysis.action === 'proposal')
     return analysis.tariffId ? `proposal:${analysis.tariffId}` : 'proposal-ask';
   return analysis.action;
@@ -63,6 +65,14 @@ function score([text, level, accepted, extra = {}], analysis, error) {
     );
   if (extra.budget != null && Number(fields.budget) !== extra.budget)
     problems.push(`presupuesto «${fields.budget ?? '—'}» (esperado ${extra.budget})`);
+  if (extra.courses && !String(fields.courses ?? '').includes(extra.courses))
+    problems.push(`cursos «${fields.courses ?? '—'}» (esperados ~${extra.courses})`);
+  if (extra.applications && !String(fields.applications ?? '').includes(extra.applications))
+    problems.push(
+      `postulaciones «${fields.applications ?? '—'}» (esperadas ~${extra.applications})`,
+    );
+  if (extra.objection != null && analysis?.objection !== extra.objection)
+    problems.push(`objeción ${analysis?.objection ?? '—'} (esperada ${extra.objection})`);
   if (extra.retraction != null && (analysis?.retraction ?? false) !== extra.retraction)
     problems.push(`retractación ${analysis?.retraction ?? false} (esperada ${extra.retraction})`);
   if (

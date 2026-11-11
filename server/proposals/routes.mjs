@@ -11,6 +11,7 @@ export function registerRoutes(app) {
           replyTo: id,
           channel,
           justification: z.string().trim().min(5).max(500),
+          price: z.number().positive().max(10000).optional(),
         })
         .strict(),
       (body, id) => prepareProposal(id, body),

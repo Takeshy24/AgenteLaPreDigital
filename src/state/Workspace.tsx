@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 import { request, type Bootstrap, type Details, type PublicInquiry } from '../api';
-export type Page = 'overview' | 'leads' | 'catalog' | 'followup' | 'kpis' | 'integrations';
+export type Page =
+  'overview' | 'pending' | 'leads' | 'catalog' | 'followup' | 'kpis' | 'integrations';
 function useWorkspaceState() {
   const [data, setData] = useState<Bootstrap | null>(null),
     [selectedId, setSelectedId] = useState<number | null>(null),

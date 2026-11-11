@@ -11,6 +11,8 @@ import {
 } from '../contracts/service.mjs';
 import * as repository from './repository.mjs';
 import { registerInquiry } from './intake.mjs';
+import { getParticipation } from '../shared/repository.mjs';
+import { evaluatePriority } from '../priorities/service.mjs';
 
 const hash = (token) => createHash('sha256').update(token).digest('hex');
 
@@ -88,10 +90,26 @@ export async function acceptOffer(token) {
   });
 }
 
+// Abrir el pago de la oferta es un intento de compra (nivel 4, tabla 5): el sistema sube el nivel
+// por regla, sin mensaje de evidencia, una sola vez mientras el nivel sea menor.
+export async function markPurchaseAttempt(participationId) {
+  await transaction(async (db) => {
+    const participation = await getParticipation(db, participationId);
+    if (
+      participation.idEstadoCaso !== 1 ||
+      participation.idEstadoParticipacion >= 3 ||
+      participation.idNivelInteres >= 4
+    )
+      return;
+    await evaluatePriority(db, participation, 4, null, 6, 2);
+  });
+}
+
 export async function payOffer(token, origin) {
   const offer = await requireOffer(await pool(), token);
   if (!offer.idContratacion || offer.idEventoPago)
     throw new BusinessError('Acepta las condiciones antes de pagar, o el pago ya está registrado.');
+  await markPurchaseAttempt(offer.idLeadCasoEntrega);
   return startStripeCheckout(offer.idCaso, origin, `/oferta/${token}`);
 }
 
@@ -102,6 +120,7 @@ export async function simulateOfferPayment(token) {
   const offer = await requireOffer(await pool(), token);
   if (!offer.idContratacion || offer.idEventoPago)
     throw new BusinessError('Acepta las condiciones antes de pagar, o el pago ya está registrado.');
+  await markPurchaseAttempt(offer.idLeadCasoEntrega);
   return simulatePayment(offer.idCaso);
 }
 

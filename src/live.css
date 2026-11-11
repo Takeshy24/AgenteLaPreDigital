@@ -1452,3 +1452,19 @@ body:has(.live-app) {
 .live-app .proposal-item .manual-block {
   margin-top: 4px;
 }
+
+.pending-page {
+  display: grid;
+  gap: 16px;
+}
+.pending-item {
+  display: grid;
+  gap: 6px;
+}
+.pending-item p {
+  margin: 0;
+}
+.pending-detail {
+  color: var(--muted);
+  font-style: italic;
+}

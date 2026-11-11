@@ -14,7 +14,20 @@ export async function prepareProposal(id, data, options = {}) {
       throw new BusinessError(
         'Selecciona un mensaje entrante de esta participación como contexto de respuesta.',
       );
-    const text = `Propuesta ${tariff.nombre}. Precio autorizado S/ ${Number(tariff.precio).toFixed(2)} por periodo contratado. ${data.justification}`;
+    // Descuento (2.4, F5): solo un operador aprueba un precio menor al del catálogo y mayor a cero;
+    // idOperadorAprueba se registra únicamente cuando hay descuento.
+    const catalog = Number(tariff.precio);
+    const discounted = data.price != null && Number(data.price) !== catalog;
+    if (discounted && options.agent)
+      throw new BusinessError('El agente no puede aplicar descuentos.');
+    if (discounted && !(Number(data.price) > 0 && Number(data.price) < catalog))
+      throw new BusinessError(
+        'El precio con descuento debe ser mayor a cero y menor al del catálogo.',
+      );
+    const price = discounted ? Number(data.price) : catalog;
+    const text = discounted
+      ? `Propuesta ${tariff.nombre}. Precio con descuento aprobado S/ ${price.toFixed(2)} (catálogo S/ ${catalog.toFixed(2)}) por periodo contratado. ${data.justification}`
+      : `Propuesta ${tariff.nombre}. Precio autorizado S/ ${catalog.toFixed(2)} por periodo contratado. ${data.justification}`;
     const messageId = await repository.insertPendingMessage(db, {
       ...data,
       id,
@@ -29,8 +42,8 @@ export async function prepareProposal(id, data, options = {}) {
       caseId: participation.idCaso,
       id,
       tariff: tariff.idPlanTarifa,
-      price: tariff.precio,
-      op: options.agent ? null : await getOperator(db),
+      price,
+      op: discounted ? await getOperator(db) : null,
       messageId,
     });
     return { id: proposalId, messageId, delivery: 'Pendiente de envío externo' };

@@ -64,3 +64,8 @@ export const SOCIAL_ANALYSIS = {
   guardian: null,
   social: true,
 };
+
+// Mensaje sin texto (foto, documento, audio, ubicación): cuenta como respuesta y se contesta pidiendo
+// el texto; una captura nunca confirma un pago (sección 2.2).
+export const ATTACHMENT = '[Adjunto sin texto]';
+export const ATTACHMENT_ANALYSIS = { ...SOCIAL_ANALYSIS, social: false, attachment: true };

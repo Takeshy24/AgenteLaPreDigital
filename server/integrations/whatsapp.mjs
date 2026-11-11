@@ -10,6 +10,7 @@ import { getParticipation } from '../shared/repository.mjs';
 import { integrationConfig } from './config.mjs';
 import * as repository from './repository.mjs';
 import { answerFromKeyboard, processMessage } from './telegram.mjs';
+import { ATTACHMENT } from '../agent/social.mjs';
 
 const GREETING =
   /^(hola|buenas|buen dia|buenos dias|buenas tardes|buenas noches|hi|hello|inicio|empezar|start)/;
@@ -91,7 +92,13 @@ function readMessage(payload) {
   if (payload.type === 'text') return { text: payload.text?.body ?? '' };
   const reply = payload.interactive?.list_reply ?? payload.interactive?.button_reply;
   if (payload.type === 'interactive' && reply) return { text: reply.title, data: reply.id };
-  return null;
+  if (payload.type === 'button' && payload.button?.text) return { text: payload.button.text };
+  // Una reacción vacía es el retiro de una reacción anterior: no es un mensaje.
+  if (payload.type === 'reaction')
+    return payload.reaction?.emoji ? { text: payload.reaction.emoji } : null;
+  // Sin texto: la leyenda del archivo, un emoji para el sticker o la marca de adjunto.
+  const caption = payload[payload.type]?.caption;
+  return { text: caption || (payload.type === 'sticker' ? '😊' : ATTACHMENT) };
 }
 
 function emailsIn(text) {
@@ -203,13 +210,7 @@ async function processWhatsAppMessage(item, client) {
   const read = readMessage(payload);
   const finish = (error) =>
     transaction((db) => repository.finishWhatsAppEvent(db, item.eventKey, null, error));
-  if (!read) {
-    await client.sendText(
-      item.waId,
-      'Por ahora solo puedo leer mensajes de texto. ¿Me cuentas tu duda por escrito? 😊',
-    );
-    return finish('Tipo de mensaje no soportado');
-  }
+  if (!read) return finish('Reacción retirada');
   const contact = await resolveContact(item, read.text, client);
   if (!contact) return finish('Contacto sin identificar');
   const db = await pool();

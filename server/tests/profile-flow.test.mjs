@@ -65,7 +65,13 @@ test('la siguiente pregunta sigue el orden y se detiene cuando el perfil está c
   assert.equal(nextKey({}), 'career');
   assert.equal(nextKey({ career: 'Derecho', availability: '', budget: null }), 'availability');
   assert.equal(nextKey({ career: 'Derecho', availability: '3 a 4 horas al día' }), 'budget');
-  assert.equal(nextKey({ career: 'Derecho', availability: 'x', budget: 0 }), null);
+  // Opcionales (tabla 3): cursos difíciles y postulaciones, una sola vez y solo si no se conocen.
+  const core = { career: 'Derecho', availability: 'x', budget: 0 };
+  assert.equal(nextKey(core), 'courses');
+  assert.equal(nextKey({ ...core, asked: '2,6,7,3' }), 'applications');
+  assert.equal(nextKey({ ...core, courses: 'Física' }), 'applications');
+  assert.equal(nextKey({ ...core, asked: '3,4' }), null);
+  assert.equal(nextKey({ ...core, courses: 'Física', applications: 'Postuló una vez' }), null);
 });
 
 test('la recomendación elige el plan mensual más completo que cabe y no inventa importes', () => {
@@ -288,7 +294,38 @@ test('las respuestas con botones llenan el perfil una a una y terminan en una re
       await send(db, scenario, press(scenario, `pf:${id}:b:1`));
       assert.equal(Number((await profile()).budget), 80);
       messages = await outgoing(db, scenario);
+      assert.match(
+        messages.at(-1).text,
+        /dos preguntas opcionales: ¿qué cursos se te hacen más difíciles\?/,
+      );
+      assert.ok(
+        JSON.parse(messages.at(-1).markup)
+          .inline_keyboard.flat()
+          .some((button) => button.text === 'Ninguno en especial'),
+      );
+      await send(db, scenario, press(scenario, `pf:${id}:d:2`));
+      messages = await outgoing(db, scenario);
+      assert.match(messages.at(-1).text, /¿Ya postulaste antes a la UNT\?/);
+      await send(db, scenario, press(scenario, `pf:${id}:e:0`));
+      const needs = (
+        await query(
+          db,
+          `SELECT (SELECT STRING_AGG(curso, ',') FROM dbo.BeneficiarioCursoDificil WHERE idBeneficiario=l.idBeneficiario) courses,
+          (SELECT TOP 1 descripcion FROM dbo.BeneficiarioPostulacionAnterior WHERE idBeneficiario=l.idBeneficiario) applications
+          FROM dbo.LeadCaso lc JOIN dbo.Lead l ON l.idLead=lc.idLead WHERE lc.idLeadCaso=@id`,
+          { id },
+        )
+      ).recordset[0];
+      assert.deepEqual(needs, {
+        courses: 'Física',
+        applications: 'Primera postulación (no postuló antes)',
+      });
+      messages = await outgoing(db, scenario);
       assert.match(messages.at(-1).text, /lo que mejor te va es Meta UNT/);
+      assert.match(
+        messages.at(-1).text,
+        /Para reforzar física, los planes pagados incluyen videoclases/,
+      );
       const buttons = JSON.parse(messages.at(-1).markup).inline_keyboard.flat();
       assert.deepEqual(
         buttons.map((button) => button.text),
@@ -297,7 +334,7 @@ test('las respuestas con botones llenan el perfil una a una y terminan en una re
       assert.equal(
         (await query(db, 'SELECT COUNT(*) n FROM dbo.PreguntaPerfil WHERE idLeadCaso=@id', { id }))
           .recordset[0].n,
-        3,
+        5,
       );
       assert.equal(
         (
@@ -321,7 +358,13 @@ test('los botones de la recomendación ofrecen Explora y preparan la propuesta c
       const scenario = await setup(db, { consent: true });
       const id = scenario.lead.id;
       await send(db, scenario, text(scenario, `/start ${scenario.code}`));
-      for (const data of [`pf:${id}:c:0`, `pf:${id}:a:1`, `pf:${id}:b:1`])
+      for (const data of [
+        `pf:${id}:c:0`,
+        `pf:${id}:a:1`,
+        `pf:${id}:b:1`,
+        `pf:${id}:d:6`,
+        `pf:${id}:e:1`,
+      ])
         await send(db, scenario, press(scenario, data));
       const recommendation = (await outgoing(db, scenario)).at(-1);
       const tariff = JSON.parse(recommendation.markup)
@@ -525,7 +568,10 @@ test('al volver a abrir el enlace no repregunta lo ya respondido y retoma donde 
       await send(db, scenario, text(scenario, '/start tercer-enlace'));
       last = (await outgoing(db, scenario)).at(-1);
       assert.match(last.text, /Sigamos donde nos quedamos/);
-      assert.match(last.text, /lo que mejor te va es Meta UNT/);
+      // La pregunta opcional de cursos ya se hizo una vez: no se repite y sigue la de postulaciones.
+      assert.match(last.text, /¿Ya postulaste antes a la UNT\?/);
+      assert.equal(await asked(3), 1);
+      assert.equal(await asked(4), 1);
       // La carrera, ya respondida, no se vuelve a preguntar. La disponibilidad se retomó una vez
       // porque estaba pendiente cuando se reabrió el enlace.
       assert.equal(await asked(2), 1);
@@ -722,6 +768,61 @@ test('al derivar se avisa una sola vez y el aviso sale aunque la derivación ya 
       assert.equal(sent.at(-1).data.reply_markup, undefined);
       await send(db, scenario, text(scenario, 'cuanto cuesta meta unt'));
       assert.equal((await flush(db, scenario)).length, sent.length);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('foto sin texto cuenta como respuesta, pide el texto y no cuenta como fallo; con leyenda se analiza', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      await flush(db, scenario);
+      const photo = (caption) => (id) => ({
+        message: {
+          message_id: id,
+          from: { id: 123, is_bot: false },
+          chat: { id: scenario.chat, type: 'private' },
+          photo: [{ file_id: 'f', width: 10, height: 10 }],
+          ...(caption ? { caption } : {}),
+        },
+      });
+      await send(db, scenario, photo());
+      const incoming = (
+        await query(
+          db,
+          'SELECT TOP 1 textoMensaje text FROM dbo.Mensaje WHERE idContacto=@contact AND idDireccion=1 ORDER BY idMensaje DESC',
+          { contact: scenario.lead.contact },
+        )
+      ).recordset[0];
+      assert.equal(incoming.text, '[Adjunto sin texto]');
+      assert.match(
+        (await outgoing(db, scenario)).at(-1).text,
+        /solo puedo leer mensajes de texto.*no con una captura/,
+      );
+      const failures = (
+        await query(
+          db,
+          'SELECT consecutiveFailures n FROM dbo.App_AgentFailures WHERE idContacto=@contact',
+          {
+            contact: scenario.lead.contact,
+          },
+        )
+      ).recordset[0];
+      assert.equal(failures?.n ?? 0, 0);
+      await send(db, scenario, photo('Ya pagué, aquí está el comprobante'));
+      const handoff = (
+        await query(
+          db,
+          'SELECT idMotivoDerivacion reason FROM dbo.Derivacion WHERE idContacto=@contact',
+          {
+            contact: scenario.lead.contact,
+          },
+        )
+      ).recordset[0];
+      assert.equal(handoff.reason, 5);
     });
   } finally {
     await close();

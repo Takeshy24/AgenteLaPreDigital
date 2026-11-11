@@ -8,7 +8,12 @@ import {
   queueNextStep,
 } from '../agent/profile-service.mjs';
 import { actOnAnalysis, handOff, handoffReason } from '../agent/service.mjs';
-import { isSocialMessage, SOCIAL_ANALYSIS } from '../agent/social.mjs';
+import {
+  ATTACHMENT,
+  ATTACHMENT_ANALYSIS,
+  isSocialMessage,
+  SOCIAL_ANALYSIS,
+} from '../agent/social.mjs';
 import { answerConsent, askChannelConsent, parseConsent } from '../agent/consent-prompt.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, query, transaction } from '../db.mjs';
@@ -77,7 +82,7 @@ async function handleProfileCallback(item, callback, client) {
   try {
     await transaction(async (db) => {
       if ((await repository.getUpdate(db, item.updateId))?.processedAt) return;
-      const result = ['c', 'a', 'b'].includes(parsed.letter)
+      const result = ['c', 'a', 'b', 'd', 'e'].includes(parsed.letter)
         ? await answerProfile(parsed.participationId, parsed)
         : await answerAction(parsed.participationId, parsed);
       if (result.alreadyAnswered) feedback = 'Ya la tengo anotada 😊';
@@ -284,7 +289,7 @@ export async function answerFromKeyboard(context, target, text, { data = null } 
       const parsed = await matchKeyboardReply(db, target.id, text, { data });
       if (!parsed) return false;
       const options = { text, channel: context.channel };
-      const result = ['c', 'a', 'b'].includes(parsed.letter)
+      const result = ['c', 'a', 'b', 'd', 'e'].includes(parsed.letter)
         ? await answerProfile(target.id, parsed, options)
         : await answerAction(target.id, parsed, options);
       const participant = await getParticipation(db, target.id);
@@ -299,10 +304,13 @@ export async function answerFromKeyboard(context, target, text, { data = null } 
 }
 export async function processMessage(context, target, text) {
   if (await answerFromKeyboard(context, target, text)) return;
-  const social = isSocialMessage(text);
-  const result = social
-    ? { analysis: SOCIAL_ANALYSIS, error: null }
-    : await analyze(text, target.id);
+  const attachment = text === ATTACHMENT;
+  const social = attachment || isSocialMessage(text);
+  const result = attachment
+    ? { analysis: ATTACHMENT_ANALYSIS, error: null }
+    : social
+      ? { analysis: SOCIAL_ANALYSIS, error: null }
+      : await analyze(text, target.id);
   if (result.analysis?.understood === false) {
     result.error = 'Mensaje no interpretable';
     result.analysis = null;
@@ -359,15 +367,15 @@ export async function processUpdate(item, client) {
   const update = JSON.parse(item.payload);
   if (update.callback_query) return handleCallback(item, update.callback_query, client);
   const message = update.message;
-  if (
-    !message ||
-    message.chat.type !== 'private' ||
-    message.from?.is_bot ||
-    typeof message.text !== 'string'
-  ) {
+  if (!message || message.chat.type !== 'private' || message.from?.is_bot) {
     await transaction((db) => repository.finishUpdate(db, item.updateId));
     return;
   }
+  // Sin texto: la leyenda de la foto o documento, el emoji del sticker o la marca de adjunto.
+  message.text =
+    typeof message.text === 'string'
+      ? message.text
+      : message.caption || message.sticker?.emoji || ATTACHMENT;
   if (message.text.startsWith('/start ')) return handleStart(item, message.text, client);
   const chat = await repository.getChat(await pool(), item.chatId);
   if (!chat) {

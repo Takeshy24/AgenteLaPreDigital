@@ -9,6 +9,7 @@ import { Followup } from './pages/Followup';
 import { Integrations } from './pages/Integrations';
 import { Kpis } from './pages/Kpis';
 import { Overview } from './pages/Overview';
+import { Pending } from './pages/Pending';
 import { Profile } from './pages/Profile';
 import { WorkspaceProvider, useWorkspace } from './state/Workspace';
 function WorkspaceView() {
@@ -20,6 +21,7 @@ function WorkspaceView() {
       {!data && !error && <Empty>Cargando SQL Server…</Empty>}
       {data && selected && <Profile key={selected.id} />}
       {data && !selected && page === 'overview' && <Overview />}
+      {data && !selected && page === 'pending' && <Pending />}
       {data && !selected && page === 'leads' && <LeadTable />}
       {data && !selected && page === 'catalog' && <Catalog />}
       {data && !selected && page === 'followup' && <Followup />}

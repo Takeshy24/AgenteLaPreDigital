@@ -56,6 +56,7 @@ export function ProposalCard() {
     [replyTo, setReplyTo] = useState(''),
     [justification, setJustification] = useState(''),
     [receipt, setReceipt] = useState(''),
+    [price, setPrice] = useState(''),
     [offerLink, setOfferLink] = useState<{ proposal: number; url: string } | null>(null);
   const incomingMessages = detail?.messages.filter((message) => message.idDireccion === 1) ?? [];
   const lastIncoming = incomingMessages.at(-1);
@@ -139,7 +140,11 @@ export function ProposalCard() {
             #{proposal.idPropuesta} · {proposal.plan}
           </b>
           <p>
-            S/ {proposal.precioAutorizado} ·{' '}
+            S/ {proposal.precioAutorizado}
+            {proposal.idOperadorAprueba
+              ? ` (descuento aprobado; catálogo S/ ${proposal.precioCatalogo})`
+              : ''}{' '}
+            ·{' '}
             {proposal.idEstadoEntrega === 2
               ? 'Entregada al canal'
               : proposal.idEstadoEntrega === 3
@@ -250,6 +255,7 @@ export function ProposalCard() {
                 channel:
                   incoming?.canal === 'Telegram' ? 3 : incoming?.canal === 'WhatsApp' ? 1 : 2,
                 justification,
+                ...(price ? { price: Number(price) } : {}),
               },
               'Propuesta preparada. Entrega y pago aún no confirmados.',
             );
@@ -278,6 +284,17 @@ export function ProposalCard() {
                   </option>
                 ))}
             </select>
+          </label>
+          <label>
+            Precio con descuento aprobado (opcional)
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              placeholder="Vacío = precio del catálogo"
+            />
           </label>
           <label>
             Justificación con datos conocidos

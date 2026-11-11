@@ -2,6 +2,7 @@ import {
   BarChart3,
   BookOpen,
   CalendarDays,
+  ClipboardList,
   Database,
   LayoutDashboard,
   Plus,
@@ -13,6 +14,7 @@ import { useWorkspace, type Page } from '../state/Workspace';
 import { Button } from './ui';
 const navigation = [
   { id: 'overview', name: 'Inicio', icon: LayoutDashboard },
+  { id: 'pending', name: 'Pendientes', icon: ClipboardList },
   { id: 'leads', name: 'LEADS y casos', icon: Users },
   { id: 'catalog', name: 'Catálogo', icon: BookOpen },
   { id: 'followup', name: 'Seguimiento', icon: CalendarDays },
@@ -81,6 +83,8 @@ export function Layout({ children, onCreate }: { children: ReactNode; onCreate: 
                     ? 'Contacto, beneficiario y participación: cada dato conserva su contexto.'
                     : {
                         overview: 'Vista operativa de las negociaciones registradas.',
+                        pending:
+                          'Derivaciones, pagos y revisiones que esperan una decisión del personal comercial.',
                         leads: 'Consulta cada participación por contacto, beneficiario y caso.',
                         catalog: 'Planes y modalidades del catálogo autorizado.',
                         followup: 'Agenda de intentos y condiciones del seguimiento autorizado.',

@@ -61,7 +61,10 @@ export async function getProfile(db, participationId) {
     (
       await query(
         db,
-        `SELECT pb.carreraDeseada career, pb.disponibilidadEstudio availability, pc.presupuestoMensual budget
+        `SELECT pb.carreraDeseada career, pb.disponibilidadEstudio availability, pc.presupuestoMensual budget,
+      (SELECT STRING_AGG(curso, ', ') FROM dbo.BeneficiarioCursoDificil WHERE idBeneficiario=l.idBeneficiario) courses,
+      (SELECT TOP 1 descripcion FROM dbo.BeneficiarioPostulacionAnterior WHERE idBeneficiario=l.idBeneficiario ORDER BY idPostulacion DESC) applications,
+      (SELECT STRING_AGG(CAST(idCampoPerfil AS varchar(3)), ',') FROM dbo.PreguntaPerfil WHERE idLeadCaso=lc.idLeadCaso) asked
     FROM dbo.LeadCaso lc JOIN dbo.Lead l ON l.idLead=lc.idLead
     LEFT JOIN dbo.PerfilBeneficiario pb ON pb.idBeneficiario=l.idBeneficiario
     LEFT JOIN dbo.PerfilContacto pc ON pc.idContacto=l.idContacto
@@ -114,4 +117,26 @@ export async function lastOutgoingText(db, participationId) {
       { id: participationId },
     )
   ).recordset[0]?.text;
+}
+// Última propuesta entregada a esta participación, sin respuesta y dentro del plazo de 7 días (F5).
+export async function latestOpenProposal(db, id) {
+  return (
+    await query(
+      db,
+      `SELECT TOP 1 p.idPropuesta id
+    FROM dbo.PropuestaComercial p JOIN dbo.Mensaje m ON m.idMensaje=p.idMensajeEntrega
+    WHERE p.idLeadCasoEntrega=@id AND p.idResultado IS NULL AND m.idEstadoEntrega=2
+    AND m.fechaEntrega>=DATEADD(DAY,-7,DATEADD(HOUR,-5,SYSUTCDATETIME())) ORDER BY p.idPropuesta DESC`,
+      { id },
+    )
+  ).recordset[0];
+}
+// Objeción comercial declarada en un mensaje (tabla 3); una por mensaje.
+export async function saveObjection(db, { id, type, text, messageId }) {
+  await query(
+    db,
+    `IF NOT EXISTS(SELECT 1 FROM dbo.ObjecionComercial WHERE idMensajeEvidencia=@messageId)
+    INSERT dbo.ObjecionComercial(idLeadCaso,idTipoObjecion,detalle,idMensajeEvidencia) VALUES(@id,@type,@text,@messageId)`,
+    { id, type, text: String(text).slice(0, 500), messageId },
+  );
 }

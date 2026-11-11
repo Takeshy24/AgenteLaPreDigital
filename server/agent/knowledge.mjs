@@ -103,6 +103,28 @@ function chunks(tariffs) {
         )
         .join('. ') + '. Explora UNT es gratis por 14 días.',
   });
+  // Objeción de precio: el agente responde con las alternativas del catálogo (sección 2.2).
+  const paid = [...tariffs].sort((a, b) => a.precio - b.precio)[0];
+  if (paid)
+    list.push({
+      id: 'alternativas',
+      title: 'Alternativas más económicas',
+      source: `${PRICE_SOURCE} e informe v30, sección 2.2 (objeción de precio)`,
+      keywords: [
+        'caro',
+        'cara',
+        'carisimo',
+        'barato',
+        'barata',
+        'economico',
+        'economica',
+        'accesible',
+        'costoso',
+        'no me alcanza',
+      ],
+      render: () =>
+        `Te cuento las opciones más accesibles: Explora UNT es gratis por 14 días para que pruebes la plataforma, y ${paid.plan} cuesta S/ ${Number(paid.precio).toFixed(2)} ${paid.modalidad === 'Mensual' ? 'al mes' : 'el semestre'}, el plan pagado más económico.`,
+    });
   for (const feature of features)
     list.push({
       id: `caracteristica:${feature.label}`,
