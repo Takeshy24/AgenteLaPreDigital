@@ -7,14 +7,14 @@ export class TelegramError extends Error {
 export function telegramClient(token, fetcher = fetch) {
   if (!token) throw new TelegramError('Configura TELEGRAM_BOT_TOKEN en .env.');
   return {
-    async call(method, data = {}) {
+    async call(method, data = {}, { timeout = 35000 } = {}) {
       let response;
       try {
         response = await fetcher(`https://api.telegram.org/bot${token}/${method}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
-          signal: AbortSignal.timeout(35000),
+          signal: AbortSignal.timeout(timeout),
         });
       } catch {
         throw new TelegramError('No se pudo confirmar la respuesta de Telegram.', true);

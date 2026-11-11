@@ -153,6 +153,13 @@ export function registerRoutes(app) {
       next(error);
     }
   });
+  app.post('/api/public/offers/:token/demo-payment', async (req, res, next) => {
+    try {
+      res.json(await service.simulateOfferPayment(token.parse(req.params.token)));
+    } catch (error) {
+      next(error);
+    }
+  });
   app.post('/api/public/offers/:token/confirm', async (req, res, next) => {
     try {
       res.json(

@@ -13,7 +13,7 @@ npm run build
 npm start
 ```
 
-`npm run migrate` aplica `script/LaPreDigital_OLTP.sql` con `sqlcmd`; el script crea la base si no existe y es repetible. Además del esquema original incluye las extensiones `App_*` (Telegram, despachos, evidencias, pruebas, becas, análisis, captación pública y onboarding), el ajuste que permite mensajes automáticos salientes de los orígenes previstos, el evento de habilitación, el canal Portal web y el usuario `landing_app` con permisos mínimos. La unicidad de `requestKey` en solicitudes públicas se resuelve con un trigger, sin índices. El servidor no ejecuta el esquema ni inserta datos ficticios al arrancar.
+`npm run migrate` aplica `script/LaPreDigital_OLTP.sql` con `sqlcmd`; el script crea la base si no existe y es repetible. Contiene solo CREATE, triggers e INSERT de catálogos, sin ALTER ni índices explícitos: las 61 tablas del modelo del informe y 15 tablas `App_*` de apoyo (Telegram, despachos, evidencias, pruebas, becas, análisis del agente, ofertas y solicitudes públicas, onboarding), el canal Portal web y el evento de habilitación del servicio. La unicidad de `requestKey` en solicitudes públicas se resuelve con un trigger. El servidor no ejecuta el esquema ni inserta datos ficticios al arrancar. Para llevar una base existente a este esquema hay que recrearla (`DROP DATABASE`, luego `npm run migrate`).
 
 Las transacciones usan aislamiento Serializable y contexto asíncrono compartido para operaciones compuestas. Los fallos revierten toda la operación. El adaptador actual requiere Windows; para Linux debe sustituirse.
 
@@ -120,3 +120,14 @@ La revisión visual automatizada de esta entrega quedó pendiente: ambos control
 - Autenticación, permisos, auditoría por usuario real, observabilidad y operación de producción.
 
 Los flujos implementados no equivalen al cumplimiento integral del informe ni a una integración de pagos o aprendizaje en producción.
+
+## WhatsApp (Cloud API de Meta)
+
+Es un canal más del agente, igual que Telegram: el proceso de integraciones recibe los mensajes, el agente los analiza con las mismas reglas y las respuestas salen por el mismo despacho. Se activa con `WHATSAPP_ENABLED=true` y las variables `WHATSAPP_*` de `.env.example`.
+
+- **Webhook:** `GET` y `POST /api/public/whatsapp/webhook` (públicos, por el túnel). El `POST` exige la firma `X-Hub-Signature-256` calculada con `WHATSAPP_APP_SECRET`; el `GET` responde el desafío si coincide `WHATSAPP_VERIFY_TOKEN`. Cada evento se guarda en `App_WhatsAppInbox` con su identificador, así que los reintentos de Meta no duplican nada.
+- **Quién escribe:** se identifica por el teléfono del contacto (`Contacto.telefono`). Si el número está en varios contactos, el agente pide el correo y lo identifica con el correo escrito en ese mensaje. Un número no registrado recibe el enlace de la landing.
+- **Cuestionario:** las preguntas con opciones salen como lista interactiva (máximo 10 opciones y 24 caracteres por opción). La elección llega como mensaje del contacto y se registra una vez.
+- **Ventana de 24 horas:** dentro de las 24 horas posteriores al último mensaje del contacto se envía texto libre o lista. Fuera de esa ventana (por ejemplo, un intento de la agenda) solo se puede enviar una plantilla aprobada: `WHATSAPP_TEMPLATE_NAME`. Con `hello_world` se envía sin variables; con una plantilla propia se envía el texto del mensaje como variable `{{1}}` del cuerpo.
+- **Entrega:** la API acepta el envío, pero el mensaje solo pasa a Entregado cuando Meta confirma el estado `delivered` o `read` por el webhook; si llega `failed`, queda Fallido.
+- **Autorización:** los mensajes de la agenda por WhatsApp exigen una autorización vigente del canal; responder a un mensaje entrante no.

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Card, Empty } from '../../components/ui';
 import { formatDate } from '../../shared/dates';
 import { useWorkspace } from '../../state/Workspace';
@@ -11,10 +11,14 @@ export function ProfileCard() {
     budget: selected?.budget == null ? '' : String(selected.budget),
   });
   const [channel, setChannel] = useState('');
+  const lastChannel = detail?.changes[0]?.idCanal;
+  useEffect(() => {
+    setChannel(lastChannel ? String(lastChannel) : '');
+  }, [selected?.id, lastChannel]);
   if (!selected) return null;
   return (
     <>
-      <Card title="Contexto académico y económico" label="L-2 · PERFIL">
+      <Card title="Contexto académico y económico" label="L-2 · PERFIL" mode="agent">
         <p>
           Guarda únicamente datos expresamente comunicados. Los campos desconocidos permanecen sin
           completar.
@@ -69,7 +73,7 @@ export function ProfileCard() {
           <Button disabled={busy || !channel}>Guardar perfil</Button>
         </form>
       </Card>
-      <Card title="Cambios del perfil" label="TRAZABILIDAD">
+      <Card title="Cambios del perfil" label="TRAZABILIDAD" mode="info">
         {!detail?.changes.length && <Empty>Sin cambios de perfil registrados.</Empty>}
         {detail?.changes.map((change) => (
           <div className="audit-line" key={change.idCambio}>

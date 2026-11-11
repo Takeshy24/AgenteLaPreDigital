@@ -16,7 +16,7 @@ export function AgentCard() {
   if (!selected) return null;
   const message = detail?.messages.find((item) => item.idMensaje === Number(messageId));
   return (
-    <Card title="Revisar con Ollama" label="AGENTE LOCAL">
+    <Card title="Revisar con Ollama" label="AGENTE LOCAL" mode="manual">
       <form
         className="form"
         onSubmit={async (event) => {

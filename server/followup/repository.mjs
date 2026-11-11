@@ -172,7 +172,7 @@ VALUES
     @channel,
     1,
     @authorization,
-    1,
+    0,
     N'Hola. ¿Qué información necesitas para continuar tu preparación para la UNT?',
     1
   )`,
@@ -195,6 +195,105 @@ WHERE
     { messageId, id: attempt.id },
   );
   return messageId;
+}
+// Un mensaje automático ya enviado por un canal autorizado (por ejemplo el correo de bienvenida)
+// cumple el primer intento pendiente y vencido de cada participación activa del contacto. El margen
+// de un minuto cubre el redondeo de fechaProgramada (DATETIME2(0)) al registrarse el contacto.
+export async function recordAutomaticSend(db, { contact, channel, text }) {
+  const authorization = (
+    await query(
+      db,
+      `SELECT
+  TOP 1 idAutorizacion
+FROM
+  dbo.AutorizacionContacto
+WHERE
+  idContacto = @contact
+  AND idCanal = @channel
+  AND idEstadoAutorizacion = 1
+ORDER BY
+  fechaOtorgamiento,
+  idAutorizacion`,
+      { contact, channel },
+    )
+  ).recordset[0];
+  if (!authorization) return 0;
+  const participations = (
+    await query(
+      db,
+      `SELECT
+  lc.idLeadCaso,
+  lc.idLead
+FROM
+  dbo.LeadCaso lc
+  JOIN dbo.Lead l ON l.idLead = lc.idLead
+WHERE
+  l.idContacto = @contact
+  AND lc.idEstadoParticipacion = 1
+  AND lc.fechaInicioElegibilidad IS NOT NULL`,
+      { contact },
+    )
+  ).recordset;
+  let recorded = 0;
+  for (const participation of participations) {
+    const attempt = (
+      await query(
+        db,
+        `SELECT
+  TOP 1 idIntento
+FROM
+  dbo.IntentoContacto
+WHERE
+  idLeadCaso = @participant
+  AND idMensajeEnvio IS NULL
+  AND omitido = 0
+  AND fechaProgramada <= DATEADD(MINUTE, 1, ${now})
+ORDER BY
+  numeroIntento`,
+        { participant: participation.idLeadCaso },
+      )
+    ).recordset[0];
+    if (!attempt) continue;
+    const messageId = await insert(
+      db,
+      `INSERT
+  dbo.Mensaje (
+    idContacto,
+    idLead,
+    idLeadCaso,
+    idDireccion,
+    idCanal,
+    idOrigenMensaje,
+    idAutorizacionAlEnvio,
+    esAutomatico,
+    textoMensaje,
+    idEstadoEntrega,
+    fechaEntrega
+  )
+VALUES
+  (@contact, @lead, @participant, 2, @channel, 1, @authorization, 0, @text, 2, ${now})`,
+      {
+        contact,
+        lead: participation.idLead,
+        participant: participation.idLeadCaso,
+        channel,
+        authorization: authorization.idAutorizacion,
+        text,
+      },
+    );
+    await query(
+      db,
+      `UPDATE dbo.IntentoContacto
+SET
+  idMensajeEnvio = @messageId
+WHERE
+  idIntento = @id
+  AND idMensajeEnvio IS NULL`,
+      { messageId, id: attempt.idIntento },
+    );
+    recorded++;
+  }
+  return recorded;
 }
 export async function listEvaluable(db) {
   return (

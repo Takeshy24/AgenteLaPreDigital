@@ -4,7 +4,14 @@ import { z } from 'zod';
 import { registerRoutes as consentsRoutes } from './consents/routes.mjs';
 import { registerRoutes as contractsRoutes } from './contracts/routes.mjs';
 import { handleStripeEvent, verifyStripeEvent } from './contracts/webhook.mjs';
+import { integrationConfig } from './integrations/config.mjs';
+import {
+  receiveWebhook,
+  verifyWebhookChallenge,
+  verifyWhatsAppSignature,
+} from './integrations/whatsapp.mjs';
 import { registerRoutes as publicRoutes } from './public/routes.mjs';
+import { registerRoutes as kpisRoutes } from './kpis/routes.mjs';
 import { registerRoutes as leadsRoutes } from './leads/routes.mjs';
 import { registerRoutes as messagesRoutes } from './messages/routes.mjs';
 import { registerRoutes as operationsRoutes } from './operations/routes.mjs';
@@ -30,6 +37,32 @@ app.post(
     } catch (error) {
       console.error('Stripe webhook:', error.message);
       res.status(400).json({ error: 'No se pudo verificar o registrar el evento.' });
+    }
+  },
+);
+app.get('/api/public/whatsapp/webhook', (req, res) => {
+  const config = integrationConfig().whatsapp;
+  const challenge = config.enabled ? verifyWebhookChallenge(req.query, config.verifyToken) : null;
+  if (challenge === null) return res.sendStatus(403);
+  res.type('text/plain').send(challenge);
+});
+app.post(
+  '/api/public/whatsapp/webhook',
+  express.raw({ type: 'application/json', limit: '1mb' }),
+  async (req, res) => {
+    const config = integrationConfig().whatsapp;
+    if (!config.enabled) return res.sendStatus(404);
+    if (
+      !Buffer.isBuffer(req.body) ||
+      !verifyWhatsAppSignature(req.body, req.headers['x-hub-signature-256'], config.appSecret)
+    )
+      return res.sendStatus(403);
+    try {
+      await receiveWebhook(JSON.parse(req.body.toString('utf8')));
+      res.sendStatus(200);
+    } catch (error) {
+      console.error('WhatsApp webhook:', error.message);
+      res.sendStatus(500);
     }
   },
 );
@@ -77,6 +110,7 @@ app.use('/api', (req, res, next) => {
 
 workspaceRoutes(app);
 leadsRoutes(app);
+kpisRoutes(app);
 profilesRoutes(app);
 messagesRoutes(app);
 prioritiesRoutes(app);

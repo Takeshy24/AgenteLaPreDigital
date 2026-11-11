@@ -17,6 +17,10 @@ export function registerRoutes(app) {
     ),
   );
   app.post(
+    '/api/cases/:id/demo-payment',
+    route(z.object({}).strict(), (_, id) => service.simulatePayment(id)),
+  );
+  app.post(
     '/api/cases/:id/terms',
     route(z.object({ proposalId: id, reference }).strict(), (body, id) =>
       service.acceptTerms(id, body),

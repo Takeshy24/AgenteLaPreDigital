@@ -10,6 +10,7 @@ import { createChatContact } from '../onboarding/repository.mjs';
 import { registerLanding, telegramEmail } from '../public/landing.mjs';
 
 process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
+process.env.WHATSAPP_PUBLIC_NUMBER = ''; // los comprobantes exactos no dependen del .env
 const count = async (db, sql, params) => (await query(db, sql, params)).recordset[0].n;
 const uniqueEmail = (label) => `${label}-${Date.now()}@example.test`;
 

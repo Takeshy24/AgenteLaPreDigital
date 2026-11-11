@@ -72,6 +72,9 @@ const outputFormat = {
     'guardian',
   ],
 };
+export const PAYMENT_QUESTION =
+  /medios? de pago|formas? de pago|m[eé]todos? de pago|c[oó]mo (puedo |se |lo )?(pag|compr|adquir|inscrib)|pagos?\b|comprar|adquirir|tarjeta|yape|plin|transferencia|deposito|depósito/i;
+
 export function validateAnalysis(output, text, tariffs, context = {}) {
   const analysis = analysisSchema.parse(output);
   const normalized = text.toLocaleLowerCase('es');
@@ -155,8 +158,10 @@ export function validateAnalysis(output, text, tariffs, context = {}) {
       item.value.length <= (item.field === 'availability' ? 200 : 100)
     );
   });
+  if (analysis.action === 'ask' && PAYMENT_QUESTION.test(text)) analysis.action = 'catalog';
   if (
     analysis.fields.length ||
+    PAYMENT_QUESTION.test(text) ||
     /precio|cuesta|costo|incluye|plan|ruta unt|meta unt|explora|medicina|contrat|pagar|inscri|gracias|hola|descuento|beca|reembolso|asesor/i.test(
       text,
     )

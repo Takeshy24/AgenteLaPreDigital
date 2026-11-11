@@ -15,7 +15,9 @@ import { dispatchMessage } from '../integrations/dispatch.mjs';
 import { hashCode } from '../integrations/service.mjs';
 import { processUpdate } from '../integrations/telegram.mjs';
 import { actOnAnalysis } from '../agent/service.mjs';
+import { getRequestedPlan } from '../agent/repository.mjs';
 import { createLead } from '../leads/service.mjs';
+import * as publicRepository from '../public/repository.mjs';
 import { recordIncoming } from '../messages/service.mjs';
 
 process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
@@ -166,7 +168,7 @@ test('vincular con un enlace de formulario saluda, autoriza Telegram y hace la p
       await send(db, scenario, text(scenario, `/start ${scenario.code}`));
       const [greetingMessage] = await outgoing(db, scenario);
       assert.match(greetingMessage.text, /^¡Hola, Estudiante!/);
-      assert.match(greetingMessage.text, /¿Qué carrera quieres estudiar\?/);
+      assert.match(greetingMessage.text, /¿Qué carrera te gustaría estudiar\?/);
       assert.doesNotMatch(greetingMessage.text, /autorizar|revocar/i);
       assert.equal(
         (
@@ -189,9 +191,10 @@ test('vincular con un enlace de formulario saluda, autoriza Telegram y hace la p
         1,
       );
       const [sent] = await flush(db, scenario);
-      const buttons = sent.data.reply_markup.inline_keyboard.flat();
+      const buttons = sent.data.reply_markup.keyboard.flat();
       assert.ok(buttons.some((button) => button.text === 'Medicina Humana'));
-      assert.ok(buttons.some((button) => button.callback_data === `pf:${scenario.lead.id}:c:0`));
+      assert.equal(sent.data.reply_markup.one_time_keyboard, true);
+      assert.ok(!('inline_keyboard' in sent.data.reply_markup));
     });
   } finally {
     await close();
@@ -246,7 +249,7 @@ test('las respuestas con botones llenan el perfil una a una y terminan en una re
       assert.ok(JSON.parse(messages.at(-1).markup).inline_keyboard.flat().length >= 4);
       assert.ok(
         scenario.client.calls.some(
-          (call) => call.method === 'answerCallbackQuery' && call.data.text === 'Listo',
+          (call) => call.method === 'answerCallbackQuery' && call.data.text === '¡Listo!',
         ),
       );
       assert.ok(scenario.client.calls.some((call) => call.method === 'editMessageReplyMarkup'));
@@ -255,7 +258,7 @@ test('las respuestas con botones llenan el perfil una a una y terminan en una re
       await send(db, scenario, press(scenario, `pf:${id}:c:1`));
       assert.equal((await profile()).career, 'Medicina Humana');
       assert.equal((await outgoing(db, scenario)).length, before);
-      assert.equal(scenario.client.calls.at(-2).data.text, 'Ya tengo esa respuesta');
+      assert.equal(scenario.client.calls.at(-2).data.text, 'Ya la tengo anotada 😊');
 
       await send(db, scenario, press(scenario, `pf:${id}:a:1`));
       assert.equal((await profile()).availability, '3 a 4 horas al día');
@@ -265,7 +268,7 @@ test('las respuestas con botones llenan el perfil una a una y terminan en una re
       await send(db, scenario, press(scenario, `pf:${id}:b:1`));
       assert.equal(Number((await profile()).budget), 80);
       messages = await outgoing(db, scenario);
-      assert.match(messages.at(-1).text, /te recomiendo Meta UNT/);
+      assert.match(messages.at(-1).text, /lo que mejor te va es Meta UNT/);
       const buttons = JSON.parse(messages.at(-1).markup).inline_keyboard.flat();
       assert.deepEqual(
         buttons.map((button) => button.text),
@@ -340,7 +343,10 @@ test('un clic inválido o ajeno se cierra sin detener la cola ni cambiar el perf
       const before = (await outgoing(db, scenario)).length;
 
       const invalid = await send(db, scenario, press(scenario, `pf:${id}:c:9`));
-      assert.equal(scenario.client.calls.at(-2).data.text, 'No pude registrar esa opción');
+      assert.equal(
+        scenario.client.calls.at(-2).data.text,
+        'Uy, no pude anotar eso. ¿Lo intentamos de nuevo?',
+      );
       const foreign = await send(db, scenario, press(scenario, `pf:${id + 999999}:c:0`));
       for (const updateId of [invalid, foreign])
         assert.ok(
@@ -392,12 +398,310 @@ test('las preguntas que el agente hace al leer un mensaje libre también llevan 
         guardian: null,
       });
       const reply = (await outgoing(db, scenario)).at(-1);
-      assert.match(reply.text, /¿Qué carrera deseas preparar para la UNT\?/);
+      assert.match(reply.text, /qué carrera te gustaría estudiar en la UNT/);
       assert.ok(
         JSON.parse(reply.markup)
           .inline_keyboard.flat()
           .some((button) => button.callback_data === `pf:${scenario.lead.id}:c:0`),
       );
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('"Otra respuesta" no se repite ni borra el teclado aunque se pulse muchas veces', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      const id = scenario.lead.id;
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      await flush(db, scenario);
+      const before = (await outgoing(db, scenario)).length;
+      for (let press_ = 0; press_ < 4; press_ += 1)
+        await send(db, scenario, press(scenario, `pf:${id}:c:x`));
+      const messages = await outgoing(db, scenario);
+      assert.equal(messages.length, before + 1);
+      assert.match(messages.at(-1).text, /Escríbeme tu respuesta/);
+      assert.equal(
+        scenario.client.calls.filter((call) => call.method === 'editMessageReplyMarkup').length,
+        0,
+      );
+      await send(db, scenario, press(scenario, `pf:${id}:c:0`));
+      assert.equal(
+        scenario.client.calls.filter((call) => call.method === 'editMessageReplyMarkup').length,
+        1,
+      );
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('un fallo o lentitud de Telegram al avisar el clic no detiene ni invalida la actualización', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      await flush(db, scenario);
+      const slow = [];
+      scenario.client.call = async (method, data, options) => {
+        slow.push({ method, options });
+        if (['answerCallbackQuery', 'editMessageReplyMarkup'].includes(method))
+          throw new Error('Telegram rechazó la solicitud (400).');
+        return { message_id: 1 };
+      };
+      const updateId = await send(db, scenario, press(scenario, `pf:${scenario.lead.id}:c:0`));
+      assert.ok(
+        (
+          await query(
+            db,
+            'SELECT processedAt FROM dbo.App_TelegramInbox WHERE updateId=@updateId',
+            {
+              updateId,
+            },
+          )
+        ).recordset[0].processedAt,
+      );
+      const notices = slow.filter((call) => call.method === 'answerCallbackQuery');
+      assert.equal(notices.length, 1);
+      assert.deepEqual(notices[0].options, { timeout: 5000 });
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('al volver a abrir el enlace no repregunta lo ya respondido y retoma donde se quedó', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      const id = scenario.lead.id;
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      await send(db, scenario, press(scenario, `pf:${id}:c:0`));
+      const asked = async (field) =>
+        (
+          await query(
+            db,
+            'SELECT COUNT(*) n FROM dbo.PreguntaPerfil WHERE idLeadCaso=@id AND idCampoPerfil=@field',
+            { id, field },
+          )
+        ).recordset[0].n;
+
+      await saveLink(db, scenario.lead.contact, hashCode('segundo-enlace'), true);
+      await send(db, scenario, text(scenario, '/start segundo-enlace'));
+      let last = (await outgoing(db, scenario)).at(-1);
+      assert.match(
+        last.text,
+        /^¡Qué bueno verte de nuevo, Estudiante! 😊 Sigamos donde nos quedamos\./,
+      );
+      assert.match(last.text, /¿Cuánto tiempo puedes dedicar a estudiar\?/);
+      assert.doesNotMatch(last.text, /carrera/i);
+      assert.equal(await asked(2), 1);
+
+      await send(db, scenario, press(scenario, `pf:${id}:a:1`));
+      await send(db, scenario, press(scenario, `pf:${id}:b:1`));
+      await saveLink(db, scenario.lead.contact, hashCode('tercer-enlace'), true);
+      await send(db, scenario, text(scenario, '/start tercer-enlace'));
+      last = (await outgoing(db, scenario)).at(-1);
+      assert.match(last.text, /Sigamos donde nos quedamos/);
+      assert.match(last.text, /lo que mejor te va es Meta UNT/);
+      // La carrera, ya respondida, no se vuelve a preguntar. La disponibilidad se retomó una vez
+      // porque estaba pendiente cuando se reabrió el enlace.
+      assert.equal(await asked(2), 1);
+      assert.equal(await asked(6), 2);
+      assert.equal(await asked(7), 1);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('getRequestedPlan no falla (PLAN es palabra reservada) y devuelve el plan pedido en el formulario', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      assert.equal(await getRequestedPlan(db, scenario.lead.contact), null);
+      const inquiry = await publicRepository.saveInquiry(db, {
+        name: 'Estudiante Prueba',
+        email: `plan-${Date.now()}@example.test`,
+        beneficiary: 'Estudiante Prueba',
+        isStudent: true,
+        plan: 'Meta UNT',
+        consent: true,
+      });
+      await publicRepository.linkInquiry(
+        db,
+        inquiry,
+        scenario.lead.contact,
+        scenario.lead.id,
+        'Vinculada',
+      );
+      const requested = await getRequestedPlan(db, scenario.lead.contact);
+      assert.equal(requested.plan, 'Meta UNT');
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('las preguntas sobre medios de pago se entienden y van al catálogo', async () => {
+  const { validateAnalysis } = await import('../agent/ollama.mjs');
+  for (const text of ['Qué medios de pago aceptan?', 'como puedo comprar un plan']) {
+    const analysis = validateAnalysis(
+      {
+        level: 2,
+        retraction: false,
+        action: 'ask',
+        tariffId: null,
+        fields: [],
+        understood: false,
+        needsGuardian: false,
+        guardian: null,
+      },
+      text,
+      [],
+    );
+    assert.equal(analysis.understood, true);
+    assert.equal(analysis.action, 'catalog');
+  }
+});
+
+const incomingCount = async (db, scenario) =>
+  (
+    await query(
+      db,
+      'SELECT COUNT(*) n FROM dbo.Mensaje WHERE idContacto=@contact AND idDireccion=1',
+      { contact: scenario.lead.contact },
+    )
+  ).recordset[0].n;
+
+test('responder con un botón del teclado es un mensaje real, se registra una vez y avanza el perfil', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      await flush(db, scenario);
+      const before = await incomingCount(db, scenario);
+      await send(db, scenario, text(scenario, 'ingenieria de sistemas'));
+      assert.equal((await incomingCount(db, scenario)) - before, 1);
+      const answered = (
+        await query(
+          db,
+          `SELECT m.textoMensaje message, pb.carreraDeseada career
+           FROM dbo.Mensaje m
+           JOIN dbo.LeadCaso lc ON lc.idLeadCaso=m.idLeadCaso
+           JOIN dbo.Lead l ON l.idLead=lc.idLead
+           JOIN dbo.PerfilBeneficiario pb ON pb.idBeneficiario=l.idBeneficiario
+           WHERE m.idMensaje=(SELECT MAX(idMensaje) FROM dbo.Mensaje WHERE idContacto=@contact AND idDireccion=1)`,
+          { contact: scenario.lead.contact },
+        )
+      ).recordset[0];
+      assert.equal(answered.message, 'ingenieria de sistemas');
+      assert.equal(answered.career, 'Ingeniería de Sistemas');
+      const [sent] = (await flush(db, scenario)).slice(-1);
+      assert.match(sent.data.text, /¿Cuánto tiempo puedes dedicar a estudiar\?/);
+      assert.ok(
+        sent.data.reply_markup.keyboard.flat().some((b) => b.text === 'Solo fines de semana'),
+      );
+      const repeated = await incomingCount(db, scenario);
+      await send(db, scenario, text(scenario, 'Ingeniería de Sistemas'));
+      assert.equal(
+        (
+          await query(
+            db,
+            'SELECT COUNT(*) n FROM dbo.CambioPerfil cp WHERE cp.idLeadCaso=@id AND cp.idCampoPerfil=2',
+            { id: scenario.lead.id },
+          )
+        ).recordset[0].n,
+        1,
+      );
+      assert.ok((await incomingCount(db, scenario)) >= repeated);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('"Otra respuesta" escrita con el teclado pide el texto una sola vez y quita el teclado', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      await flush(db, scenario);
+      await send(db, scenario, text(scenario, 'Otra respuesta'));
+      const prompts = async () =>
+        (await outgoing(db, scenario)).filter((m) =>
+          m.text.startsWith('¡Claro! Escríbeme tu respuesta'),
+        );
+      assert.equal((await prompts()).length, 1);
+      assert.deepEqual(JSON.parse((await prompts())[0].markup), { remove_keyboard: true });
+      const [sent] = (await flush(db, scenario)).slice(-1);
+      assert.deepEqual(sent.data.reply_markup, { remove_keyboard: true });
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('mensajes sociales: se responden con calidez y retoman la pregunta, sin contar como fallo', async () => {
+  const { isSocialMessage } = await import('../agent/social.mjs');
+  for (const value of ['te quiero', 'Te quiero mucho!!', 'jajaja', '😊', 'Ok!', 'GRACIAS POR TODO'])
+    assert.equal(isSocialMessage(value), true, value);
+  for (const value of ['quiero', 'hola cuanto cuesta', '?', 'te quiero comprar el plan', ''])
+    assert.equal(isSocialMessage(value), false, value);
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      await flush(db, scenario);
+      await send(db, scenario, text(scenario, 'te quiero'));
+      const last = (await outgoing(db, scenario)).at(-1);
+      assert.match(last.text, /^¡Qué amable! 😊 Sigo aquí para ayudarte a elegir tu plan\./);
+      assert.match(last.text, /¿Qué carrera te gustaría estudiar en la UNT\?/);
+      assert.ok(JSON.parse(last.markup).inline_keyboard.flat().length >= 4);
+      assert.doesNotMatch(last.text, /No pude interpretar/);
+      const failures = (
+        await query(
+          db,
+          'SELECT consecutiveFailures n FROM dbo.App_AgentFailures WHERE idContacto=@contact',
+          { contact: scenario.lead.contact },
+        )
+      ).recordset[0];
+      assert.equal(failures?.n ?? 0, 0);
+      assert.equal(
+        (
+          await query(db, 'SELECT COUNT(*) n FROM dbo.Derivacion WHERE idContacto=@contact', {
+            contact: scenario.lead.contact,
+          })
+        ).recordset[0].n,
+        0,
+      );
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('al derivar se avisa una sola vez y el aviso sale aunque la derivación ya esté abierta', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      await flush(db, scenario);
+      await send(db, scenario, text(scenario, 'Quiero hablar con una persona'));
+      await send(db, scenario, text(scenario, 'Sigo esperando a alguien por favor'));
+      const notices = (await outgoing(db, scenario)).filter((row) =>
+        row.text.startsWith('Voy a pasar tu consulta a un asesor'),
+      );
+      assert.equal(notices.length, 1);
+      const before = scenario.client.calls.length;
+      const sent = await flush(db, scenario);
+      assert.equal(scenario.client.calls.length - before, 1);
+      assert.match(sent.at(-1).data.text, /Voy a pasar tu consulta a un asesor/);
+      assert.equal(sent.at(-1).data.reply_markup, undefined);
+      await send(db, scenario, text(scenario, 'cuanto cuesta meta unt'));
+      assert.equal((await flush(db, scenario)).length, sent.length);
     });
   } finally {
     await close();

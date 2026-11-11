@@ -104,3 +104,12 @@ El proyecto requiere Windows y SQL Server para ejecutar el backend actual. Las p
 Ollama fue probado con `llama3.2:3b`. Puede omitir o interpretar mal campos; el análisis tiene revisión humana. Telegram está configurado con un bot real y su identidad fue verificada mediante `getMe`. El servidor recibe actualizaciones por long polling; falta comprobar una conversación iniciada desde una cuenta Telegram. El procedimiento está en [la guía del backend](server/README.md).
 
 El recorrido del lead empieza en `/planes`: muestra las tarifas vigentes y guarda solicitudes en una bandeja de revisión. El operador prepara y entrega una propuesta, genera un enlace personal de siete días y lo comparte. En `/oferta/<token>`, el lead acepta el plan y condiciones, abre Stripe Checkout y ve el estado del pago. La confirmación se verifica también mediante webhook firmado. Se requieren `STRIPE_SECRET_KEY=sk_test_...` y `STRIPE_WEBHOOK_SECRET=whsec_...` para probarlo realmente. Quedan pendientes el alojamiento HTTPS, la verificación de identidad y protección contra abuso de formularios públicos, el acceso educativo, WhatsApp/correo, DataMart/ETL y usuarios/permisos de producción.
+
+## Indicadores de la fase LEADS
+
+La consola incluye la página **Indicadores** con los seis KPI del informe (L-1.1, L-1.2, L-2.1, L-3.1, L-4.1 y L-5.1). Se calculan sobre el OLTP con las reglas de las secciones 3.3 a 3.5 (ventana de 168 horas, unidad de conteo propia de cada indicador, denominador cero como «No aplicable» y semáforos propuestos).
+
+- Cada tarjeta muestra el resultado, su semáforo y las medidas M1 a M11. Al expandirla explica qué mide, cómo leer el resultado, por qué las unidades no llegan al numerador y el desglose por tiempo (año, trimestre, mes o día), canal, rol, plan y contacto.
+- Los filtros (período, canal, rol, plan y contacto) se aplican solo a los indicadores cuya medida tiene esa dimensión, según la tabla 10 del informe.
+- `GET /api/kpis` devuelve los datos y `GET /api/kpis/report.pdf` descarga el reporte en PDF con los mismos filtros (`from`, `to`, `grain`, `contact`, `channel`, `role`, `plan`).
+- Las ventanas de 7 días aún abiertas se cuentan, pero el resultado se marca como provisional. Los datos de demostración o pruebas son simulados y deben declararse así.

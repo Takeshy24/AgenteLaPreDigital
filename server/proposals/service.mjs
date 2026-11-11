@@ -23,7 +23,7 @@ export async function prepareProposal(id, data, options = {}) {
       text,
       op: options.agent ? null : await getOperator(db),
       source: options.agent ? 2 : 3,
-      automatic: !!options.agent,
+      automatic: false,
     });
     const proposalId = await repository.insertProposal(db, {
       caseId: participation.idCaso,

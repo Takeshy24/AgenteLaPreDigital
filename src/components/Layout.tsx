@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpen,
   CalendarDays,
   Database,
@@ -15,6 +16,7 @@ const navigation = [
   { id: 'leads', name: 'LEADS y casos', icon: Users },
   { id: 'catalog', name: 'Catálogo', icon: BookOpen },
   { id: 'followup', name: 'Seguimiento', icon: CalendarDays },
+  { id: 'kpis', name: 'Indicadores', icon: BarChart3 },
   { id: 'integrations', name: 'Telegram e IA', icon: Settings },
 ] satisfies { id: Page; name: string; icon: typeof Users }[];
 export function Layout({ children, onCreate }: { children: ReactNode; onCreate: () => void }) {
@@ -82,6 +84,7 @@ export function Layout({ children, onCreate }: { children: ReactNode; onCreate: 
                         leads: 'Consulta cada participación por contacto, beneficiario y caso.',
                         catalog: 'Planes y modalidades del catálogo autorizado.',
                         followup: 'Agenda de intentos y condiciones del seguimiento autorizado.',
+                        kpis: 'Los seis indicadores de la fase LEADS, con sus causas y desgloses por dimensión.',
                         integrations: 'Configuración y disponibilidad de los servicios locales.',
                       }[page]}
                 </p>

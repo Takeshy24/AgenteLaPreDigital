@@ -3,6 +3,7 @@ import { transaction } from '../db.mjs';
 import { integrationConfig } from '../integrations/config.mjs';
 import { sendEmail, smtpConfigured } from '../integrations/mailer.mjs';
 import { hasActiveLink } from '../integrations/repository.mjs';
+import { recordAutomaticEmail } from '../followup/service.mjs';
 import { findContacts } from '../leads/repository.mjs';
 import { saveLead } from '../leads/service.mjs';
 import { telegramLink } from './intake.mjs';
@@ -30,18 +31,26 @@ function defaultSender() {
 
 export function telegramEmail(url) {
   return {
-    subject: 'Continúa en Telegram con LaPreDigital',
+    subject: '¡Casi listo! Continúa en Telegram con LaPreDigital',
     text: [
-      'Recibimos una solicitud para continuar en Telegram con LaPreDigital.',
+      '¡Hola! 😊',
       '',
-      'Abre este enlace y pulsa Iniciar:',
+      'Gracias por tu interés en LaPreDigital. Para seguir conversando contigo por Telegram y ayudarte a elegir el plan que mejor se adapte a tu preparación, solo falta un paso:',
+      '',
+      'Abre este enlace y pulsa «Iniciar»:',
       url,
       '',
-      'El enlace vence en 10 minutos y solo funciona una vez. Si no lo pediste tú, ignora este correo.',
+      'Por seguridad, el enlace funciona una sola vez y vence en 10 minutos. Si no fuiste tú quien lo pidió, no te preocupes: puedes ignorar este correo.',
+      '',
+      '¡Nos vemos en Telegram!',
+      'El equipo de LaPreDigital',
     ].join('\n'),
-    html: `<p>Recibimos una solicitud para continuar en Telegram con LaPreDigital.</p>
-<p><a href="${url}">Abrir Telegram</a> y pulsa <b>Iniciar</b>.</p>
-<p>El enlace vence en 10 minutos y solo funciona una vez. Si no lo pediste tú, ignora este correo.</p>`,
+    html: `<p>¡Hola! 😊</p>
+<p>Gracias por tu interés en LaPreDigital. Para seguir conversando contigo por Telegram y ayudarte a elegir el plan que mejor se adapte a tu preparación, solo falta un paso:</p>
+<p><a href="${url}" style="display:inline-block;padding:12px 20px;border-radius:8px;background:#255ee2;color:#ffffff;text-decoration:none;font-weight:bold">Continuar en Telegram</a></p>
+<p>Abre el enlace y pulsa <b>Iniciar</b>.</p>
+<p>Por seguridad, el enlace funciona una sola vez y vence en 10 minutos. Si no fuiste tú quien lo pidió, no te preocupes: puedes ignorar este correo.</p>
+<p>¡Nos vemos en Telegram!<br>El equipo de LaPreDigital</p>`,
   };
 }
 
@@ -71,8 +80,21 @@ async function saveIdentityReview(db, data, email) {
   await repository.linkInquiry(db, id, null, null, 'Revisar identidad');
 }
 
+// Enlace público al número de WhatsApp del negocio (no es un dato secreto: es el mismo para todos).
+export function whatsappUrl() {
+  const digits = String(process.env.WHATSAPP_PUBLIC_NUMBER || '').replace(/[^0-9]/g, '');
+  const number = /^9[0-9]{8}$/.test(digits) ? '51' + digits : digits;
+  if (!/^[0-9]{8,15}$/.test(number)) return null;
+  return `https://wa.me/${number}?text=${encodeURIComponent('Hola, ya me registré en LaPreDigital')}`;
+}
+
 function receipt(telegramUrl) {
-  return telegramUrl ? { registered: true, telegramUrl } : { registered: true };
+  const link = whatsappUrl();
+  return {
+    registered: true,
+    ...(telegramUrl ? { telegramUrl } : {}),
+    ...(link ? { whatsappUrl: link } : {}),
+  };
 }
 
 // Para un correo ya registrado, el enlace de Telegram solo viaja por ese correo: así lo recibe su
@@ -81,14 +103,21 @@ async function prepareEmailedLink(db, contact, email, send) {
   if (!send) return { receipt: receipt(botUrl()) };
   if (await hasActiveLink(db, contact)) return { receipt: receipt(null) };
   const url = await telegramLink(db, contact, { consent: true });
-  return { receipt: receipt(null), mail: url ? { to: email, url } : null };
+  return { receipt: receipt(null), mail: url ? { to: email, url, contact } : null };
 }
 
-async function sendTelegramEmail(send, { to, url }) {
+async function sendTelegramEmail(send, { to, url, contact }) {
+  const message = telegramEmail(url);
   try {
-    await send({ to, ...telegramEmail(url) });
+    await send({ to, ...message });
   } catch (error) {
     console.error('No se pudo enviar el correo de verificación:', error.message);
+    return;
+  }
+  try {
+    await recordAutomaticEmail(contact, message.text);
+  } catch (error) {
+    console.error('No se pudo registrar el correo en la agenda:', error.message);
   }
 }
 
@@ -122,7 +151,7 @@ export async function registerLanding(data, { send = defaultSender() } = {}) {
     if (!url) return { receipt: receipt(null) };
     return {
       receipt: { ...receipt(url), ...(send ? { emailed: true } : {}) },
-      mail: send ? { to: email, url } : null,
+      mail: send ? { to: email, url, contact: lead.contact } : null,
     };
   });
   if (outcome.mail) await sendTelegramEmail(send, outcome.mail);

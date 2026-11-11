@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Badge, Card, Empty } from '../components/ui';
+import { Badge, Card, Empty, ModeLegend } from '../components/ui';
 import { AgentCard } from '../features/agent/AgentCard';
 import { CaseActions } from '../features/cases/CaseActions';
 import { ConsentCard } from '../features/consents/ConsentCard';
 import { ContractCard } from '../features/contracts/ContractCard';
+import { LeadDataPanel } from '../features/leads/LeadDataPanel';
 import { TelegramCard } from '../features/integrations/TelegramCard';
 import { GuardianCard } from '../features/links/GuardianCard';
 import { Conversation } from '../features/messages/Conversation';
@@ -48,24 +49,7 @@ export function Profile() {
           <Badge value={selected.status} />
         </div>
       </div>
-      <dl className="profile-context">
-        <div>
-          <dt>Beneficiario</dt>
-          <dd>{selected.beneficiary}</dd>
-        </div>
-        <div>
-          <dt>Caso #{selected.idCaso}</dt>
-          <dd>{selected.idEstadoCaso === 1 ? 'Abierto' : 'Cerrado'}</dd>
-        </div>
-        <div>
-          <dt>Interés comercial</dt>
-          <dd>{selected.interest}</dd>
-        </div>
-        <div>
-          <dt>Autorización de contacto</dt>
-          <dd>{selected.authorized ? 'Algún canal vigente' : 'Sin canal vigente'}</dd>
-        </div>
-      </dl>
+      <LeadDataPanel />
       <div className="tabs" role="tablist" aria-label="Expediente">
         {tabs.map((item) => (
           <button
@@ -96,6 +80,7 @@ export function Profile() {
           </button>
         ))}
       </div>
+      <ModeLegend />
       {detail ? (
         <div className="live-detail-grid">
           <div id="profile-panel" role="tabpanel" aria-labelledby={'tab-' + tab}>
@@ -127,12 +112,16 @@ export function Profile() {
               <summary>Vinculación con Telegram</summary>
               <TelegramCard />
             </details>
-            <Card title="Agenda programada" label="L-1">
+            <Card title="Agenda programada" label="L-1" mode="agent">
               {!detail.attempts.length && <Empty>Sin intentos programados.</Empty>}
               {detail.attempts.map((attempt) => (
                 <p key={attempt.idIntento}>
                   Intento {attempt.numeroIntento} · {formatDate(attempt.fechaProgramada)}{' '}
-                  {attempt.omitido ? '· omitido' : '· consultar entrega en Conversación'}
+                  {attempt.omitido
+                    ? '· omitido'
+                    : attempt.idMensajeEnvio
+                      ? `· enviado por ${attempt.canalEnvio}${attempt.fechaEnvio ? ` el ${formatDate(attempt.fechaEnvio)}` : ''}`
+                      : '· pendiente'}
                 </p>
               ))}
             </Card>

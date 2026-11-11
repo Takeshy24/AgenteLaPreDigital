@@ -25,12 +25,17 @@ export async function reviewMaintenance() {
     return { resumed: resumed.recordset.length };
   });
 }
-export async function reviewFollowup({ canSend = () => false } = {}) {
+export async function recordAutomaticEmail(contact, text) {
+  return transaction((db) => repository.recordAutomaticSend(db, { contact, channel: 2, text }));
+}
+// prepare = false: revisión manual de la consola. No decide intentos (no hay canal que los envíe),
+// así que los intentos vencidos quedan pendientes para el worker en lugar de omitirse.
+export async function reviewFollowup({ canSend = () => false, prepare = true } = {}) {
   return transaction(async (db) => {
     const result = { prepared: 0, omitted: 0, evaluated: 0, closed: 0 };
     await reviewMaintenance();
     const parameters = await getParameters(db);
-    const pending = await repository.listDue(db);
+    const pending = prepare ? await repository.listDue(db) : [];
     for (const attempt of pending) {
       const deadline = attempt.nextAttempt
         ? new Date(attempt.nextAttempt + '-05:00')

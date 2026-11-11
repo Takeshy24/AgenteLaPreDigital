@@ -203,3 +203,11 @@
     padding: 24px;
   }
 }
+
+.public-page .public-form button.public-demo {
+  margin-top: 12px;
+  background: transparent;
+  color: var(--ui-ink);
+  border: 1px dashed var(--ui-line);
+  box-shadow: none;
+}

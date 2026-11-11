@@ -13,7 +13,7 @@ export function GuardianCard() {
     [linkConsent, setLinkConsent] = useState(false);
   if (!selected) return null;
   return (
-    <Card title="Responsable económico" label="L-3 · VINCULACIÓN">
+    <Card title="Responsable económico" label="L-3 · VINCULACIÓN" mode="agent">
       <p>
         La vinculación requiere aceptación del responsable, autorización para este caso y
         autorización de contacto. Esta consola registra la aceptación; el portal remoto aún no está

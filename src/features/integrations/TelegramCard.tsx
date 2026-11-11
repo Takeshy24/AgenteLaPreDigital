@@ -8,7 +8,7 @@ export function TelegramCard() {
     [loading, setLoading] = useState(false);
   if (!selected) return null;
   return (
-    <Card title="Vincular Telegram" label="VINCULACIÓN DE CANAL">
+    <Card title="Vincular Telegram" label="VINCULACIÓN DE CANAL" mode="manual">
       <p>
         El contacto abre un enlace de un solo uso e inicia el bot. Después puede autorizar
         seguimiento con /autorizar y revocarlo con /revocar.

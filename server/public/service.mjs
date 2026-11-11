@@ -3,7 +3,12 @@ import { pool, transaction } from '../db.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { recordIncoming } from '../messages/service.mjs';
 import { recordProposalResponse } from '../proposals/service.mjs';
-import { acceptTerms, confirmStripeCheckout, startStripeCheckout } from '../contracts/service.mjs';
+import {
+  acceptTerms,
+  confirmStripeCheckout,
+  simulatePayment,
+  startStripeCheckout,
+} from '../contracts/service.mjs';
 import * as repository from './repository.mjs';
 import { registerInquiry } from './intake.mjs';
 
@@ -56,6 +61,7 @@ export async function viewOffer(token) {
     termsAccepted: !!offer.idContratacion,
     paid: !!offer.idEventoPago,
     validated: !!offer.idEventoValidacion,
+    demoPayments: process.env.DEMO_PAYMENTS === '1',
   };
 }
 
@@ -87,6 +93,16 @@ export async function payOffer(token, origin) {
   if (!offer.idContratacion || offer.idEventoPago)
     throw new BusinessError('Acepta las condiciones antes de pagar, o el pago ya está registrado.');
   return startStripeCheckout(offer.idCaso, origin, `/oferta/${token}`);
+}
+
+// Solo para demostraciones (DEMO_PAYMENTS=1): registra el pago sin pasar por Stripe.
+export async function simulateOfferPayment(token) {
+  if (process.env.DEMO_PAYMENTS !== '1')
+    throw new BusinessError('El pago simulado está desactivado.', 403);
+  const offer = await requireOffer(await pool(), token);
+  if (!offer.idContratacion || offer.idEventoPago)
+    throw new BusinessError('Acepta las condiciones antes de pagar, o el pago ya está registrado.');
+  return simulatePayment(offer.idCaso);
 }
 
 export async function confirmOffer(token, sessionId) {

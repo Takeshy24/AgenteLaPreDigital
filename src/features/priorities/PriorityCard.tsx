@@ -8,7 +8,7 @@ export function PriorityCard() {
     [messageId, setMessageId] = useState('');
   if (!selected) return null;
   return (
-    <Card title="Evaluar con evidencia" label="L-5 · PRIORIDAD">
+    <Card title="Evaluar con evidencia" label="L-5 · PRIORIDAD" mode="agent">
       <Badge value={selected.priority} />
       <p>
         {selected.status} · Interés {selected.interest}
@@ -47,12 +47,14 @@ export function PriorityCard() {
         </label>
         <Button disabled={busy || (level !== 1 && !messageId)}>Evaluar prioridad</Button>
       </form>
-      {detail?.evaluations.map((evaluation) => (
-        <p key={evaluation.idEvaluacion}>
-          {evaluation.prioridad} · {evaluation.intentosSinRespuesta} intentos ·{' '}
-          {formatDate(evaluation.fechaEvaluacion)}
-        </p>
-      ))}
+      {detail?.evaluations
+        .filter((evaluation, index, all) => all[index + 1]?.prioridad !== evaluation.prioridad)
+        .map((evaluation) => (
+          <p key={evaluation.idEvaluacion}>
+            {evaluation.prioridad} · {evaluation.intentosSinRespuesta} intentos ·{' '}
+            {formatDate(evaluation.fechaEvaluacion)}
+          </p>
+        ))}
     </Card>
   );
 }

@@ -9,7 +9,7 @@ export function Conversation() {
     [level, setLevel] = useState(1);
   if (!selected || !detail) return null;
   return (
-    <Card title="Conversación e interacciones" label="HISTORIAL">
+    <Card title="Conversación e interacciones" label="HISTORIAL" mode="info">
       {detail.messages.map((message) => (
         <div
           className={`live-message conversation-message ${message.idDireccion === 1 ? 'incoming' : 'outgoing'}`}

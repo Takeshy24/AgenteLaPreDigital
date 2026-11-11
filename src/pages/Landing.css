@@ -201,6 +201,14 @@ body:has(.landing) {
     transform: translateY(-1px);
   }
 }
+.landing-success a.landing-whatsapp {
+  background: #1f8f4e;
+}
+@media (hover: hover) and (pointer: fine) {
+  .landing-success a.landing-whatsapp:hover {
+    background: #17703c;
+  }
+}
 .landing-success a.landing-telegram:focus-visible {
   outline: 3px solid var(--landing-navy);
   outline-offset: 3px;

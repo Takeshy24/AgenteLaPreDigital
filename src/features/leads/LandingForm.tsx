@@ -41,6 +41,10 @@ function safeTelegramUrl(url?: string) {
   return url && /^https:\/\/t\.me\/[A-Za-z0-9_]+(\?start=[A-Za-z0-9_-]+)?$/.test(url) ? url : '';
 }
 
+function safeWhatsAppUrl(url?: string) {
+  return url && /^https:\/\/wa\.me\/[0-9]{8,15}(\?text=[A-Za-z0-9%._~-]*)?$/.test(url) ? url : '';
+}
+
 function validate(fields: Fields): Errors {
   const errors: Errors = {};
   if (fields.name.trim().length < 2) errors.name = 'Escribe tu nombre completo.';
@@ -88,6 +92,7 @@ export function LandingForm() {
   const [status, setStatus] = useState<Status>('editing');
   const [failure, setFailure] = useState('');
   const [telegramUrl, setTelegramUrl] = useState('');
+  const [whatsappUrl, setWhatsappUrl] = useState('');
   const [emailed, setEmailed] = useState(false);
 
   function setField(name: keyof Fields) {
@@ -125,6 +130,7 @@ export function LandingForm() {
       const result = await request<{
         registered: boolean;
         telegramUrl?: string;
+        whatsappUrl?: string;
         emailed?: boolean;
       }>('/public/landing', 'POST', {
         name: fields.name.trim(),
@@ -137,6 +143,7 @@ export function LandingForm() {
         website: fields.website,
       });
       setTelegramUrl(safeTelegramUrl(result.telegramUrl));
+      setWhatsappUrl(safeWhatsAppUrl(result.whatsappUrl));
       setEmailed(result.emailed === true);
       setStatus('done');
     } catch (error) {
@@ -156,8 +163,21 @@ export function LandingForm() {
         <p>
           {fields.channels.length
             ? 'Te contactaremos por los canales que autorizaste.'
-            : 'Continúa en Telegram para conversar con nuestro agente.'}
+            : 'Continúa en Telegram o WhatsApp para conversar con nuestro agente.'}
         </p>
+        {whatsappUrl && (
+          <>
+            <a
+              className="landing-telegram landing-whatsapp"
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Continuar en WhatsApp
+            </a>
+            <p className="landing-hint">Se abrirá WhatsApp con un mensaje listo para enviar.</p>
+          </>
+        )}
         {telegramUrl && (
           <>
             <a

@@ -329,12 +329,23 @@ VALUES
     @lead,
     @id,
     2,
-    3,
+    COALESCE(
+      (
+        SELECT
+          idCanal
+        FROM
+          dbo.Mensaje
+        WHERE
+          idMensaje = @replyTo
+          AND idCanal IN (1, 3)
+      ),
+      3
+    ),
     2,
     @replyTo,
     @text,
     1,
-    1
+    0
   )`,
     {
       contact: participant.idContacto,
@@ -345,7 +356,12 @@ VALUES
     },
   );
 }
-export async function pendingMessages(db) {
+export async function pendingMessages(db, channels = [3]) {
+  const list =
+    channels
+      .map((channel) => Number(channel))
+      .filter(Number.isInteger)
+      .join(',') || '3';
   return (
     await query(
       db,
@@ -356,7 +372,7 @@ FROM
   LEFT JOIN dbo.App_Dispatch d ON d.idMensaje = m.idMensaje
 WHERE
   m.idDireccion = 2
-  AND m.idCanal = 3
+  AND m.idCanal IN (${list})
   AND m.idEstadoEntrega = 1
   AND (
     d.idMensaje IS NULL
@@ -374,6 +390,7 @@ export async function claimMessage(db, id) {
       `SELECT
   m.*,
   tc.chatId,
+  ct.telefono,
   lc.idEstadoParticipacion,
   c.idEstadoCaso,
   lc.idPrioridadActual,
@@ -386,6 +403,7 @@ WITH
   JOIN dbo.Lead l ON l.idLead = lc.idLead
   JOIN dbo.Caso c ON c.idCaso = lc.idCaso
   LEFT JOIN dbo.App_TelegramChat tc ON tc.idContacto = m.idContacto
+  JOIN dbo.Contacto ct ON ct.idContacto = m.idContacto
 WHERE
   m.idMensaje = @id
   AND m.idEstadoEntrega = 1`,
@@ -523,3 +541,169 @@ WHERE
   state = N'sending'`,
   );
 }
+
+// WhatsApp: la API acepta el envío, pero solo se considera entregado cuando el estado lo confirma.
+export async function markAccepted(db, id, externalId, usedTemplate = false) {
+  await query(
+    db,
+    `UPDATE dbo.App_Dispatch
+SET
+  state = N'sent',
+  externalId = @externalId
+WHERE
+  idMensaje = @id;
+
+UPDATE dbo.Mensaje
+SET
+  usaPlantilla = @template
+WHERE
+  idMensaje = @id`,
+    { id, externalId: String(externalId), template: usedTemplate ? 1 : 0 },
+  );
+}
+export async function channelOf(db, id) {
+  return (await query(db, 'SELECT idCanal channel FROM dbo.Mensaje WHERE idMensaje = @id', { id }))
+    .recordset[0]?.channel;
+}
+export async function insideServiceWindow(db, contact) {
+  return (
+    (
+      await query(
+        db,
+        `SELECT
+  CASE
+    WHEN MAX(fechaHora) >= DATEADD(HOUR, -24, ${now}) THEN 1
+    ELSE 0
+  END inside
+FROM
+  dbo.Mensaje
+WHERE
+  idContacto = @contact
+  AND idDireccion = 1
+  AND idCanal = 1`,
+        { contact },
+      )
+    ).recordset[0]?.inside === 1
+  );
+}
+export async function markDelivered(db, id) {
+  await query(
+    db,
+    `UPDATE dbo.Mensaje
+SET
+  idEstadoEntrega = 2,
+  fechaEntrega = ${now}
+WHERE
+  idMensaje = @id
+  AND idEstadoEntrega = 1`,
+    { id },
+  );
+}
+export async function markRejected(db, id, error) {
+  await query(
+    db,
+    `UPDATE dbo.Mensaje
+SET
+  idEstadoEntrega = 3
+WHERE
+  idMensaje = @id
+  AND idEstadoEntrega = 1;
+
+UPDATE dbo.App_Dispatch
+SET
+  state = N'failed',
+  error = @error
+WHERE
+  idMensaje = @id`,
+    { id, error: String(error).slice(0, 500) },
+  );
+}
+export async function findDispatchByExternalId(db, externalId) {
+  return (
+    await query(db, 'SELECT idMensaje id FROM dbo.App_Dispatch WHERE externalId = @externalId', {
+      externalId,
+    })
+  ).recordset[0]?.id;
+}
+export async function acceptWhatsAppEvent(db, event) {
+  await query(
+    db,
+    `IF NOT EXISTS (
+  SELECT
+    1
+  FROM
+    dbo.App_WhatsAppInbox
+  WITH
+    (UPDLOCK, HOLDLOCK)
+  WHERE
+    eventKey = @key
+)
+INSERT
+  dbo.App_WhatsAppInbox (eventKey, kind, waId, payload)
+VALUES
+  (@key, @kind, @waId, @payload)`,
+    {
+      key: event.key,
+      kind: event.kind,
+      waId: event.waId,
+      payload: JSON.stringify(event.payload),
+    },
+  );
+}
+export async function pendingWhatsAppEvents(db) {
+  return (
+    await query(
+      db,
+      `SELECT
+  TOP 20 *
+FROM
+  dbo.App_WhatsAppInbox
+WHERE
+  processedAt IS NULL
+ORDER BY
+  seq`,
+    )
+  ).recordset;
+}
+export async function getWhatsAppEvent(db, key) {
+  return (await query(db, 'SELECT * FROM dbo.App_WhatsAppInbox WHERE eventKey = @key', { key }))
+    .recordset[0];
+}
+export async function finishWhatsAppEvent(db, key, messageId = null, error = null) {
+  await query(
+    db,
+    `UPDATE dbo.App_WhatsAppInbox
+SET
+  processedAt = ${now},
+  idMensaje = @messageId,
+  error = @error
+WHERE
+  eventKey = @key`,
+    { key, messageId, error: error ? String(error).slice(0, 500) : null },
+  );
+}
+export async function contactsByPhone(db, waId) {
+  return (
+    await query(db, 'SELECT idContacto id, correo FROM dbo.Contacto WHERE telefono = @phone', {
+      phone: '+' + waId,
+    })
+  ).recordset;
+}
+export async function contactName(db, contact) {
+  return (
+    await query(db, 'SELECT nombreCompleto name FROM dbo.Contacto WHERE idContacto = @contact', {
+      contact,
+    })
+  ).recordset[0]?.name;
+}
+export async function countIncoming(db, contact, channel) {
+  return (
+    await query(
+      db,
+      'SELECT COUNT(*) n FROM dbo.Mensaje WHERE idContacto = @contact AND idDireccion = 1 AND idCanal = @channel',
+      { contact, channel },
+    )
+  ).recordset[0].n;
+}
+
+// messages: canal del mensaje sin asignar

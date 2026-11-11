@@ -4,7 +4,7 @@ export async function getRequestedPlan(db, contact) {
     (
       await query(
         db,
-        'SELECT TOP 1 p.planSolicitado plan,t.idPlanTarifa tariffId,modal.nombre period FROM dbo.App_PublicInquiry p LEFT JOIN dbo.PlanTarifa t ON t.idPlanTarifa=p.idPlanTarifa LEFT JOIN dbo.Cat_Modalidad modal ON modal.id=t.idModalidad WHERE p.idContacto=@contact ORDER BY p.idSolicitud DESC',
+        'SELECT TOP 1 p.planSolicitado [plan],t.idPlanTarifa tariffId,modal.nombre period FROM dbo.App_PublicInquiry p LEFT JOIN dbo.PlanTarifa t ON t.idPlanTarifa=p.idPlanTarifa LEFT JOIN dbo.Cat_Modalidad modal ON modal.id=t.idModalidad WHERE p.idContacto=@contact ORDER BY p.idSolicitud DESC',
         { contact },
       )
     ).recordset[0] || null
@@ -78,4 +78,25 @@ export async function attachMarkup(db, messageId, markup) {
     ELSE INSERT dbo.App_Dispatch(idMensaje,state,markup) VALUES(@id,N'pending',@markup)`,
     { id: messageId, markup: JSON.stringify(markup) },
   );
+}
+export async function lastOutgoingMarkup(db, participationId) {
+  const row = (
+    await query(
+      db,
+      `SELECT TOP 1 d.markup
+    FROM dbo.Mensaje m LEFT JOIN dbo.App_Dispatch d ON d.idMensaje=m.idMensaje
+    WHERE m.idLeadCaso=@id AND m.idDireccion=2 ORDER BY m.idMensaje DESC`,
+      { id: participationId },
+    )
+  ).recordset[0];
+  return row?.markup ? JSON.parse(row.markup) : null;
+}
+export async function lastOutgoingText(db, participationId) {
+  return (
+    await query(
+      db,
+      'SELECT TOP 1 textoMensaje text FROM dbo.Mensaje WHERE idLeadCaso=@id AND idDireccion=2 ORDER BY idMensaje DESC',
+      { id: participationId },
+    )
+  ).recordset[0]?.text;
 }

@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { request, type Bootstrap, type Details, type PublicInquiry } from '../api';
-export type Page = 'overview' | 'leads' | 'catalog' | 'followup' | 'integrations';
+export type Page = 'overview' | 'leads' | 'catalog' | 'followup' | 'kpis' | 'integrations';
 function useWorkspaceState() {
   const [data, setData] = useState<Bootstrap | null>(null),
     [selectedId, setSelectedId] = useState<number | null>(null),
@@ -60,6 +60,19 @@ function useWorkspaceState() {
       window.removeEventListener('focus', onFocus);
     };
   }, [refreshInquiries]);
+  useEffect(() => {
+    const refresh = async () => {
+      const id = selection.current;
+      if (!id || lock.current || document.hidden) return;
+      try {
+        await reload(id);
+      } catch {
+        return;
+      }
+    };
+    const timer = window.setInterval(() => void refresh(), 5000);
+    return () => window.clearInterval(timer);
+  }, [reload]);
   useEffect(() => {
     let active = true;
     request<Bootstrap>('/bootstrap')

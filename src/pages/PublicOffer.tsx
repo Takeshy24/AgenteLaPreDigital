@@ -12,6 +12,7 @@ type Offer = {
   termsAccepted: boolean;
   paid: boolean;
   validated: boolean;
+  demoPayments?: boolean;
 };
 export function PublicOffer() {
   const token = window.location.pathname.split('/').at(-1) || '';
@@ -48,7 +49,11 @@ export function PublicOffer() {
       const result = await request<{ url?: string }>(`/public/offers/${token}/${path}`, 'POST', {});
       if (result.url) window.location.assign(result.url);
       else {
-        setNotice('Condiciones aceptadas. Ya puedes realizar el pago de prueba.');
+        setNotice(
+          path === 'demo-payment'
+            ? 'Pago simulado registrado (solo demostración).'
+            : 'Condiciones aceptadas. Ya puedes realizar el pago de prueba.',
+        );
         await load();
       }
     } catch (e) {
@@ -109,6 +114,11 @@ export function PublicOffer() {
               {offer.termsAccepted && (
                 <button disabled={busy} onClick={() => act('checkout')}>
                   {busy ? 'Abriendo Stripe…' : 'Pagar con Stripe de prueba'}
+                </button>
+              )}
+              {offer.termsAccepted && offer.demoPayments && (
+                <button className="public-demo" disabled={busy} onClick={() => act('demo-payment')}>
+                  Simular pago (demo)
                 </button>
               )}
             </>

@@ -7,6 +7,7 @@ import { close, query, rollbackTest } from '../db.mjs';
 import { normalizePhone, registerLanding } from '../public/landing.mjs';
 
 process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
+process.env.WHATSAPP_PUBLIC_NUMBER = ''; // los comprobantes exactos no dependen del .env
 const count = async (db, sql, params) => (await query(db, sql, params)).recordset[0].n;
 const uniqueEmail = (label) => `${label}-${Date.now()}@example.test`;
 
@@ -478,5 +479,79 @@ test('HTTP por ngrok: solo /api/public es accesible y únicamente desde la landi
     }
     await new Promise((resolve) => server.close(resolve));
     await close();
+  }
+});
+
+test('el correo automático enviado cumple el intento 1 y queda registrado por Correo', async () => {
+  const sent = [];
+  const send = async (mail) => sent.push(mail);
+  const attempt = (db, email) =>
+    query(
+      db,
+      `SELECT i.idMensajeEnvio sent, i.omitido skipped, m.idCanal channel, m.idEstadoEntrega delivery
+       FROM dbo.Contacto c
+       JOIN dbo.Lead l ON l.idContacto=c.idContacto
+       JOIN dbo.LeadCaso lc ON lc.idLead=l.idLead
+       JOIN dbo.IntentoContacto i ON i.idLeadCaso=lc.idLeadCaso
+       LEFT JOIN dbo.Mensaje m ON m.idMensaje=i.idMensajeEnvio
+       WHERE c.correo=@email AND i.numeroIntento=1`,
+      { email },
+    ).then((result) => result.recordset[0]);
+  try {
+    await withBot('bot_de_prueba', () =>
+      rollbackTest(async (db) => {
+        const withEmail = uniqueEmail('agenda-con-correo');
+        await registerLanding(
+          {
+            name: 'Con Correo',
+            email: withEmail,
+            phone: '+51966666666',
+            role: 1,
+            channels: [2],
+            telegram: true,
+          },
+          { send },
+        );
+        assert.equal(sent.length, 1);
+        const first = await attempt(db, withEmail);
+        assert.ok(first.sent);
+        assert.equal(first.skipped, false);
+        assert.equal(first.channel, 2);
+        assert.equal(first.delivery, 2);
+        const withoutEmail = uniqueEmail('agenda-sin-correo');
+        await registerLanding(
+          {
+            name: 'Sin Correo',
+            email: withoutEmail,
+            phone: '+51977777777',
+            role: 1,
+            channels: [],
+            telegram: true,
+          },
+          { send },
+        );
+        assert.ok(!(await attempt(db, withoutEmail))?.sent);
+      }),
+    );
+  } finally {
+    await close();
+  }
+});
+
+test('landing: el comprobante incluye el enlace de WhatsApp solo si hay número configurado', async () => {
+  const { whatsappUrl } = await import('../public/landing.mjs');
+  const previous = process.env.WHATSAPP_PUBLIC_NUMBER;
+  try {
+    process.env.WHATSAPP_PUBLIC_NUMBER = '';
+    assert.equal(whatsappUrl(), null);
+    process.env.WHATSAPP_PUBLIC_NUMBER = '902319748';
+    assert.match(whatsappUrl(), /^https:\/\/wa\.me\/51902319748\?text=Hola/);
+    process.env.WHATSAPP_PUBLIC_NUMBER = '+51 902 319 748';
+    assert.match(whatsappUrl(), /^https:\/\/wa\.me\/51902319748\?/);
+    process.env.WHATSAPP_PUBLIC_NUMBER = '12';
+    assert.equal(whatsappUrl(), null);
+  } finally {
+    if (previous === undefined) delete process.env.WHATSAPP_PUBLIC_NUMBER;
+    else process.env.WHATSAPP_PUBLIC_NUMBER = previous;
   }
 });

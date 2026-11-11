@@ -45,7 +45,7 @@ test('Nula solo se reactiva por respuesta; una autorización nueva conserva susp
       for (let index = 1; index <= 7; index++) {
         const message = await insert(
           db,
-          "INSERT dbo.Mensaje(idContacto,idLead,idLeadCaso,idDireccion,idCanal,idOrigenMensaje,idAutorizacionAlEnvio,esAutomatico,textoMensaje,idEstadoEntrega,fechaEntrega,fechaHora) VALUES(@contact,@lead,@id,2,2,1,@authorization,1,N'Intento de prueba',2,DATEADD(DAY,-100+@index,DATEADD(HOUR,-5,SYSUTCDATETIME())),DATEADD(DAY,-100+@index,DATEADD(HOUR,-5,SYSUTCDATETIME())))",
+          "INSERT dbo.Mensaje(idContacto,idLead,idLeadCaso,idDireccion,idCanal,idOrigenMensaje,idAutorizacionAlEnvio,esAutomatico,textoMensaje,idEstadoEntrega,fechaEntrega,fechaHora) VALUES(@contact,@lead,@id,2,2,1,@authorization,0,N'Intento de prueba',2,DATEADD(DAY,-100+@index,DATEADD(HOUR,-5,SYSUTCDATETIME())),DATEADD(DAY,-100+@index,DATEADD(HOUR,-5,SYSUTCDATETIME())))",
           {
             contact: context.idContacto,
             lead: context.idLead,

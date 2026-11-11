@@ -22,6 +22,8 @@
   --ui-line: #ffffff1c;
   --ui-glass: #ffffff06;
   --ui-glow: #d4f47726;
+  --ui-manual: #8ec9ff;
+  --ui-manual-soft: #8ec9ff1c;
   --ui-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 * {

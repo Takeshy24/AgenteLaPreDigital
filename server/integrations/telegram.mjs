@@ -1,14 +1,20 @@
 import { analyzeMessage } from '../agent/ollama.mjs';
-import { greeting, parseCallback } from '../agent/profile-flow.mjs';
-import { answerAction, answerProfile, queueNextStep } from '../agent/profile-service.mjs';
-import { actOnAnalysis, handoffReason } from '../agent/service.mjs';
+import { greeting, parseCallback, welcomeBack } from '../agent/profile-flow.mjs';
+import { getProfile } from '../agent/repository.mjs';
+import {
+  answerAction,
+  answerProfile,
+  matchKeyboardReply,
+  queueNextStep,
+} from '../agent/profile-service.mjs';
+import { actOnAnalysis, handOff, handoffReason } from '../agent/service.mjs';
+import { isSocialMessage, SOCIAL_ANALYSIS } from '../agent/social.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, query, transaction } from '../db.mjs';
 import { getRecentHistory, updateFailures, getRequestedPlan } from '../agent/repository.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { getParticipation } from '../shared/repository.mjs';
 import { getOpenHandoff } from '../handoffs/repository.mjs';
-import { openHandoff } from '../handoffs/service.mjs';
 import { assignUnassigned, recordIncoming, recordUnassigned } from '../messages/service.mjs';
 import { getWorkspace } from '../workspace/repository.mjs';
 import { integrationConfig } from './config.mjs';
@@ -43,6 +49,13 @@ async function analyze(text, participantId) {
     return { analysis: null, error: error.message };
   }
 }
+function notify(client, method, data) {
+  try {
+    Promise.resolve(client.call(method, data, { timeout: 5000 })).catch(() => {});
+  } catch {
+    // Telegram es opcional aquí: un fallo inmediato tampoco debe detener la cola.
+  }
+}
 async function handleProfileCallback(item, callback, client) {
   const chat = await repository.getChat(await pool(), item.chatId);
   const parsed = parseCallback(callback.data);
@@ -58,31 +71,32 @@ async function handleProfileCallback(item, callback, client) {
     );
     return;
   }
-  let feedback = 'Listo';
+  let feedback = '¡Listo!';
+  let keepKeyboard = false;
   try {
     await transaction(async (db) => {
       if ((await repository.getUpdate(db, item.updateId))?.processedAt) return;
       const result = ['c', 'a', 'b'].includes(parsed.letter)
         ? await answerProfile(parsed.participationId, parsed)
         : await answerAction(parsed.participationId, parsed);
-      if (result.alreadyAnswered) feedback = 'Ya tengo esa respuesta';
+      if (result.alreadyAnswered) feedback = 'Ya la tengo anotada 😊';
+      keepKeyboard = !!result.other;
       await repository.finishUpdate(db, item.updateId);
     });
   } catch (error) {
     // Un clic que no se puede aplicar no debe dejar la cola detenida: se cierra con su motivo.
     if (!(error instanceof BusinessError)) throw error;
-    feedback = 'No pude registrar esa opción';
+    feedback = 'Uy, no pude anotar eso. ¿Lo intentamos de nuevo?';
     await transaction((db) => repository.finishUpdate(db, item.updateId, null, error.message));
   }
-  await client.call('answerCallbackQuery', { callback_query_id: callback.id, text: feedback });
-  if (callback.message)
-    await client
-      .call('editMessageReplyMarkup', {
-        chat_id: item.chatId,
-        message_id: callback.message.message_id,
-        reply_markup: { inline_keyboard: [] },
-      })
-      .catch(() => {});
+  // Avisos opcionales: con la red lenta no deben retrasar la cola ni hacer fallar la actualización.
+  notify(client, 'answerCallbackQuery', { callback_query_id: callback.id, text: feedback });
+  if (callback.message && !keepKeyboard)
+    notify(client, 'editMessageReplyMarkup', {
+      chat_id: item.chatId,
+      message_id: callback.message.message_id,
+      reply_markup: { inline_keyboard: [] },
+    });
 }
 async function handleCallback(item, callback, client) {
   if (callback.data?.startsWith('pf:')) return handleProfileCallback(item, callback, client);
@@ -118,7 +132,9 @@ async function welcome(db, contact, replyTo, withConsent) {
     (participant) => participant.idEstadoCaso === 1,
   );
   if (open.length !== 1)
-    return { text: 'Contacto vinculado. Cuéntame sobre qué estudiante quieres conversar.' };
+    return {
+      text: '¡Listo, ya estás conectado! Cuéntame, ¿sobre qué estudiante quieres conversar?',
+    };
   if (withConsent)
     await saveConsent(open[0].id, { channel: 3, granted: true, version: 'landing-telegram-v1' });
   const name = (
@@ -126,8 +142,12 @@ async function welcome(db, contact, replyTo, withConsent) {
       contact,
     })
   ).recordset[0]?.name;
+  const profile = await getProfile(db, open[0].id);
+  const known = ['career', 'availability', 'budget'].some(
+    (key) => profile[key] != null && String(profile[key]).trim() !== '',
+  );
   await queueNextStep(db, await getParticipation(db, open[0].id), replyTo, {
-    intro: greeting(name),
+    intro: known ? welcomeBack(name) : greeting(name),
   });
   return { queued: true };
 }
@@ -149,7 +169,7 @@ async function handleStart(item, text, client) {
     chat_id: item.chatId,
     text: result.contact
       ? result.reply.text
-      : 'El enlace no es válido, expiró o ya fue utilizado. Solicita uno nuevo a tu asesor.',
+      : '¡Ups! Ese enlace ya no es válido: puede que haya vencido o que ya se haya usado. Pide uno nuevo desde nuestra página y con gusto seguimos 😊',
   });
 }
 async function handleConsent(item, chat, text, participants, client) {
@@ -206,25 +226,57 @@ async function askBeneficiary(item, chat, text, candidates, client) {
     },
   });
 }
-async function processMessage(item, target, text) {
-  const result = await analyze(text, target.id);
+// Una respuesta con el teclado de botones es un mensaje real de la persona: se registra una sola
+// vez y se aplica igual que un clic. Si no corresponde a un botón vigente, sigue el flujo normal.
+const telegramContext = (item) => ({
+  channel: 3,
+  done: async (db) => !!(await repository.getUpdate(db, item.updateId))?.processedAt,
+  finish: (db, messageId = null, error = null) =>
+    repository.finishUpdate(db, item.updateId, messageId, error),
+});
+export async function answerFromKeyboard(context, target, text, { data = null } = {}) {
+  try {
+    return await transaction(async (db) => {
+      if (await context.done(db)) return true;
+      const parsed = await matchKeyboardReply(db, target.id, text, { data });
+      if (!parsed) return false;
+      const options = { text, channel: context.channel };
+      const result = ['c', 'a', 'b'].includes(parsed.letter)
+        ? await answerProfile(target.id, parsed, options)
+        : await answerAction(target.id, parsed, options);
+      const participant = await getParticipation(db, target.id);
+      await updateFailures(db, participant.idContacto, false);
+      await context.finish(db, result.messageId ?? null);
+      return true;
+    });
+  } catch (error) {
+    if (error instanceof BusinessError) return false;
+    throw error;
+  }
+}
+export async function processMessage(context, target, text) {
+  if (await answerFromKeyboard(context, target, text)) return;
+  const social = isSocialMessage(text);
+  const result = social
+    ? { analysis: SOCIAL_ANALYSIS, error: null }
+    : await analyze(text, target.id);
   if (result.analysis?.understood === false) {
     result.error = 'Mensaje no interpretable';
     result.analysis = null;
   }
   return transaction(async (db) => {
-    if ((await repository.getUpdate(db, item.updateId))?.processedAt) return;
+    if (await context.done(db)) return;
     const message = await recordIncoming(
       target.id,
       {
         text,
-        channel: 3,
+        channel: context.channel,
         level: result.analysis?.level ?? 1,
         retraction: result.analysis?.retraction ?? false,
       },
-      { source: result.analysis ? 1 : 2 },
+      { source: result.analysis && !social ? 1 : 2 },
     );
-    if (result.analysis)
+    if (result.analysis && !social)
       await repository.saveAnalysis(
         db,
         message.id,
@@ -239,7 +291,7 @@ async function processMessage(item, target, text) {
       const reason = handoffReason(text);
       const handoff = await getOpenHandoff(db, participant.idContacto);
       if (reason || (result.error && failures >= 2))
-        await openHandoff(message.participationId, { reason: reason || 7, messageId: message.id });
+        await handOff(db, message.participationId, reason || 7, message.id);
       else if (result.error && (!handoff || handoff.fechaRetomaAgente))
         await repository.createReply(
           db,
@@ -248,7 +300,7 @@ async function processMessage(item, target, text) {
           message.id,
         );
     }
-    await repository.finishUpdate(db, item.updateId, message.id, result.error);
+    await context.finish(db, message.id, result.error);
   });
 }
 export async function processUpdate(item, client) {
@@ -279,7 +331,7 @@ export async function processUpdate(item, client) {
   const selection = await repository.getSelection(await pool(), chat.idContacto);
   const { candidates, target } = selectParticipation(participants, selection);
   if (!target) return askBeneficiary(item, chat, message.text, candidates, client);
-  return processMessage(item, target, message.text);
+  return processMessage(telegramContext(item), target, message.text);
 }
 export async function pollTelegram(client) {
   const updates = await client.call('getUpdates', {

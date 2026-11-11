@@ -1221,3 +1221,234 @@ body:has(.live-app) {
     break-inside: avoid;
   }
 }
+
+/* Quién actúa en cada bloque: automático (lima), solo manual (azul claro), solo lectura (neutro). */
+.live-app .section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.live-app .mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--muted);
+  background: var(--ui-glass);
+}
+.live-app .mode-chip.agent {
+  color: var(--ui-accent);
+  border-color: #d4f47744;
+  background: #d4f4770f;
+}
+.live-app .mode-chip.manual {
+  color: var(--ui-manual);
+  border-color: #8ec9ff55;
+  background: var(--ui-manual-soft);
+}
+.live-app .live-section.mode-agent {
+  box-shadow:
+    inset 3px 0 0 #aace5099,
+    inset 0 1px #ffffff0a,
+    0 10px 30px #0002;
+}
+.live-app .live-section.mode-manual {
+  border-color: #8ec9ff33;
+  background: linear-gradient(145deg, #1b2b38, #16232d 55%);
+  box-shadow:
+    inset 3px 0 0 var(--ui-manual),
+    inset 0 1px #ffffff0a,
+    0 10px 30px #0002;
+}
+.live-app .live-section.mode-manual:focus-within {
+  border-color: #8ec9ff77;
+}
+.live-app .live-section.mode-manual .button.primary {
+  background: linear-gradient(110deg, #a9d8ff, var(--ui-manual));
+  border-color: #6fb3ea;
+  box-shadow:
+    0 3px 14px #8ec9ff18,
+    inset 0 1px #ffffff55;
+}
+.live-app .live-section.mode-manual input:focus-visible,
+.live-app .live-section.mode-manual select:focus-visible,
+.live-app .live-section.mode-manual textarea:focus-visible,
+.live-app .live-section.mode-manual button:focus-visible {
+  outline-color: var(--ui-manual);
+}
+.live-app .mode-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+.live-app .mode-legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 420px;
+}
+.live-app .lead-data {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+}
+.live-app .lead-data section {
+  min-width: 0;
+}
+.live-app .lead-data dl {
+  margin: 0;
+}
+.live-app .lead-data h4 {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ui-accent);
+}
+.live-app .lead-data dt {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.live-app .lead-data dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.live-app .lead-data dd.pending {
+  color: var(--muted);
+  font-style: italic;
+}
+@media (max-width: 1100px) {
+  .live-app .lead-data {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .live-app .lead-data {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Propuesta comercial: datos que ya tiene el agente, propuestas y formulario manual con aire. */
+.live-app .known-data {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px 24px;
+  margin: 20px 0 8px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--ui-glass);
+}
+.live-app .known-data div {
+  min-width: 0;
+}
+.live-app .known-data dt {
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.live-app .known-data dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.live-app .known-data dd.pending {
+  color: var(--muted);
+  font-style: italic;
+}
+.live-app .proposal-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 20px 0;
+}
+.live-app .proposal-item > p,
+.live-app .proposal-item > b {
+  margin: 0;
+}
+.live-app .proposal-item > .button {
+  align-self: flex-start;
+  margin-top: 0;
+}
+.live-app .proposal-item .form {
+  gap: 12px;
+  padding-top: 4px;
+}
+.live-app .proposal-state {
+  display: block;
+}
+.live-app .manual-block {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.live-app .manual-block > p {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+.live-app .manual-block .form {
+  padding-top: 8px;
+}
+.live-app .manual-block .live-label {
+  margin: 24px 0 0;
+}
+.live-app .live-section .button + .button {
+  margin-top: 12px;
+}
+.live-app .proposal-progress ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.live-app .proposal-progress li {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.live-app .proposal-progress li.done {
+  color: var(--ui-accent);
+  border-color: #d4f47744;
+  background: #d4f4770f;
+}
+.live-app .proposal-progress li.current {
+  color: var(--ui-bg);
+  border-color: var(--ui-accent-deep);
+  background: linear-gradient(110deg, var(--ui-accent), var(--ui-accent-deep));
+}
+.live-app .proposal-progress p {
+  margin: 12px 0 0;
+  color: var(--ink);
+}
+.live-app .proposal-progress p.stopped {
+  color: var(--error-ink);
+}
+.live-app .proposal-item .manual-block {
+  margin-top: 4px;
+}

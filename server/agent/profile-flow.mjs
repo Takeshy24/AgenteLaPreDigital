@@ -14,8 +14,16 @@ const AVAILABILITY = [
   'Solo fines de semana',
 ];
 
+export const OTHER_ANSWER_PROMPT = '¡Claro! Escríbeme tu respuesta en un mensaje y la anoto.';
+
+// Se antepone a la siguiente pregunta cuando la respuesta llegó con un botón.
+export const ACKNOWLEDGEMENT = {
+  career: '¡Excelente elección! ',
+  availability: '¡Perfecto! Ya casi terminamos. ',
+};
+
 export const QUESTIONS = {
-  career: { name: 'Carrera', letter: 'c', field: 2, text: '¿Qué carrera quieres estudiar?' },
+  career: { name: 'Carrera', letter: 'c', field: 2, text: '¿Qué carrera te gustaría estudiar?' },
   availability: {
     name: 'Disponibilidad',
     letter: 'a',
@@ -26,7 +34,7 @@ export const QUESTIONS = {
     name: 'Presupuesto',
     letter: 'b',
     field: 7,
-    text: '¿Cuánto podrías invertir al mes en tu preparación?',
+    text: '¿Cuánto podrías invertir al mes en tu preparación? Es solo para recomendarte lo que mejor te convenga.',
   },
 };
 const ORDER = ['career', 'availability', 'budget'];
@@ -68,6 +76,28 @@ export function keyboard(participationId, key, tariffs) {
   return rows;
 }
 
+// Telegram muestra estos botones como teclado de respuesta: al pulsar uno, el texto se envía como
+// un mensaje de la propia persona. Se guardan con su callback_data para saber qué significa cada uno.
+export function replyMarkup(markup) {
+  if (markup?.remove_keyboard) return { remove_keyboard: true };
+  return {
+    keyboard: (markup?.inline_keyboard ?? []).map((row) =>
+      row.map((button) => ({ text: button.text })),
+    ),
+    resize_keyboard: true,
+    one_time_keyboard: true,
+    input_field_placeholder: 'Elige una opción o escribe tu respuesta',
+  };
+}
+
+export const normalizeLabel = (value) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export function parseCallback(data) {
   const match = /^pf:(\d+):([cabpti])(?::(\d+|x))?$/.exec(data ?? '');
   if (!match) return null;
@@ -82,7 +112,14 @@ export function greeting(name) {
   const first = String(name ?? '')
     .trim()
     .split(/\s+/)[0];
-  return `${first ? `¡Hola, ${first}!` : '¡Hola!'} Ya estás conectado con LaPreDigital. Para recomendarte el plan que mejor se ajusta a ti, te haré unas preguntas rápidas. `;
+  return `${first ? `¡Hola, ${first}! 😊` : '¡Hola! 😊'} Qué gusto tenerte por aquí. Soy el asistente de LaPreDigital y te voy a ayudar a encontrar el plan que mejor se adapte a ti. Para conocerte un poquito, te haré unas preguntas cortas. `;
+}
+
+export function welcomeBack(name) {
+  const first = String(name ?? '')
+    .trim()
+    .split(/\s+/)[0];
+  return `¡Qué bueno verte de nuevo${first ? `, ${first}` : ''}! 😊 Sigamos donde nos quedamos. `;
 }
 
 // Recomienda el plan mensual más completo que cabe en el presupuesto declarado.
@@ -93,7 +130,7 @@ export function recommend(profile, tariffs) {
   const summary = `${profile.career}, ${String(profile.availability).toLowerCase()}, hasta S/ ${budget} al mes`;
   if (!chosen)
     return {
-      text: `Con lo que me contaste (${summary}), lo mejor para empezar es Explora UNT: 14 días gratis, una vez por estudiante. Después revisamos juntos qué plan te conviene.`,
+      text: `¡Gracias por contarme! Con lo que me compartiste (${summary}), lo mejor para empezar es Explora UNT: 14 días gratis, una vez por estudiante. Después vemos juntos qué plan te conviene.`,
       tariff: null,
     };
   const semester = tariffs.find(
@@ -101,7 +138,7 @@ export function recommend(profile, tariffs) {
   );
   const prices = `S/ ${Number(chosen.precio).toFixed(2)} al mes${semester ? ` o S/ ${Number(semester.precio).toFixed(2)} el semestre` : ''}`;
   return {
-    text: `Con lo que me contaste (${summary}), te recomiendo ${chosen.plan}: ${prices}. También puedes empezar con Explora UNT, 14 días gratis, una vez por estudiante.`,
+    text: `¡Listo, gracias por contarme! Con lo que me compartiste (${summary}), creo que lo que mejor te va es ${chosen.plan}: ${prices}. Si quieres, también puedes empezar probando Explora UNT gratis por 14 días (una vez por estudiante).`,
     tariff: chosen,
   };
 }

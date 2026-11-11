@@ -9,7 +9,7 @@ export function TrialCard() {
     [loading, setLoading] = useState(false);
   if (!selected) return null;
   return (
-    <Card title="Explora UNT" label="PRUEBA GRATUITA">
+    <Card title="Explora UNT" label="PRUEBA GRATUITA" mode="agent">
       {detail?.trials.map((trial) => (
         <p key={trial.idPrueba}>
           {trial.idEstadoPrueba === 1 ? 'Activa' : 'Finalizada'} · hasta{' '}

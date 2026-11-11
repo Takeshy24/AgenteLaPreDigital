@@ -81,7 +81,7 @@ export function registerRoutes(app) {
   );
   app.post(
     '/api/followup/run',
-    route(z.object({}).strict(), () => reviewFollowup()),
+    route(z.object({}).strict(), () => reviewFollowup({ prepare: false })),
   );
   app.get('/api/integrations/status', route(null, getIntegrationStatus));
   app.post(

@@ -1,10 +1,10 @@
 import { query } from '../db.mjs';
 import { insert, now } from '../shared/repository.mjs';
-export async function insertUnassigned(db, contact, text) {
+export async function insertUnassigned(db, contact, text, channel = 3) {
   return insert(
     db,
-    'INSERT dbo.Mensaje(idContacto,idDireccion,idCanal,textoMensaje) VALUES(@contact,1,3,@text)',
-    { contact, text },
+    'INSERT dbo.Mensaje(idContacto,idDireccion,idCanal,textoMensaje) VALUES(@contact,1,@channel,@text)',
+    { contact, text, channel },
   );
 }
 export async function listContactParticipants(db, contact) {

@@ -6,7 +6,7 @@ export async function openHandoff(id, data) {
   return transaction(async (db) => {
     const participation = await getParticipation(db, id);
     const current = await repository.getOpenHandoff(db, participation.idContacto);
-    if (current) return { id: current.idDerivacion };
+    if (current) return { id: current.idDerivacion, created: false };
     return {
       id: await repository.openHandoff(
         db,
@@ -14,6 +14,7 @@ export async function openHandoff(id, data) {
         data.reason,
         data.messageId ?? null,
       ),
+      created: true,
     };
   });
 }

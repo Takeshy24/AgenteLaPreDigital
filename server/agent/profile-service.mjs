@@ -32,7 +32,7 @@ export async function queueNextStep(db, participation, replyTo, { intro = '' } =
   return messageId;
 }
 
-export async function answerProfile(participationId, parsed) {
+export async function answerProfile(participationId, parsed, { text, channel = 3 } = {}) {
   return transaction(async (db) => {
     const participation = await getParticipation(db, participationId);
     if (participation.idEstadoCaso !== 1) throw new BusinessError('El caso está cerrado.');
@@ -42,34 +42,42 @@ export async function answerProfile(participationId, parsed) {
     if (profile[key] != null && String(profile[key]).trim() !== '')
       return { alreadyAnswered: true };
     if (parsed.index === 'x') {
+      const repeated =
+        (await repository.lastOutgoingText(db, participationId)) === flow.OTHER_ANSWER_PROMPT;
+      if (repeated && !text) return { other: key, repeated: true };
       const incoming = await recordIncoming(
         participationId,
-        { text: `${name}: otra respuesta`, channel: 3, level: 1 },
+        { text: text ?? `${name}: otra respuesta`, channel, level: 1 },
         { source: 2 },
       );
-      await createReply(db, participation, 'Escríbela en un mensaje y la registro.', incoming.id);
-      return { other: key };
+      if (!repeated) {
+        const reply = await createReply(db, participation, flow.OTHER_ANSWER_PROMPT, incoming.id);
+        await repository.attachMarkup(db, reply, { remove_keyboard: true });
+      }
+      return { other: key, repeated, messageId: incoming.id };
     }
     const option = flow.optionsFor(key, await publicTariffs(db))[Number(parsed.index)];
     if (!option) throw new BusinessError('Opción no válida.');
     const incoming = await recordIncoming(
       participationId,
-      { text: `${name}: ${option.label}`, channel: 3, level: 1 },
+      { text: text ?? `${name}: ${option.label}`, channel, level: 1 },
       { source: 2 },
     );
     await saveProfile(
       participationId,
-      { fields: { [key]: key === 'budget' ? Number(option.value) : option.value }, channel: 3 },
+      { fields: { [key]: key === 'budget' ? Number(option.value) : option.value }, channel },
       { messageId: incoming.id },
     );
-    await queueNextStep(db, await getParticipation(db, participationId), incoming.id);
-    return { answered: key };
+    await queueNextStep(db, await getParticipation(db, participationId), incoming.id, {
+      intro: flow.ACKNOWLEDGEMENT[key] ?? '',
+    });
+    return { answered: key, messageId: incoming.id };
   });
 }
 
 // Botones de la recomendación: cada uno equivale a que la persona escriba esa petición, así que se
 // registra como mensaje entrante y pasa por las mismas reglas que un mensaje escrito.
-export async function answerAction(participationId, parsed) {
+export async function answerAction(participationId, parsed, { text, channel = 3 } = {}) {
   return transaction(async (db) => {
     const tariffs = await publicTariffs(db);
     const tariff = tariffs.find((item) => item.id === Number(parsed.index));
@@ -85,7 +93,7 @@ export async function answerAction(participationId, parsed) {
     }[parsed.letter];
     const incoming = await recordIncoming(
       participationId,
-      { text: request.text, channel: 3, level: request.level },
+      { text: text ?? request.text, channel, level: request.level },
       { source: 2 },
     );
     await actOnAnalysis(participationId, incoming.id, request.text, {
@@ -98,6 +106,29 @@ export async function answerAction(participationId, parsed) {
       needsGuardian: false,
       guardian: null,
     });
-    return { action: request.action };
+    return { action: request.action, messageId: incoming.id };
   });
+}
+
+// Un botón del teclado de respuesta llega como texto normal. Se reconoce comparándolo con los
+// botones del último mensaje del agente, así que no depende de listas duplicadas ni de Ollama.
+export async function matchKeyboardReply(db, participationId, text, { data = null } = {}) {
+  const markup = await repository.lastOutgoingMarkup(db, participationId);
+  const wanted = flow.normalizeLabel(text);
+  const buttons = (markup?.inline_keyboard ?? []).flat();
+  const button = data
+    ? buttons.find((item) => item.callback_data === data)
+    : buttons.find(
+        (item) =>
+          flow.normalizeLabel(item.text) === wanted ||
+          flow.normalizeLabel(item.text.slice(0, 24)) === wanted,
+      );
+  const parsed = button ? flow.parseCallback(button.callback_data) : null;
+  if (!parsed || parsed.participationId !== participationId) return null;
+  if (['c', 'a', 'b'].includes(parsed.letter)) {
+    const profile = await repository.getProfile(db, participationId);
+    const key = flow.KEY_BY_LETTER[parsed.letter];
+    if (profile[key] != null && String(profile[key]).trim() !== '') return null;
+  }
+  return parsed;
 }

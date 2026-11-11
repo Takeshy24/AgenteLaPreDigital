@@ -125,6 +125,17 @@ export async function confirmStripeCheckout(caseId, sessionId) {
     { stripe: true },
   );
 }
+export async function simulatePayment(caseId) {
+  if (process.env.DEMO_PAYMENTS !== '1')
+    throw new BusinessError('El pago simulado está desactivado. Define DEMO_PAYMENTS=1 en .env.');
+  const contract = await transaction((db) => repository.getContract(db, caseId));
+  if (!contract) throw new BusinessError('Primero registra la aceptación de condiciones.');
+  if (contract.idEventoPago) return { saved: true };
+  return recordPayment(caseId, {
+    reference: `demo_pago_${caseId}_${Date.now()}`,
+    amount: Number(contract.precioAutorizado),
+  });
+}
 export async function validateContract(caseId) {
   return transaction(async (db) => {
     const current = await caseOrFail(db, caseId);

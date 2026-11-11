@@ -1095,7 +1095,8 @@ INSERT INTO
 VALUES
     (1, N'WhatsApp'),
     (2, N'Correo electrónico'),
-    (3, N'Telegram');
+    (3, N'Telegram'),
+    (4, N'Portal web');
 
 GO
 
@@ -1429,7 +1430,8 @@ VALUES
     (10, N'Reembolso parcial o posterior al servicio'),
     (11, N'Disputa de pago'),
     (12, N'Resolución de disputa'),
-    (13, N'Corrección de evento');
+    (13, N'Corrección de evento'),
+    (14, N'Habilitación del servicio');
 
 GO
 
@@ -1625,8 +1627,12 @@ VALUES
 
 GO
 
+DROP
+TRIGGER IF EXISTS dbo.trg_Contacto_CorreoUnico;
+
+GO
+
 CREATE
-OR ALTER
 TRIGGER dbo.trg_Contacto_CorreoUnico ON dbo.Contacto AFTER
 INSERT
 ,
@@ -1655,8 +1661,12 @@ END END;
 
 GO
 
+DROP
+TRIGGER IF EXISTS dbo.trg_Caso_UnCasoAbierto;
+
+GO
+
 CREATE
-OR ALTER
 TRIGGER dbo.trg_Caso_UnCasoAbierto ON dbo.Caso AFTER
 INSERT
 ,
@@ -1689,8 +1699,12 @@ END END;
 
 GO
 
+DROP
+TRIGGER IF EXISTS dbo.trg_AutorizacionContacto_UnaVigente;
+
+GO
+
 CREATE
-OR ALTER
 TRIGGER dbo.trg_AutorizacionContacto_UnaVigente ON dbo.AutorizacionContacto AFTER
 INSERT
 ,
@@ -1721,8 +1735,12 @@ END END;
 
 GO
 
+DROP
+TRIGGER IF EXISTS dbo.trg_PlanTarifa_PrecioFijo;
+
+GO
+
 CREATE
-OR ALTER
 TRIGGER dbo.trg_PlanTarifa_PrecioFijo ON dbo.PlanTarifa AFTER
 UPDATE AS BEGIN IF
 UPDATE (precio)
@@ -1743,8 +1761,12 @@ END END;
 
 GO
 
+DROP
+TRIGGER IF EXISTS dbo.trg_EvaluacionPrioridad_SoloInsercion;
+
+GO
+
 CREATE
-OR ALTER
 TRIGGER dbo.trg_EvaluacionPrioridad_SoloInsercion ON dbo.EvaluacionPrioridad INSTEAD OF
 UPDATE,
 DELETE AS BEGIN RAISERROR (
@@ -1757,8 +1779,12 @@ END;
 
 GO
 
+DROP
+TRIGGER IF EXISTS dbo.trg_EvaluacionPrioridad_ActualizaParticipacion;
+
+GO
+
 CREATE
-OR ALTER
 TRIGGER dbo.trg_EvaluacionPrioridad_ActualizaParticipacion ON dbo.EvaluacionPrioridad AFTER
 INSERT
     AS BEGIN
@@ -1785,8 +1811,12 @@ END;
 
 GO
 
+DROP
+TRIGGER IF EXISTS dbo.trg_EventoCaso_SoloInsercion;
+
+GO
+
 CREATE
-OR ALTER
 TRIGGER dbo.trg_EventoCaso_SoloInsercion ON dbo.EventoCaso INSTEAD OF
 UPDATE,
 DELETE AS BEGIN RAISERROR (
@@ -1799,8 +1829,12 @@ END;
 
 GO
 
+DROP
+TRIGGER IF EXISTS dbo.trg_EventoCaso_ActualizaCasoYEtapa;
+
+GO
+
 CREATE
-OR ALTER
 TRIGGER dbo.trg_EventoCaso_ActualizaCasoYEtapa ON dbo.EventoCaso AFTER
 INSERT
     AS BEGIN
@@ -1856,7 +1890,8 @@ CREATE TABLE dbo.App_TelegramLink (
     codeHash CHAR(64) PRIMARY KEY,
     idContacto BIGINT NOT NULL REFERENCES dbo.Contacto (idContacto),
     expiresAt DATETIME2(0) NOT NULL,
-    usedAt DATETIME2(0) NULL
+    usedAt DATETIME2(0) NULL,
+    consentimiento BIT NOT NULL DEFAULT 0
 );
 
 END;
@@ -1886,7 +1921,8 @@ CREATE TABLE dbo.App_Dispatch (
     ),
     externalId NVARCHAR(100) NULL,
     claimedAt DATETIME2(0) NULL,
-    error NVARCHAR(500) NULL
+    error NVARCHAR(500) NULL,
+    markup NVARCHAR(MAX) NULL
 );
 
 END;
@@ -1931,55 +1967,8 @@ CREATE TABLE dbo.App_OperationEvidence (
     idCaso BIGINT NOT NULL REFERENCES dbo.Caso (idCaso),
     operation NVARCHAR(60) NOT NULL,
     reference NVARCHAR(300) NOT NULL,
-    idOperador INT NOT NULL REFERENCES dbo.Operador (idOperador),
+    idOperador INT NULL REFERENCES dbo.Operador (idOperador),
     createdAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
-);
-
-END;
-
-GO
-
-IF NOT EXISTS (
-    SELECT
-        1
-    FROM
-        sys.check_constraints
-    WHERE
-        name = 'CK_Mensaje_DireccionOrigen'
-) BEGIN DECLARE @constraint SYSNAME;
-
-SELECT
-    @constraint = name
-FROM
-    sys.check_constraints
-WHERE
-    parent_object_id = OBJECT_ID('dbo.Mensaje')
-    AND definition LIKE '%idDireccion%'
-    AND definition LIKE '%esAutomatico%';
-
-IF @constraint IS NOT NULL BEGIN DECLARE @statement NVARCHAR(MAX) = 'ALTER TABLE dbo.Mensaje DROP CONSTRAINT ' + QUOTENAME(@constraint);
-
-EXEC sys.sp_executesql @statement;
-
-END;
-
-ALTER TABLE dbo.Mensaje
-ADD CONSTRAINT CK_Mensaje_DireccionOrigen CHECK (
-    (
-        idDireccion = 1
-        AND idOrigenMensaje IS NULL
-        AND idEstadoEntrega IS NULL
-        AND idOperador IS NULL
-    )
-    OR (
-        idDireccion = 2
-        AND idOrigenMensaje IS NOT NULL
-        AND idEstadoEntrega IS NOT NULL
-        AND (
-            esAutomatico = 0
-            OR idOrigenMensaje IN (1, 2)
-        )
-    )
 );
 
 END;
@@ -2023,36 +2012,6 @@ END;
 
 GO
 
-IF NOT EXISTS (
-    SELECT
-        1
-    FROM
-        dbo.Cat_TipoEvento
-    WHERE
-        id = 14
-)
-INSERT INTO
-    dbo.Cat_TipoEvento (id, nombre)
-VALUES
-    (14, N'Habilitación del servicio');
-
-GO
-
-IF NOT EXISTS (
-    SELECT
-        1
-    FROM
-        dbo.Cat_CanalComunicacion
-    WHERE
-        id = 4
-)
-INSERT INTO
-    dbo.Cat_CanalComunicacion (id, nombre)
-VALUES
-    (4, N'Portal web');
-
-GO
-
 IF OBJECT_ID('dbo.App_PublicOffer', 'U') IS NULL BEGIN
 CREATE TABLE dbo.App_PublicOffer (
     idOferta BIGINT IDENTITY(1, 1) PRIMARY KEY,
@@ -2061,23 +2020,6 @@ CREATE TABLE dbo.App_PublicOffer (
     expiresAt DATETIME2(0) NOT NULL,
     createdAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
 );
-
-END;
-
-GO
-
-IF EXISTS (
-    SELECT
-        1
-    FROM
-        sys.columns
-    WHERE
-        object_id = OBJECT_ID('dbo.App_OperationEvidence')
-        AND name = 'idOperador'
-        AND is_nullable = 0
-) BEGIN
-ALTER TABLE dbo.App_OperationEvidence
-ALTER COLUMN idOperador INT NULL;
 
 END;
 
@@ -2092,30 +2034,27 @@ CREATE TABLE dbo.App_PublicInquiry (
     esEstudiante BIT NOT NULL,
     planSolicitado NVARCHAR(80) NOT NULL,
     autorizaCorreo BIT NOT NULL,
-    createdAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+    createdAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME()),
+    telefono NVARCHAR(20) NULL,
+    idRolContacto TINYINT NULL REFERENCES dbo.Cat_RolContacto (id),
+    idContacto BIGINT NULL REFERENCES dbo.Contacto (idContacto),
+    idLeadCaso BIGINT NULL REFERENCES dbo.LeadCaso (idLeadCaso),
+    estado NVARCHAR(30) NOT NULL DEFAULT N'Pendiente',
+    requestKey NVARCHAR(64) NULL,
+    idPlanTarifa BIGINT NULL,
+    idSolicitudProvisional BIGINT NULL REFERENCES dbo.SolicitudProvisional (idSolicitud)
 );
 
 END;
 
 GO
 
-IF COL_LENGTH('dbo.App_PublicInquiry', 'telefono') IS NULL BEGIN
-ALTER TABLE dbo.App_PublicInquiry
-ADD telefono NVARCHAR(20) NULL,
-idRolContacto TINYINT NULL REFERENCES dbo.Cat_RolContacto (id),
-idContacto BIGINT NULL REFERENCES dbo.Contacto (idContacto),
-idLeadCaso BIGINT NULL REFERENCES dbo.LeadCaso (idLeadCaso),
-estado NVARCHAR(30) NOT NULL DEFAULT N'Pendiente',
-requestKey NVARCHAR(64) NULL,
-idPlanTarifa BIGINT NULL,
-idSolicitudProvisional BIGINT NULL REFERENCES dbo.SolicitudProvisional (idSolicitud);
-
-END;
+DROP
+TRIGGER IF EXISTS dbo.trg_PublicInquiry_ClaveUnica;
 
 GO
 
 CREATE
-OR ALTER
 TRIGGER dbo.trg_PublicInquiry_ClaveUnica ON dbo.App_PublicInquiry AFTER
 INSERT
 ,
@@ -2166,98 +2105,17 @@ END;
 
 GO
 
-IF COL_LENGTH('dbo.App_TelegramLink', 'consentimiento') IS NULL BEGIN
-ALTER TABLE dbo.App_TelegramLink
-ADD consentimiento BIT NOT NULL DEFAULT 0;
+IF OBJECT_ID('dbo.App_WhatsAppInbox', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_WhatsAppInbox (
+    seq BIGINT IDENTITY(1, 1) NOT NULL UNIQUE,
+    eventKey NVARCHAR(150) PRIMARY KEY,
+    kind NVARCHAR(10) NOT NULL CHECK (kind IN ('message', 'status')),
+    waId NVARCHAR(30) NOT NULL,
+    payload NVARCHAR(MAX) NOT NULL,
+    idMensaje BIGINT NULL REFERENCES dbo.Mensaje (idMensaje),
+    receivedAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME()),
+    processedAt DATETIME2(0) NULL,
+    error NVARCHAR(500) NULL
+);
 
 END;
-
-GO
-
-IF COL_LENGTH('dbo.App_Dispatch', 'markup') IS NULL BEGIN
-ALTER TABLE dbo.App_Dispatch
-ADD markup NVARCHAR(MAX) NULL;
-
-END;
-
-GO
-
-USE master;
-
-GO
-
-IF SUSER_ID('landing_app') IS NULL CREATE
-LOGIN landing_app
-WITH
-    PASSWORD = N'password',
-    CHECK_POLICY = ON,
-    DEFAULT_DATABASE = LaPreDigital_OLTP;
-
-GO
-
-USE LaPreDigital_OLTP;
-
-GO
-
-IF USER_ID('landing_app') IS NULL CREATE
-USER landing_app FOR
-LOGIN landing_app;
-
-GO
-
-GRANT
-SELECT
-,
-INSERT
-,
-UPDATE ON dbo.Contacto TO landing_app;
-
-GRANT
-SELECT
-,
-INSERT
-    ON dbo.AutorizacionContacto TO landing_app;
-
-GRANT
-SELECT
-,
-INSERT
-    ON dbo.Beneficiario TO landing_app;
-
-GRANT
-SELECT
-,
-INSERT
-    ON dbo.PerfilBeneficiario TO landing_app;
-
-GRANT
-SELECT
-,
-INSERT
-    ON dbo.Lead TO landing_app;
-
-GRANT
-SELECT
-,
-INSERT
-,
-UPDATE ON dbo.Caso TO landing_app;
-
-GRANT
-SELECT
-,
-INSERT
-    ON dbo.EventoCaso TO landing_app;
-
-GRANT
-SELECT
-,
-INSERT
-,
-UPDATE ON dbo.LeadCaso TO landing_app;
-
-GRANT
-SELECT
-,
-INSERT
-    ON dbo.SolicitudProvisional TO landing_app;

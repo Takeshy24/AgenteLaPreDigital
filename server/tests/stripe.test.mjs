@@ -35,3 +35,27 @@ test('Stripe de prueba: usa importe del servidor y rechaza claves de producción
   assert.equal(session.url, 'https://checkout.stripe.com/test');
   await assert.rejects(() => getSession('fake_session'), /Sesión Stripe inválida/);
 });
+
+test('pago simulado exige DEMO_PAYMENTS=1', async () => {
+  const { simulatePayment } = await import('../contracts/service.mjs');
+  const previous = process.env.DEMO_PAYMENTS;
+  process.env.DEMO_PAYMENTS = '0';
+  try {
+    await assert.rejects(() => simulatePayment(1), /desactivado/);
+  } finally {
+    if (previous === undefined) delete process.env.DEMO_PAYMENTS;
+    else process.env.DEMO_PAYMENTS = previous;
+  }
+});
+
+test('oferta pública: el pago simulado respeta DEMO_PAYMENTS y exige aceptar condiciones', async () => {
+  const { simulateOfferPayment } = await import('../public/service.mjs');
+  const previous = process.env.DEMO_PAYMENTS;
+  process.env.DEMO_PAYMENTS = '0';
+  try {
+    await assert.rejects(() => simulateOfferPayment('x'.repeat(43)), /desactivado/);
+  } finally {
+    if (previous === undefined) delete process.env.DEMO_PAYMENTS;
+    else process.env.DEMO_PAYMENTS = previous;
+  }
+});

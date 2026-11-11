@@ -14,6 +14,16 @@ export function integrationConfig() {
       enabled: process.env.FOLLOWUP_ENABLED === 'true',
       interval: Number(process.env.FOLLOWUP_INTERVAL_MS || 60000),
     },
+    whatsapp: {
+      enabled: process.env.WHATSAPP_ENABLED === 'true',
+      token: (process.env.WHATSAPP_TOKEN || '').trim(),
+      phoneNumberId: (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim(),
+      appSecret: (process.env.WHATSAPP_APP_SECRET || '').trim(),
+      verifyToken: (process.env.WHATSAPP_VERIFY_TOKEN || '').trim(),
+      apiVersion: (process.env.WHATSAPP_API_VERSION || 'v21.0').trim(),
+      templateName: (process.env.WHATSAPP_TEMPLATE_NAME || 'hello_world').trim(),
+      templateLanguage: (process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en_US').trim(),
+    },
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: Number(process.env.SMTP_PORT || 465),

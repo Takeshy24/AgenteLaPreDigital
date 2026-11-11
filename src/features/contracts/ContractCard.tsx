@@ -24,7 +24,7 @@ export function ContractCard() {
     }
   }
   return (
-    <Card title="Formalización y resultados" label="CONTRATACIÓN">
+    <Card title="Formalización y resultados" label="CONTRATACIÓN" mode="manual">
       <p className="contract-status">
         {contract?.idEventoValidacion
           ? 'Contratación validada'
@@ -116,6 +116,15 @@ export function ContractCard() {
           }
         >
           Registrar pago ya confirmado
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={busy || !contract || !!contract.idEventoPago}
+          onClick={() =>
+            run(path + '/demo-payment', {}, 'Pago simulado registrado (solo para demostración).')
+          }
+        >
+          Simular pago (demo)
         </Button>
         <Button
           disabled={busy || !contract?.idEventoPago || !!contract.idEventoValidacion}

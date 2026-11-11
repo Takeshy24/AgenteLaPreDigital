@@ -5,9 +5,9 @@ import { evaluatePriority } from '../priorities/service.mjs';
 import { getParticipation } from '../shared/repository.mjs';
 import * as repository from './repository.mjs';
 
-export async function recordUnassigned(contact, text) {
+export async function recordUnassigned(contact, text, channel = 3) {
   return transaction(async (db) => {
-    const id = await repository.insertUnassigned(db, contact, text);
+    const id = await repository.insertUnassigned(db, contact, text, channel);
     await repository.clearContactBlocks(db, contact, id);
     for (const row of await repository.listContactParticipants(db, contact)) {
       const before = await getParticipation(db, row.id);

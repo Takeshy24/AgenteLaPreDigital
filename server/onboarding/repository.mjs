@@ -57,7 +57,7 @@ export async function saveContact(db, contact, data) {
 export async function recordReply(db, contact, incoming, text, participant = null) {
   const id = await insert(
     db,
-    'INSERT dbo.Mensaje(idContacto,idLead,idLeadCaso,idDireccion,idCanal,idOrigenMensaje,idMensajeRespondido,textoMensaje,idEstadoEntrega,esAutomatico) VALUES(@contact,@lead,@participation,2,3,2,@incoming,@text,1,1)',
+    'INSERT dbo.Mensaje(idContacto,idLead,idLeadCaso,idDireccion,idCanal,idOrigenMensaje,idMensajeRespondido,textoMensaje,idEstadoEntrega,esAutomatico) VALUES(@contact,@lead,@participation,2,3,2,@incoming,@text,1,0)',
     {
       contact,
       incoming,

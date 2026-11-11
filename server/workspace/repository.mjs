@@ -41,16 +41,15 @@ export async function getWorkspace() {
   c.correo email,
   c.telefono phone,
   b.nombreCompleto beneficiary,
-  rc.nombre
-ROLE,
-cc.nombre channel,
-p.nombre priority,
-ep.nombre status,
-ni.nombre interest,
-pb.universidadObjetivo university,
-pb.carreraDeseada career,
-pb.disponibilidadEstudio availability,
-pc.presupuestoMensual budget,
+  rc.nombre [role],
+  cc.nombre channel,
+  p.nombre priority,
+  ep.nombre status,
+  ni.nombre interest,
+  pb.universidadObjetivo university,
+  pb.carreraDeseada career,
+  pb.disponibilidadEstudio availability,
+  pc.presupuestoMensual budget,
 lc.idEstadoParticipacion,
 lc.idPrioridadActual,
 ca.idEstadoCaso,
@@ -174,13 +173,17 @@ WHERE
 ORDER BY
   e.idEvaluacion DESC`,
     attempts: `SELECT
-  *
+  i.*,
+  ch.nombre canalEnvio,
+  m.fechaHora fechaEnvio
 FROM
-  dbo.IntentoContacto
+  dbo.IntentoContacto i
+  LEFT JOIN dbo.Mensaje m ON m.idMensaje = i.idMensajeEnvio
+  LEFT JOIN dbo.Cat_CanalComunicacion ch ON ch.id = m.idCanal
 WHERE
-  idLeadCaso = @id
+  i.idLeadCaso = @id
 ORDER BY
-  numeroIntento`,
+  i.numeroIntento`,
     proposals: `SELECT
   pr.*,
   p.nombre [plan],

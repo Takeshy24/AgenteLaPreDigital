@@ -12,7 +12,7 @@ export function ConsentCard() {
       granted ? 'Autorización registrada.' : 'Autorización revocada.',
     );
   return (
-    <Card title="Permisos de contacto" label="AUTORIZACIÓN">
+    <Card title="Permisos de contacto" label="AUTORIZACIÓN" mode="manual">
       <p>{selected.authorized ? 'Existe algún canal vigente.' : 'Sin autorización vigente.'}</p>
       <label className="live-label">
         Canal

@@ -7,6 +7,7 @@ import './live.css';
 import { Catalog } from './pages/Catalog';
 import { Followup } from './pages/Followup';
 import { Integrations } from './pages/Integrations';
+import { Kpis } from './pages/Kpis';
 import { Overview } from './pages/Overview';
 import { Profile } from './pages/Profile';
 import { WorkspaceProvider, useWorkspace } from './state/Workspace';
@@ -22,6 +23,7 @@ function WorkspaceView() {
       {data && !selected && page === 'leads' && <LeadTable />}
       {data && !selected && page === 'catalog' && <Catalog />}
       {data && !selected && page === 'followup' && <Followup />}
+      {data && !selected && page === 'kpis' && <Kpis />}
       {data && !selected && page === 'integrations' && <Integrations />}
       {creating && <LeadForm onClose={closeForm} />}
     </Layout>

@@ -9,7 +9,7 @@ export function CaseActions() {
     [handoff, setHandoff] = useState(1);
   if (!selected) return null;
   return (
-    <Card title="Gestión de la negociación" label="CASO Y ATENCIÓN PERSONAL">
+    <Card title="Gestión de la negociación" label="CASO Y ATENCIÓN PERSONAL" mode="manual">
       <form
         className="form"
         onSubmit={(event) => {
