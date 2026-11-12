@@ -9,6 +9,9 @@ export function LeadTable() {
   const [priority, setPriority] = useState('');
   const [caseState, setCaseState] = useState('');
   const [intake, setIntake] = useState<PublicInquiry | null>(null);
+  const pendingInquiries = inquiries?.filter(
+    (item) => !item.participationId && item.status !== 'Vinculada' && item.status !== 'Descartada',
+  );
   const rows =
     data?.leads.filter(
       (lead) =>
@@ -33,22 +36,22 @@ export function LeadTable() {
         <div className="section-heading">
           <div>
             <span className="eyebrow">FORMULARIO PÚBLICO</span>
-            <h2>Solicitudes de planes {inquiries && `(${inquiries.length})`}</h2>
+            <h2>Solicitudes por revisar {pendingInquiries && `(${pendingInquiries.length})`}</h2>
           </div>
           <Button variant="secondary" onClick={() => void refreshInquiries()}>
             Actualizar
           </Button>
         </div>
         <p className="inquiry-note">
-          Las captaciones completas se vinculan automáticamente. Revisa las que necesitan datos o
-          confirmación de identidad.
+          Aquí aparecen las solicitudes que necesitan datos o confirmación de identidad. Las ya
+          vinculadas se gestionan en «Negociaciones registradas».
         </p>
         {inquiryError && (
           <div className="live-alert" role="alert">
             No se pudieron consultar las solicitudes: {inquiryError}
           </div>
         )}
-        {inquiries?.length ? (
+        {pendingInquiries?.length ? (
           <div className="table-wrap">
             <table>
               <thead>
@@ -61,7 +64,7 @@ export function LeadTable() {
                 </tr>
               </thead>
               <tbody>
-                {inquiries.map((item) => (
+                {pendingInquiries.map((item) => (
                   <tr key={item.id}>
                     <td>
                       {item.name}
@@ -72,15 +75,9 @@ export function LeadTable() {
                     <td>{item.consent ? 'Autorizó correo' : 'Sin autorización'}</td>
                     <td>
                       <small className="live-sub">{item.status}</small>
-                      {item.participationId ? (
-                        <Button variant="secondary" onClick={() => open(item.participationId!)}>
-                          Abrir negociación
-                        </Button>
-                      ) : (
-                        <Button variant="secondary" onClick={() => setIntake(item)}>
-                          Completar captación
-                        </Button>
-                      )}
+                      <Button variant="secondary" onClick={() => setIntake(item)}>
+                        Completar captación
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -89,8 +86,8 @@ export function LeadTable() {
           </div>
         ) : !inquiryError ? (
           <Empty>
-            {inquiries
-              ? 'Aún no hay solicitudes del catálogo público.'
+            {pendingInquiries
+              ? 'No hay solicitudes pendientes de revisión.'
               : 'Consultando solicitudes…'}
           </Empty>
         ) : null}

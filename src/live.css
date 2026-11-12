@@ -895,12 +895,6 @@ body:has(.live-app) {
   flex-shrink: 0;
   font-size: 11px;
 }
-.live-app .contract-status {
-  background: var(--accent-soft);
-  color: var(--navy);
-  padding: 14px;
-  border-radius: 8px;
-}
 .live-app details > summary {
   cursor: pointer;
   font-size: 13px;
@@ -1455,16 +1449,213 @@ body:has(.live-app) {
 
 .pending-page {
   display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.live-detail-grid.is-service-summary {
+  grid-template-columns: minmax(0, 1fr);
+}
+.service-summary-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.service-summary-status > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.service-summary-status.is-acquired > svg {
+  color: var(--ui-accent);
+}
+.service-summary-status > strong {
+  font-size: 18px;
+  font-weight: 600;
+}
+.service-access-state {
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ui-ink);
+  background: var(--ui-glass);
+  font-size: 12px;
+}
+.live-app .service-summary-description {
+  max-width: 720px;
+  margin: 12px 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.service-summary > .button {
+  width: fit-content;
+  min-height: 44px;
+}
+@media (max-width: 600px) {
+  .service-summary-status > strong {
+    font-size: 16px;
+  }
+  .service-access-state {
+    margin-left: 36px;
+  }
+}
+.pending-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
 }
-.pending-item {
-  display: grid;
-  gap: 6px;
+.live-app .pending-total {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 700;
 }
-.pending-item p {
+.live-app .pending-refresh-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.live-app .pending-group {
   margin: 0;
 }
-.pending-detail {
+.pending-group-header {
+  padding: 24px;
+}
+.pending-group-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.live-app .pending-group-title h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.03em;
+}
+.pending-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding-inline: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ui-glow);
+  color: var(--ui-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.live-app .pending-group-header p {
+  max-width: 720px;
+  margin: 8px 0 0;
   color: var(--muted);
-  font-style: italic;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.live-app .pending-table td {
+  vertical-align: middle;
+}
+.live-app .pending-table td:first-child {
+  min-width: 220px;
+}
+.pending-person {
+  display: block;
+  max-width: 360px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.7;
+}
+.pending-context {
+  min-width: 200px;
+  max-width: 400px;
+  overflow-wrap: anywhere;
+}
+.pending-context > strong,
+.pending-context > span {
+  display: block;
+}
+.pending-since {
+  min-width: 155px;
+}
+.pending-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pending-row-actions .button {
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .pending-toolbar {
+    align-items: flex-start;
+  }
+  .live-app .pending-total {
+    font-size: 14px;
+  }
+  .pending-group-header {
+    padding: 20px;
+  }
+  .live-app .pending-group-title h2 {
+    font-size: 16px;
+  }
+  .pending-table,
+  .pending-table tbody,
+  .pending-table tr,
+  .live-app .pending-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+  .pending-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .pending-table tr {
+    padding: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .live-app .pending-table td {
+    margin-bottom: 14px;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .live-app .pending-table td:first-child {
+    min-width: 0;
+  }
+  .live-app .pending-table td:last-child {
+    margin-bottom: 0;
+  }
+  .pending-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .pending-table td[data-label='Acciones']::before {
+    display: none;
+  }
+  .pending-person {
+    max-width: none;
+    font-size: 14px;
+  }
+  .pending-row-actions {
+    padding-top: 2px;
+  }
+  .pending-row-actions .button {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 42px;
+  }
 }

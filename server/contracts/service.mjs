@@ -5,6 +5,7 @@ import { BusinessError } from '../shared/errors.mjs';
 import { getOperator } from '../shared/repository.mjs';
 import * as repository from './repository.mjs';
 import { createSession, getSession } from './stripe.mjs';
+import { prepareAccess, retryDelivery } from '../access/service.mjs';
 async function caseOrFail(db, id) {
   const current = await getCase(db, id);
   if (!current) throw new BusinessError('Caso no encontrado', 404);
@@ -171,9 +172,29 @@ export async function activateService(caseId) {
     if (await repository.hasRefund(db, caseId))
       throw new BusinessError('La contratación fue invalidada por reembolso.');
     if (contract.fechaHabilitacion) return { activated: true };
+    const operator = await getOperator(db);
+    const access = await prepareAccess(db, {
+      caseId,
+      contractId: contract.idContratacion,
+      operator,
+    });
     await repository.activateContract(db, contract.idContratacion);
-    await addEvent(db, { caseId, type: 14, operator: await getOperator(db), stage: 3 });
-    return { activated: true };
+    await addEvent(db, { caseId, type: 14, operator, stage: 3 });
+    return { activated: true, username: access.username, credentialsQueued: true };
+  });
+}
+export async function retryAccessDelivery(caseId) {
+  return transaction(async (db) => {
+    await caseOrFail(db, caseId);
+    const contract = await repository.getContract(db, caseId);
+    if (!contract?.fechaHabilitacion) throw new BusinessError('Primero habilita el servicio.');
+    if (await repository.hasRefund(db, caseId))
+      throw new BusinessError('La contratación fue invalidada.');
+    return retryDelivery(db, {
+      caseId,
+      contractId: contract.idContratacion,
+      operator: await getOperator(db),
+    });
   });
 }
 export async function paymentIncident(caseId, data) {

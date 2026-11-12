@@ -48,11 +48,20 @@ export async function whatsappPayload(message, config) {
       text: { body: message.textoMensaje.slice(0, 4096), preview_url: false },
     };
   }
+  if (
+    message.credentials &&
+    (!config.credentialsTemplateName || config.credentialsTemplateName === 'hello_world')
+  ) {
+    const error = new Error('Falta una plantilla de credenciales aprobada para WhatsApp.');
+    error.uncertain = false;
+    throw error;
+  }
+  const templateName = message.credentials ? config.credentialsTemplateName : config.templateName;
   const template = {
-    name: config.templateName,
+    name: templateName,
     language: { code: config.templateLanguage },
   };
-  if (config.templateName !== 'hello_world')
+  if (templateName !== 'hello_world')
     template.components = [
       {
         type: 'body',

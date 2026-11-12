@@ -34,7 +34,14 @@ import {
   recordQuestion,
   attachMarkup,
 } from './repository.mjs';
-import { isCoreKey, keyboard, KEY_BY_FIELD, nextKey } from './profile-flow.mjs';
+import {
+  audience,
+  isCoreKey,
+  keyboard,
+  KEY_BY_FIELD,
+  nextKey,
+  questionText,
+} from './profile-flow.mjs';
 import { queueNextStep } from './profile-service.mjs';
 export const HANDOFF_NOTICE =
   'Voy a pasar tu consulta a un asesor del equipo para que te ayude mejor. Te escribirán pronto. 😊';
@@ -97,6 +104,8 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
   const reason = handoffReason(text) || (analysis.action === 'handoff' ? 7 : null);
   return transaction(async (db) => {
     const participation = await getParticipation(db, participationId);
+    // A quién se habla: el estudiante (trato directo) o su madre, padre o apoderado.
+    const aud = audience(participation.idRolContacto, contact.beneficiary);
     const handoff = await getOpenHandoff(db, participation.idContacto);
     const channel = (await channelOf(db, messageId)) ?? 3;
     if (participation.idEstadoCaso === 1 && analysis.fields.length) {
@@ -133,8 +142,11 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
       const first = guardian.name.split(' ')[0];
       const relation = { 2: 'papá', 3: 'mamá', 4: 'responsable' }[guardian.role] ?? 'responsable';
       const target = await findDirectTarget(db, guardian.phone, participation.idContacto);
+      const proposer = aud.student
+        ? `${contact.name} indicó que eres su ${relation}`
+        : `${contact.name} indicó que eres ${{ papá: 'el papá', mamá: 'la mamá' }[relation] ?? 'responsable'} de ${contact.beneficiary}`;
       const invitationText =
-        `Hola ${first}, ${contact.name} indicó que eres su ${relation} y que acompañas su preparación para la UNT. ` +
+        `Hola ${first}, ${proposer} y que acompañas su preparación para la UNT. ` +
         `Si estás de acuerdo, revisa y acepta la invitación aquí: ${url}
 ` +
         'Si no reconoces esta solicitud, puedes ignorar este mensaje.';
@@ -146,7 +158,7 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
             email: {
               subject: `${contact.name} te invita a acompañar su preparación en LaPreDigital`,
               text: invitationText,
-              html: `<p>Hola ${first},</p><p>${contact.name} indicó que eres su ${relation} y que acompañas su preparación para la UNT.</p><p><a href="${url}">Revisar y aceptar la invitación</a></p><p>Si no reconoces esta solicitud, puedes ignorar este correo.</p>`,
+              html: `<p>Hola ${first},</p><p>${proposer} y que acompañas su preparación para la UNT.</p><p><a href="${url}">Revisar y aceptar la invitación</a></p><p>Si no reconoces esta solicitud, puedes ignorar este correo.</p>`,
             },
           })
         : null;
@@ -178,11 +190,17 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
     }
     if (partial) {
       if (!need) await addNeed(db, participation.idCaso, participationId, messageId);
-      const who = { 2: 'tu papá', 3: 'tu mamá', 4: 'esa persona' }[partial.role] ?? 'esa persona';
+      const own = aud.student ? 'tu' : 'su';
+      const who =
+        { 2: `${own} papá`, 3: `${own} mamá`, 4: 'esa persona' }[partial.role] ?? 'esa persona';
+      const preparation = aud.student ? 'tu preparación' : `la preparación de ${aud.name}`;
       const missing = [
         !partial.name && 'su nombre completo',
         !partial.phone && 'su número de celular',
-        !partial.role && 'qué es tuyo (papá, mamá u otro familiar)',
+        !partial.role &&
+          (aud.student
+            ? 'qué es tuyo (papá, mamá u otro familiar)'
+            : `qué es de ${aud.name} (papá, mamá u otro familiar)`),
       ].filter(Boolean);
       const list =
         missing.length > 1 ? `${missing.slice(0, -1).join(', ')} y ${missing.at(-1)}` : missing[0];
@@ -190,7 +208,7 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
         db,
         participation,
         analysis.needsGuardian && !partial.name && !partial.phone
-          ? `¡Claro! Podemos incluir a ${who} en tu preparación. Para enviarle una invitación, cuéntame ${list}. No le escribiremos hasta que acepte.`
+          ? `¡Claro! Podemos incluir a ${who} en ${preparation}. Para enviarle una invitación, cuéntame ${list}. No le escribiremos hasta que acepte.`
           : `¡Gracias! Para preparar la invitación de ${who} solo me falta ${list}.`,
         messageId,
       );
@@ -282,12 +300,13 @@ La aceptación no confirma el pago.`,
       ...contact,
       ...Object.fromEntries(analysis.fields.map((item) => [item.field, item.value])),
     };
+    const careerQuestion = questionText('career', aud).replace('?', ' en la UNT?');
     const nextQuestion = !known.career
-      ? '¿Qué carrera te gustaría estudiar en la UNT?'
+      ? careerQuestion
       : !known.availability
-        ? '¿Cuánto tiempo puedes dedicar a estudiar?'
+        ? questionText('availability', aud)
         : known.budget == null
-          ? '¿Cuánto podrías invertir al mes en tu preparación?'
+          ? questionText('budget', aud)
           : '¿Quieres que te cuente qué incluye cada plan o prefieres que te prepare una propuesta?';
     // Con las tres preguntas básicas respondidas, el agente hace una sola vez las opcionales (cursos
     // difíciles y postulaciones) y, al terminar, recomienda el plan.
@@ -309,13 +328,15 @@ La aceptación no confirma el pago.`,
       }
     }
     let response = analysis.social
-      ? `¡Qué amable! 😊 Sigo aquí para ayudarte a elegir tu plan. ${nextQuestion}`
+      ? `¡Qué amable! 😊 Sigo aquí para ayudarte a elegir ${aud.student ? 'tu plan' : `el plan de ${aud.name}`}. ${nextQuestion}`
       : !known.career
-        ? '¡Gracias por escribirme! Para ayudarte mejor, cuéntame: ¿qué carrera te gustaría estudiar en la UNT?'
+        ? `¡Gracias por escribirme! Para ayudarte mejor, cuéntame: ${careerQuestion.replace('¿Q', '¿q')}`
         : !known.availability
-          ? `¡Qué bien! Para prepararte para ${known.career}, ¿cuánto tiempo puedes dedicar a estudiar?`
+          ? aud.student
+            ? `¡Qué bien! Para prepararte para ${known.career}, ¿cuánto tiempo puedes dedicar a estudiar?`
+            : `¡Qué bien! Para preparar a ${aud.name} para ${known.career}, ¿cuánto tiempo puede dedicar a estudiar?`
           : known.budget == null
-            ? '¡Gracias! Una última pregunta: ¿cuánto podrías invertir al mes en tu preparación?'
+            ? `¡Gracias! Una última pregunta: ${questionText('budget', aud).replace('¿C', '¿c')}`
             : '¿Qué plan o modalidad te interesa? Con gusto te aclaro los precios y te ayudo a preparar una propuesta.';
     if (analysis.action === 'proposal' && !analysis.tariffId) {
       const invalid = unavailableOption(text, workspace.tariffs);
@@ -336,8 +357,9 @@ La aceptación no confirma el pago.`,
       // Objeciones sin fragmento propio: tiempo se convierte en la pregunta de disponibilidad;
       // confianza y alternativas se atienden con la prueba gratuita.
       if (analysis.objection === 3)
-        response =
-          'Entiendo, el tiempo importa. Cuéntame cuánto tiempo podrías dedicar a estudiar y te recomiendo el plan que mejor encaje contigo.';
+        response = aud.student
+          ? 'Entiendo, el tiempo importa. Cuéntame cuánto tiempo podrías dedicar a estudiar y te recomiendo el plan que mejor encaje contigo.'
+          : `Entiendo, el tiempo importa. Cuéntame cuánto tiempo podría dedicar ${aud.name} a estudiar y les recomiendo el plan que mejor le encaje.`;
       if ([2, 5].includes(analysis.objection))
         response =
           'Es normal querer comparar antes de decidir. LaPreDigital es una preparación 100 % virtual para la admisión a la UNT, y con Explora UNT puedes probarla gratis 14 días antes de pagar. Si quieres probarla, escríbeme «quiero probar Explora».';
@@ -363,6 +385,7 @@ La aceptación no confirma el pago.`,
             participation.idLeadCaso,
             KEY_BY_FIELD[field],
             workspace.tariffs,
+            aud,
           ),
         });
       }

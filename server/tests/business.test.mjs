@@ -16,6 +16,8 @@ import {
 import { close, query, rollbackTest } from '../db.mjs';
 import { reviewFollowup } from '../followup/service.mjs';
 import { createLead } from '../leads/service.mjs';
+import { listPending } from '../pending/service.mjs';
+import { getDetails } from '../workspace/repository.mjs';
 import { acceptGuardian, inviteGuardian } from '../links/service.mjs';
 import { confirmExternalDelivery } from '../messages/delivery.mjs';
 import { recordIncoming } from '../messages/service.mjs';
@@ -120,10 +122,23 @@ test('contratación: entrega, aceptación, pago externo, validación, refund sin
       });
       await validateContract(flow.caseId);
       assert.equal((await state(db, flow.participant.id)).idEstadoParticipacion, 4);
+      assert.equal((await getDetails(flow.participant.id)).contracts[0].invalidated, false);
+      assert.ok(
+        (await listPending()).some(
+          (item) => item.type === 'activation' && item.caseId === flow.caseId,
+        ),
+      );
       await paymentIncident(flow.caseId, {
         type: 'refund',
         reference: 'Confirmación externa de devolución total.',
       });
+      assert.equal((await getDetails(flow.participant.id)).contracts[0].invalidated, true);
+      assert.equal(
+        (await listPending()).some(
+          (item) => item.type === 'activation' && item.caseId === flow.caseId,
+        ),
+        false,
+      );
       const current = (
         await query(
           db,

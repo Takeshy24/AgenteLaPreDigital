@@ -48,6 +48,10 @@ export function registerRoutes(app) {
     route(z.object({}).strict(), (_, id) => service.activateService(id)),
   );
   app.post(
+    '/api/cases/:id/access-delivery/retry',
+    route(z.object({}).strict(), (_, id) => service.retryAccessDelivery(id)),
+  );
+  app.post(
     '/api/cases/:id/incident',
     route(
       z

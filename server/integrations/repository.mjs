@@ -129,8 +129,12 @@ WHERE
   const conflicts = rows.filter(
     (row) => !(row.chatId === chatId && Number(row.idContacto) === Number(link.idContacto)),
   );
+  // Conflicto: este Telegram ya pertenece a otra persona, o esta persona ya vinculó otro Telegram.
+  // El enlace no se consume, para que su dueño pueda usarlo desde su propia cuenta.
   if (conflicts.length && !(await takeOverProvisionalChat(db, conflicts, chatId, link.idContacto)))
-    return null;
+    return {
+      conflict: conflicts.some((row) => row.chatId === chatId) ? 'chat' : 'contact',
+    };
   await query(
     db,
     `IF NOT EXISTS (
@@ -375,6 +379,11 @@ WHERE
   AND m.idCanal IN (${list})
   AND m.idEstadoEntrega = 1
   AND (
+    m.idCanal <> 2 OR EXISTS (
+      SELECT 1 FROM dbo.HabilitacionAcceso a WHERE a.idMensajeCredenciales = m.idMensaje
+    )
+  )
+  AND (
     d.idMensaje IS NULL
     OR d.state = N'pending'
   )
@@ -391,6 +400,7 @@ export async function claimMessage(db, id) {
   m.*,
   tc.chatId,
   ct.telefono,
+  ct.correo,
   lc.idEstadoParticipacion,
   c.idEstadoCaso,
   lc.idPrioridadActual,
@@ -471,6 +481,14 @@ SET
 WHERE
   idMensaje = @id`,
     { id, externalId: String(externalId) },
+  );
+  await query(
+    db,
+    `UPDATE dbo.HabilitacionAcceso SET mensajeCifrado = NULL
+WHERE idMensajeCredenciales = @id AND EXISTS (
+  SELECT 1 FROM dbo.Mensaje WHERE idMensaje = @id AND idEstadoEntrega = 2
+)`,
+    { id },
   );
 }
 export async function markFailed(db, id, error, uncertain = false) {
@@ -596,6 +614,14 @@ SET
 WHERE
   idMensaje = @id
   AND idEstadoEntrega = 1`,
+    { id },
+  );
+  await query(
+    db,
+    `UPDATE dbo.HabilitacionAcceso SET mensajeCifrado = NULL
+WHERE idMensajeCredenciales = @id AND EXISTS (
+  SELECT 1 FROM dbo.Mensaje WHERE idMensaje = @id AND idEstadoEntrega = 2
+)`,
     { id },
   );
 }

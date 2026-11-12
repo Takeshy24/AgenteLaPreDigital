@@ -79,8 +79,19 @@ export interface Details {
     idEventoValidacion: number | null;
     referenciaPago: string | null;
     fechaHabilitacion: string | null;
+    invalidated: boolean;
   }[];
   trials: { idPrueba: number; fechaFin: string; idEstadoPrueba: number }[];
+  access: {
+    username: string;
+    contact: string;
+    channel: string;
+    messageId: number;
+    deliveredAt: string | null;
+    delivery: string;
+    error: string | null;
+    retryAllowed: boolean;
+  }[];
   messages: Message[];
   changes: {
     idCambio: number;

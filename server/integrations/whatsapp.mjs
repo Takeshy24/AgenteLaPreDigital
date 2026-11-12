@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { greeting, welcomeBack } from '../agent/profile-flow.mjs';
+import { audience, greeting, welcomeBack } from '../agent/profile-flow.mjs';
 import { getProfile } from '../agent/repository.mjs';
 import { queueNextStep } from '../agent/profile-service.mjs';
 import { answerConsent, askChannelConsent, parseConsent } from '../agent/consent-prompt.mjs';
@@ -198,7 +198,9 @@ async function welcome(item, target, text, context) {
       (key) => profile[key] != null && String(profile[key]).trim() !== '',
     );
     await queueNextStep(db, participation, incoming.id, {
-      intro: known ? welcomeBack(name) : greeting(name),
+      intro: known
+        ? welcomeBack(name)
+        : greeting(name, audience(profile.role, profile.beneficiary)),
     });
     await askChannelConsent(db, participation, 1, incoming.id);
     await context.finish(db, incoming.id);

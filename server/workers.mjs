@@ -7,6 +7,7 @@ import { telegramClient } from './integrations/telegram-client.mjs';
 import { pollTelegram } from './integrations/telegram.mjs';
 import { whatsappClient } from './integrations/whatsapp-client.mjs';
 import { pollWhatsApp } from './integrations/whatsapp.mjs';
+import { sendEmail } from './integrations/mailer.mjs';
 
 export async function runWorkerCycle({ telegram, whatsapp, maintenance, dispatch, reportError }) {
   for (const [name, task] of [
@@ -34,7 +35,8 @@ export async function startWorkers() {
   const abort = new AbortController();
   const whatsappEnabled =
     config.whatsapp.enabled && !!config.whatsapp.token && !!config.whatsapp.phoneNumberId;
-  if (!enabled && !whatsappEnabled && !config.followup.enabled) return async () => {};
+  const mail = config.smtp.user && config.smtp.password ? { send: sendEmail } : null;
+  if (!enabled && !whatsappEnabled && !config.followup.enabled && !mail) return async () => {};
   const db = await pool();
   const lease = (
     await query(
@@ -93,7 +95,8 @@ SELECT
             else await reviewMaintenance();
           }
         : null,
-      dispatch: client || whatsapp ? () => dispatchPending(client, { whatsapp }) : null,
+      dispatch:
+        client || whatsapp || mail ? () => dispatchPending(client, { whatsapp, mail }) : null,
       reportError: (name, error) => {
         if (!stopped) console.error(`Integraciones (${name}):`, error.message);
       },

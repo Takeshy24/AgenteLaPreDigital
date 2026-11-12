@@ -238,7 +238,7 @@ test('vínculo: un chat ya ligado a un contacto con datos no puede ser reasignad
         Number(first.contact),
       );
       await saveLink(db, second.contact, hashCode('enlace-dos'));
-      assert.equal(await useLink(db, hashCode('enlace-dos'), chatId), null);
+      assert.deepEqual(await useLink(db, hashCode('enlace-dos'), chatId), { conflict: 'chat' });
       assert.equal(Number((await getChat(db, chatId)).idContacto), Number(first.contact));
     });
   } finally {

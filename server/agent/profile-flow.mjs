@@ -23,7 +23,21 @@ const COURSES = [
   'Lenguaje y razonamiento verbal',
 ];
 export const NO_COURSES = 'Ninguno en especial';
-const APPLICATIONS = ['Es mi primera vez', 'Ya postulé una vez', 'Ya postulé dos veces o más'];
+const APPLICATIONS = [
+  ['Es mi primera vez', 'Es su primera vez', 'Primera postulación (no postuló antes)'],
+  ['Ya postulé una vez', 'Ya postuló una vez', 'Postuló una vez'],
+  ['Ya postulé dos veces o más', 'Ya postuló dos veces o más', 'Postuló dos veces o más'],
+];
+
+// A quién se habla (tabla 3: rol del contacto). El estudiante recibe un trato directo; la madre,
+// el padre o el apoderado reciben las mismas preguntas referidas al estudiante por su nombre.
+export function audience(role, beneficiary) {
+  const first = String(beneficiary ?? '')
+    .trim()
+    .split(/\s+/)[0];
+  return { student: !role || Number(role) === 1, name: first || 'el estudiante' };
+}
+const STUDENT = audience(1);
 
 export const OTHER_ANSWER_PROMPT = '¡Claro! Escríbeme tu respuesta en un mensaje y la anoto.';
 
@@ -35,32 +49,46 @@ export const ACKNOWLEDGEMENT = {
 };
 
 export const QUESTIONS = {
-  career: { name: 'Carrera', letter: 'c', field: 2, text: '¿Qué carrera te gustaría estudiar?' },
+  career: {
+    name: 'Carrera',
+    letter: 'c',
+    field: 2,
+    text: '¿Qué carrera te gustaría estudiar?',
+    other: (name) => `¿Qué carrera le gustaría estudiar a ${name}?`,
+  },
   availability: {
     name: 'Disponibilidad',
     letter: 'a',
     field: 6,
     text: '¿Cuánto tiempo puedes dedicar a estudiar?',
+    other: (name) => `¿Cuánto tiempo puede dedicar ${name} a estudiar?`,
   },
   budget: {
     name: 'Presupuesto',
     letter: 'b',
     field: 7,
     text: '¿Cuánto podrías invertir al mes en tu preparación? Es solo para recomendarte lo que mejor te convenga.',
+    other: (name) =>
+      `¿Cuánto podrían invertir al mes en la preparación de ${name}? Es solo para recomendarles lo que mejor le convenga.`,
   },
   courses: {
     name: 'Cursos difíciles',
     letter: 'd',
     field: 3,
     text: 'Para afinar la recomendación, dos preguntas opcionales: ¿qué cursos se te hacen más difíciles?',
+    other: (name) =>
+      `Para afinar la recomendación, dos preguntas opcionales: ¿qué cursos se le hacen más difíciles a ${name}?`,
   },
   applications: {
     name: 'Postulaciones anteriores',
     letter: 'e',
     field: 4,
     text: '¿Ya postulaste antes a la UNT?',
+    other: (name) => `¿${name} ya postuló antes a la UNT?`,
   },
 };
+export const questionText = (key, aud = STUDENT) =>
+  aud.student ? QUESTIONS[key].text : QUESTIONS[key].other(aud.name);
 // Las tres primeras son necesarias para recomendar; las opcionales (tabla 3, necesidades
 // académicas) se preguntan una sola vez y solo si el dato no se conoce.
 const ORDER = ['career', 'availability', 'budget'];
@@ -79,14 +107,14 @@ const monthly = (tariffs) =>
     .sort((a, b) => Number(a.precio) - Number(b.precio));
 
 // Los topes de presupuesto salen de las tarifas vigentes, no de cifras escritas aquí.
-export function optionsFor(key, tariffs = []) {
+export function optionsFor(key, tariffs = [], aud = STUDENT) {
   if (key === 'career') return CAREERS.map((label) => ({ label, value: label }));
   if (key === 'availability') return AVAILABILITY.map((label) => ({ label, value: label }));
   if (key === 'courses') return [...COURSES, NO_COURSES].map((label) => ({ label, value: label }));
   if (key === 'applications')
-    return APPLICATIONS.map((label, index) => ({
-      label,
-      value: index === 0 ? 'Primera postulación (no postuló antes)' : label.replace('Ya p', 'P'),
+    return APPLICATIONS.map(([mine, theirs, value]) => ({
+      label: aud.student ? mine : theirs,
+      value,
     }));
   const caps = [...new Set(monthly(tariffs).map((tariff) => Math.ceil(Number(tariff.precio))))];
   return caps.map((cap, index) => ({
@@ -95,9 +123,9 @@ export function optionsFor(key, tariffs = []) {
   }));
 }
 
-export function keyboard(participationId, key, tariffs) {
+export function keyboard(participationId, key, tariffs, aud = STUDENT) {
   const { letter } = QUESTIONS[key];
-  const buttons = optionsFor(key, tariffs).map((option, index) => ({
+  const buttons = optionsFor(key, tariffs, aud).map((option, index) => ({
     text: option.label,
     callback_data: `pf:${participationId}:${letter}:${index}`,
   }));
@@ -150,11 +178,14 @@ export function nextKey(profile) {
 }
 export const isCoreKey = (key) => ORDER.includes(key);
 
-export function greeting(name) {
+export function greeting(name, aud = STUDENT) {
   const first = String(name ?? '')
     .trim()
     .split(/\s+/)[0];
-  return `${first ? `¡Hola, ${first}! 😊` : '¡Hola! 😊'} Qué gusto tenerte por aquí. Soy el asistente de LaPreDigital y te voy a ayudar a encontrar el plan que mejor se adapte a ti. Para conocerte un poquito, te haré unas preguntas cortas. `;
+  const hello = first ? `¡Hola, ${first}! 😊` : '¡Hola! 😊';
+  return aud.student
+    ? `${hello} Qué gusto tenerte por aquí. Soy el asistente de LaPreDigital y te voy a ayudar a encontrar el plan que mejor se adapte a ti. Para conocerte un poquito, te haré unas preguntas cortas. `
+    : `${hello} Qué gusto tenerte por aquí. Soy el asistente de LaPreDigital y te voy a ayudar a encontrar el plan que mejor se adapte a ${aud.name}. Para conocer un poquito más sobre su preparación, te haré unas preguntas cortas. `;
 }
 
 export function welcomeBack(name) {
@@ -165,7 +196,7 @@ export function welcomeBack(name) {
 }
 
 // Recomienda el plan mensual más completo que cabe en el presupuesto declarado.
-export function recommend(profile, tariffs) {
+export function recommend(profile, tariffs, aud = STUDENT) {
   const budget = Number(profile.budget);
   const fits = monthly(tariffs).filter((tariff) => Number(tariff.precio) <= budget);
   const chosen = fits.at(-1);
@@ -176,7 +207,7 @@ export function recommend(profile, tariffs) {
     : '';
   if (!chosen)
     return {
-      text: `¡Gracias por contarme! Con lo que me compartiste (${summary}), lo mejor para empezar es Explora UNT: 14 días gratis, una vez por estudiante. Después vemos juntos qué plan te conviene.${courses}`,
+      text: `¡Gracias por contarme! Con lo que me compartiste (${summary}), lo mejor para empezar es Explora UNT: 14 días gratis, una vez por estudiante. Después vemos juntos qué plan ${aud.student ? 'te conviene' : `le conviene a ${aud.name}`}.${courses}`,
       tariff: null,
     };
   const semester = tariffs.find(
@@ -184,7 +215,7 @@ export function recommend(profile, tariffs) {
   );
   const prices = `S/ ${Number(chosen.precio).toFixed(2)} al mes${semester ? ` o S/ ${Number(semester.precio).toFixed(2)} el semestre` : ''}`;
   return {
-    text: `¡Listo, gracias por contarme! Con lo que me compartiste (${summary}), creo que lo que mejor te va es ${chosen.plan}: ${prices}. Si quieres, también puedes empezar probando Explora UNT gratis por 14 días (una vez por estudiante).${courses}`,
+    text: `¡Listo, gracias por contarme! Con lo que me compartiste (${summary}), creo que lo que mejor ${aud.student ? 'te va' : `le va a ${aud.name}`} es ${chosen.plan}: ${prices}. Si quieres, también ${aud.student ? 'puedes' : 'puede'} empezar probando Explora UNT gratis por 14 días (una vez por estudiante).${courses}`,
     tariff: chosen,
   };
 }

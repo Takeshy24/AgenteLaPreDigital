@@ -15,16 +15,22 @@ export async function queueNextStep(db, participation, replyTo, { intro = '' } =
   const profile = await repository.getProfile(db, participation.idLeadCaso);
   const tariffs = await publicTariffs(db);
   const key = flow.nextKey(profile);
+  const aud = flow.audience(profile.role, profile.beneficiary);
   if (key) {
-    const { text, field } = flow.QUESTIONS[key];
-    const messageId = await createReply(db, participation, intro + text, replyTo);
+    const { field } = flow.QUESTIONS[key];
+    const messageId = await createReply(
+      db,
+      participation,
+      intro + flow.questionText(key, aud),
+      replyTo,
+    );
     await repository.recordQuestion(db, participation, messageId, field);
     await repository.attachMarkup(db, messageId, {
-      inline_keyboard: flow.keyboard(participation.idLeadCaso, key, tariffs),
+      inline_keyboard: flow.keyboard(participation.idLeadCaso, key, tariffs, aud),
     });
     return messageId;
   }
-  const recommendation = flow.recommend(profile, tariffs);
+  const recommendation = flow.recommend(profile, tariffs, aud);
   const messageId = await createReply(db, participation, intro + recommendation.text, replyTo);
   await repository.attachMarkup(db, messageId, {
     inline_keyboard: flow.recommendationKeyboard(participation.idLeadCaso, recommendation.tariff),

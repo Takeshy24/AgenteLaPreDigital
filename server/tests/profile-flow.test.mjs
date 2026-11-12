@@ -828,3 +828,91 @@ test('foto sin texto cuenta como respuesta, pide el texto y no cuenta como fallo
     await close();
   }
 });
+
+test('el agente habla según el rol: a la madre le pregunta por su hijo y lo nombra', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const suffix = Date.now() + Math.floor(Math.random() * 1000);
+      const lead = await createLead({
+        name: 'Rosa Madre',
+        email: `madre-${suffix}@example.test`,
+        phone: '+51912345678',
+        role: 3,
+        beneficiaryName: `Juan Hijo ${suffix}`,
+        channel: 1,
+        communicationChannel: 2,
+        consent: true,
+      });
+      const code = `madre-${suffix}`;
+      await saveLink(db, lead.contact, hashCode(code), true);
+      const scenario = { lead, chat: String(suffix), client: fakeClient(), sequence: suffix };
+      await send(db, scenario, text(scenario, `/start ${code}`));
+      let messages = await outgoing(db, scenario);
+      const first = messages.find((row) => /Hola, Rosa/.test(row.text));
+      assert.match(first.text, /el plan que mejor se adapte a Juan/);
+      assert.match(first.text, /¿Qué carrera le gustaría estudiar a Juan\?/);
+      const id = lead.id;
+      for (const data of [`pf:${id}:c:0`, `pf:${id}:a:1`])
+        await send(db, scenario, press(scenario, data));
+      messages = await outgoing(db, scenario);
+      assert.match(
+        messages.at(-1).text,
+        /¿Cuánto podrían invertir al mes en la preparación de Juan\?/,
+      );
+      await send(db, scenario, press(scenario, `pf:${id}:b:1`));
+      await send(db, scenario, press(scenario, `pf:${id}:d:2`));
+      messages = await outgoing(db, scenario);
+      assert.match(messages.at(-1).text, /¿Juan ya postuló antes a la UNT\?/);
+      assert.deepEqual(
+        JSON.parse(messages.at(-1).markup)
+          .inline_keyboard.flat()
+          .map((button) => button.text)
+          .slice(0, 3),
+        ['Es su primera vez', 'Ya postuló una vez', 'Ya postuló dos veces o más'],
+      );
+      await send(db, scenario, press(scenario, `pf:${id}:e:1`));
+      messages = await outgoing(db, scenario);
+      assert.match(messages.at(-1).text, /lo que mejor le va a Juan es Meta UNT/);
+      const stored = (
+        await query(
+          db,
+          'SELECT TOP 1 descripcion FROM dbo.BeneficiarioPostulacionAnterior b JOIN dbo.Lead l ON l.idBeneficiario=b.idBeneficiario WHERE l.idContacto=@c',
+          { c: lead.contact },
+        )
+      ).recordset[0].descripcion;
+      assert.equal(stored, 'Postuló una vez');
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('Telegram ya vinculado a otra persona: el aviso lo explica y el enlace sigue sirviendo a su dueño', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      const other = await createLead({
+        name: 'Hermano Prueba',
+        email: `hermano-${Date.now()}@example.test`,
+        phone: '+51912345678',
+        role: 1,
+        channel: 1,
+        communicationChannel: 2,
+        consent: true,
+      });
+      await saveLink(db, other.contact, hashCode('enlace-hermano'), true);
+      await send(db, scenario, text(scenario, '/start enlace-hermano'));
+      const reply = scenario.client.calls.filter((call) => call.method === 'sendMessage').at(-1);
+      assert.match(reply.data.text, /ya está vinculada a otra persona/);
+      const unused = (
+        await query(db, 'SELECT usedAt FROM dbo.App_TelegramLink WHERE codeHash=@h', {
+          h: hashCode('enlace-hermano'),
+        })
+      ).recordset[0];
+      assert.equal(unused.usedAt, null, 'El enlace no se consume');
+    });
+  } finally {
+    await close();
+  }
+});

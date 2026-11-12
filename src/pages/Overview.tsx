@@ -1,10 +1,9 @@
 import { ArrowUpRight, BookOpen, CalendarDays, Users } from 'lucide-react';
 import { Button } from '../components/ui';
 import { useSurfaceLight } from '../shared/useSurfaceLight';
-import { LeadTable } from '../features/leads/LeadTable';
 import { useWorkspace } from '../state/Workspace';
 export function Overview() {
-  const { data, navigate, inquiries, inquiryError, refreshInquiries } = useWorkspace();
+  const { data, navigate } = useWorkspace();
   const light = useSurfaceLight();
   const active = data?.leads.filter((lead) => lead.idEstadoCaso === 1) || [];
   return (
@@ -24,29 +23,6 @@ export function Overview() {
         </div>
         <Button onClick={() => navigate('leads')}>
           Gestionar contactos <ArrowUpRight size={18} aria-hidden="true" />
-        </Button>
-      </section>
-      <section className="inquiry-summary" aria-label="Solicitudes del catálogo público">
-        <div>
-          <span className="eyebrow">FORMULARIO PÚBLICO</span>
-          <h3>
-            Solicitudes de planes: {inquiryError ? 'No disponible' : (inquiries?.length ?? '…')}
-          </h3>
-          <p>
-            {inquiryError
-              ? `No se pudieron consultar las solicitudes: ${inquiryError}`
-              : inquiries?.length
-                ? `${inquiries.filter((item) => !item.participationId).length} pendientes de completar o revisar. Las demás ya tienen una negociación vinculada.`
-                : inquiries
-                  ? 'No hay solicitudes recibidas.'
-                  : 'Consultando solicitudes recibidas…'}
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          onClick={() => (inquiryError ? void refreshInquiries() : navigate('leads'))}
-        >
-          {inquiryError ? 'Reintentar' : 'Ver solicitudes'}
         </Button>
       </section>
       <div className="metric-strip" aria-label="Resumen operativo">
@@ -98,7 +74,6 @@ export function Overview() {
           <ArrowUpRight size={18} aria-hidden="true" />
         </button>
       </div>
-      <LeadTable />
     </div>
   );
 }

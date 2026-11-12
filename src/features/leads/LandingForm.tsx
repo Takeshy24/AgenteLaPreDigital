@@ -1,5 +1,15 @@
 import { ChangeEvent, FormEvent, ReactNode, useId, useState } from 'react';
+import {
+  ArrowUpRight,
+  Check,
+  LoaderCircle,
+  Mail,
+  MessageCircle,
+  Send,
+  ShieldCheck,
+} from 'lucide-react';
 import { request } from '../../api';
+import { Button } from '../../components/ui';
 
 type Fields = {
   name: string;
@@ -45,13 +55,18 @@ function safeWhatsAppUrl(url?: string) {
   return url && /^https:\/\/wa\.me\/[0-9]{8,15}(\?text=[A-Za-z0-9%._~-]*)?$/.test(url) ? url : '';
 }
 
+// Sin celular propio, el estudiante no recibiría los mensajes: es mejor que lo registre un familiar.
+const NO_PHONE_ADVICE =
+  'Si no tienes celular propio, te recomendamos registrarte con los datos de tu mamá, papá o apoderado: en «Soy» elige su parentesco y escribe tu nombre como estudiante.';
+
 function validate(fields: Fields): Errors {
   const errors: Errors = {};
   if (fields.name.trim().length < 2) errors.name = 'Escribe tu nombre completo.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim()))
     errors.email = 'Escribe un correo válido.';
   const phone = fields.phone.replace(/[\s\-().]/g, '');
-  if (!/^(9\d{8}|\+\d{8,15})$/.test(phone))
+  if (!phone && fields.role === '1') errors.phone = NO_PHONE_ADVICE;
+  else if (!/^(9\d{8}|\+\d{8,15})$/.test(phone))
     errors.phone = 'Escribe un teléfono válido, por ejemplo 987654321.';
   if (!fields.role) errors.role = 'Elige tu rol.';
   if (fields.role && fields.role !== '1' && fields.beneficiaryName.trim().length < 2)
@@ -159,6 +174,9 @@ export function LandingForm() {
   if (status === 'done')
     return (
       <div className="landing-success" role="status">
+        <span className="landing-success-icon" aria-hidden="true">
+          <Check size={30} strokeWidth={1.8} />
+        </span>
         <h2>¡Gracias! Recibimos tus datos</h2>
         <p>
           {fields.channels.length
@@ -205,12 +223,19 @@ export function LandingForm() {
 
   return (
     <form className="landing-form" onSubmit={submit} noValidate>
-      <h2>Déjanos tus datos</h2>
+      <header className="landing-form-header">
+        <div className="landing-form-overline">
+          EMPECEMOS POR TI <ArrowUpRight size={20} aria-hidden="true" />
+        </div>
+        <h2>Déjanos tus datos</h2>
+        <p>Cuéntanos quién eres y elige cómo prefieres que conversemos.</p>
+      </header>
       <Field id={`${formId}-name`} label="Nombre completo" error={errors.name}>
         <input
           {...inputProps('name')}
           type="text"
           autoComplete="name"
+          placeholder="Tu nombre y apellidos"
           maxLength={150}
           value={fields.name}
           onChange={setField('name')}
@@ -221,35 +246,44 @@ export function LandingForm() {
           {...inputProps('email')}
           type="email"
           autoComplete="email"
+          placeholder="tu@correo.com"
           maxLength={254}
           value={fields.email}
           onChange={setField('email')}
         />
       </Field>
-      <Field id={`${formId}-phone`} label="Teléfono" error={errors.phone}>
-        <input
-          {...inputProps('phone')}
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="987654321"
-          maxLength={20}
-          value={fields.phone}
-          onChange={setField('phone')}
-        />
-      </Field>
-      <Field id={`${formId}-role`} label="Soy" error={errors.role}>
-        <select {...inputProps('role')} value={fields.role} onChange={setField('role')}>
-          <option value="" disabled>
-            Elige una opción
-          </option>
-          {roles.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.label}
+      <div className="landing-form-row">
+        <Field id={`${formId}-phone`} label="Teléfono" error={errors.phone}>
+          <input
+            {...inputProps('phone')}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="987654321"
+            maxLength={20}
+            value={fields.phone}
+            onChange={setField('phone')}
+          />
+          {fields.role === '1' && !fields.phone.trim() && !errors.phone && (
+            <p className="landing-hint">
+              ¿No tienes celular propio? Es mejor que te registre tu mamá, papá o apoderado con sus
+              datos, para que podamos escribirle.
+            </p>
+          )}
+        </Field>
+        <Field id={`${formId}-role`} label="Soy" error={errors.role}>
+          <select {...inputProps('role')} value={fields.role} onChange={setField('role')}>
+            <option value="" disabled>
+              Elige una opción
             </option>
-          ))}
-        </select>
-      </Field>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
       {fields.role && fields.role !== '1' && (
         <Field
           id={`${formId}-beneficiaryName`}
@@ -259,6 +293,7 @@ export function LandingForm() {
           <input
             {...inputProps('beneficiaryName')}
             type="text"
+            placeholder="Nombre y apellidos del estudiante"
             maxLength={150}
             value={fields.beneficiaryName}
             onChange={setField('beneficiaryName')}
@@ -274,6 +309,11 @@ export function LandingForm() {
               checked={fields.channels.includes(channel.id)}
               onChange={() => toggleChannel(channel.id)}
             />
+            {channel.id === 1 ? (
+              <MessageCircle size={15} aria-hidden="true" />
+            ) : (
+              <Mail size={15} aria-hidden="true" />
+            )}
             {channel.label}
           </label>
         ))}
@@ -286,6 +326,7 @@ export function LandingForm() {
       <div className="landing-telegram-option">
         <label className="landing-check">
           <input type="checkbox" checked={fields.telegram} onChange={toggleTelegram} />
+          <Send size={15} aria-hidden="true" />
           Prefiero conversar por Telegram
         </label>
         <p className="landing-hint">
@@ -307,9 +348,18 @@ export function LandingForm() {
           {failure}
         </p>
       )}
-      <button type="submit" disabled={status === 'sending'}>
-        {status === 'sending' ? 'Enviando…' : 'Quiero que me contacten'}
-      </button>
+      <Button className="landing-submit" type="submit" disabled={status === 'sending'}>
+        <span>{status === 'sending' ? 'Enviando…' : 'Quiero que me contacten'}</span>
+        {status === 'sending' ? (
+          <LoaderCircle size={19} className="landing-submit-spinner" aria-hidden="true" />
+        ) : (
+          <ArrowUpRight size={19} aria-hidden="true" />
+        )}
+      </Button>
+      <p className="landing-privacy">
+        <ShieldCheck size={14} aria-hidden="true" />
+        Puedes revocar tu autorización de contacto cuando quieras.
+      </p>
     </form>
   );
 }

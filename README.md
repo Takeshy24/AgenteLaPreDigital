@@ -20,7 +20,7 @@ Para desarrollo: `npm run server` y `npm run dev` en terminales separadas. Vite 
 - Perfil con historial, conversación, evaluaciones con evidencia y prioridades calculadas por reglas.
 - Consentimiento por canal, agenda única, omisión de intentos bloqueados y cierre/reapertura de oportunidades.
 - Propuestas con tarifa vigente y aceptación/rechazo vinculados a mensajes posteriores a la entrega.
-- Términos, constancia manual de pago externo, validación contractual, habilitación registrada, becas y devoluciones/disputas.
+- Términos, constancia manual de pago externo, validación contractual, habilitación con cuenta del beneficiario y envío de credenciales, becas y devoluciones/disputas.
 - Vinculación de responsable económico con dos consentimientos, prueba gratuita con token y derivación al personal.
 - Adaptador Telegram con vinculación temporal, selección de beneficiario y recepción/envío persistentes.
 - API de OpenAI (ChatGPT) como modelo principal y Ollama local como respaldo automático, ambos con salida estructurada y campos respaldados por citas. Las reglas controlan precios, prioridades y operaciones comerciales.
@@ -37,6 +37,16 @@ La base vacía se muestra sin registros ficticios. Los recuentos operativos prov
 - `server/db.mjs`, `server/sql-worker.ps1`: SQL parametrizado mediante .NET.
 - `script/LaPreDigital_OLTP.sql`: esquema único (original, extensiones `App_*` y usuario de la landing).
 - [Skill frontend](.agents/skills/lapredigital-frontend/SKILL.md) y [skill backend](.agents/skills/lapredigital-backend/SKILL.md): criterios utilizados en el refactor.
+
+## Cuentas al habilitar el servicio
+
+Solo **Registrar habilitación** de una contratación pagada y validada crea o reutiliza la cuenta del estudiante en `UsuarioPlataforma`. `HabilitacionAcceso` vincula la contratación, la cuenta y el mensaje de entrega. Una cuenta existente conserva su contraseña; repetir el botón no duplica usuarios ni envíos. Las becas conservan su flujo separado.
+
+La entrega se dirige al contacto que aceptó la contratación. Se usa el canal de su aceptación y, si aceptó en el portal web, el canal por el que se entregó la propuesta. Correo usa SMTP; Telegram y WhatsApp usan sus adaptadores. Pendientes distingue mensajes en cola, fallidos, inciertos y entregados. Los fallos confirmados permiten reintentar; una entrega incierta exige comprobar el canal para evitar duplicados. En el expediente, Servicio muestra si hay una compra confirmada y permite habilitarla si aún está pendiente.
+
+`CREDENTIALS_ENCRYPTION_KEY` es una clave aleatoria de 32 bytes en base64, almacenada solo en `.env`; debe conservarse mientras existan envíos pendientes. La contraseña se guarda como hash scrypt con sal. El mensaje de entrega se cifra y se elimina al confirmar la entrega; el historial y la API no muestran la clave. Fuera de la ventana de WhatsApp se requiere `WHATSAPP_CREDENTIALS_TEMPLATE_NAME`, una plantilla aprobada con una variable de cuerpo para el texto de acceso; `hello_world` no sirve.
+
+Este registro no añade una plataforma educativa ni un inicio de sesión. `requiereCambioClave` deja indicado que la contraseña inicial es provisional para una integración posterior. Las pruebas usan adaptadores controlados y rollback, sin enviar credenciales a personas reales.
 
 ## Landing pública
 

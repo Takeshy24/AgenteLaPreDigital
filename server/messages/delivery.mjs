@@ -4,10 +4,15 @@ import { transaction } from '../db.mjs';
 import { markSent } from '../integrations/repository.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { getOperator } from '../shared/repository.mjs';
+import { getPayload } from '../access/repository.mjs';
 export async function confirmExternalDelivery(id, data) {
   return transaction(async (db) => {
     const message = await repository.getOutgoing(db, id);
     if (!message) throw new BusinessError('Mensaje no encontrado', 404);
+    if (await getPayload(db, id))
+      throw new BusinessError(
+        'La entrega de credenciales se confirma exclusivamente mediante el adaptador del canal.',
+      );
     if (message.idCanal === 3)
       throw new BusinessError(
         'La entrega Telegram se confirma exclusivamente mediante el adaptador.',

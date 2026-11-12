@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Badge, Card, Empty, ModeLegend } from '../components/ui';
 import { AgentCard } from '../features/agent/AgentCard';
-import { CaseActions } from '../features/cases/CaseActions';
 import { ConsentCard } from '../features/consents/ConsentCard';
 import { ContractCard } from '../features/contracts/ContractCard';
 import { LeadDataPanel } from '../features/leads/LeadDataPanel';
@@ -18,7 +17,7 @@ const tabs = [
   { id: 'profile', label: 'Perfil' },
   { id: 'conversation', label: 'Conversación' },
   { id: 'proposals', label: 'Propuestas' },
-  { id: 'commercial', label: 'Gestión comercial' },
+  { id: 'commercial', label: 'Servicio' },
   { id: 'guardian', label: 'Responsable económico' },
 ];
 export function Profile() {
@@ -80,9 +79,9 @@ export function Profile() {
           </button>
         ))}
       </div>
-      <ModeLegend />
+      {tab !== 'commercial' && <ModeLegend />}
       {detail ? (
-        <div className="live-detail-grid">
+        <div className={`live-detail-grid${tab === 'commercial' ? ' is-service-summary' : ''}`}>
           <div id="profile-panel" role="tabpanel" aria-labelledby={'tab-' + tab}>
             {tab === 'profile' && (
               <>
@@ -97,35 +96,32 @@ export function Profile() {
               </>
             )}
             {tab === 'proposals' && <ProposalCard />}
-            {tab === 'commercial' && (
-              <>
-                <ContractCard />
-                <CaseActions />
-              </>
-            )}
+            {tab === 'commercial' && <ContractCard />}
             {tab === 'guardian' && <GuardianCard />}
           </div>
-          <aside className="profile-sidebar">
-            <PriorityCard />
-            <ConsentCard />
-            <details className="context-disclosure">
-              <summary>Vinculación con Telegram</summary>
-              <TelegramCard />
-            </details>
-            <Card title="Agenda programada" label="L-1" mode="agent">
-              {!detail.attempts.length && <Empty>Sin intentos programados.</Empty>}
-              {detail.attempts.map((attempt) => (
-                <p key={attempt.idIntento}>
-                  Intento {attempt.numeroIntento} · {formatDate(attempt.fechaProgramada)}{' '}
-                  {attempt.omitido
-                    ? '· omitido'
-                    : attempt.idMensajeEnvio
-                      ? `· enviado por ${attempt.canalEnvio}${attempt.fechaEnvio ? ` el ${formatDate(attempt.fechaEnvio)}` : ''}`
-                      : '· pendiente'}
-                </p>
-              ))}
-            </Card>
-          </aside>
+          {tab !== 'commercial' && (
+            <aside className="profile-sidebar">
+              <PriorityCard />
+              <ConsentCard />
+              <details className="context-disclosure">
+                <summary>Vinculación con Telegram</summary>
+                <TelegramCard />
+              </details>
+              <Card title="Agenda programada" label="L-1" mode="agent">
+                {!detail.attempts.length && <Empty>Sin intentos programados.</Empty>}
+                {detail.attempts.map((attempt) => (
+                  <p key={attempt.idIntento}>
+                    Intento {attempt.numeroIntento} · {formatDate(attempt.fechaProgramada)}{' '}
+                    {attempt.omitido
+                      ? '· omitido'
+                      : attempt.idMensajeEnvio
+                        ? `· enviado por ${attempt.canalEnvio}${attempt.fechaEnvio ? ` el ${formatDate(attempt.fechaEnvio)}` : ''}`
+                        : '· pendiente'}
+                  </p>
+                ))}
+              </Card>
+            </aside>
+          )}
         </div>
       ) : (
         <Empty>Cargando expediente…</Empty>

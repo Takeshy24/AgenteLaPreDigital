@@ -13,7 +13,7 @@ npm run build
 npm start
 ```
 
-`npm run migrate` aplica `script/LaPreDigital_OLTP.sql` con `sqlcmd`; el script crea la base si no existe y es repetible. Contiene solo CREATE, triggers e INSERT de catálogos, sin ALTER ni índices explícitos: las 61 tablas del modelo del informe y 15 tablas `App_*` de apoyo (Telegram, despachos, evidencias, pruebas, becas, análisis del agente, ofertas y solicitudes públicas, onboarding), el canal Portal web y el evento de habilitación del servicio. La unicidad de `requestKey` en solicitudes públicas se resuelve con un trigger. El servidor no ejecuta el esquema ni inserta datos ficticios al arrancar. Para llevar una base existente a este esquema hay que recrearla (`DROP DATABASE`, luego `npm run migrate`).
+`npm run migrate` aplica `script/LaPreDigital_OLTP.sql` con `sqlcmd`; el script crea la base si no existe y es repetible. Contiene el esquema del informe, tablas `App_*` de apoyo y las tablas `UsuarioPlataforma` y `HabilitacionAcceso`. Las tablas nuevas se agregan conservando los datos existentes; un cambio de columnas existentes requiere su migración específica. La unicidad de `requestKey` en solicitudes públicas se resuelve con un trigger. El servidor no ejecuta el esquema ni inserta datos ficticios al arrancar.
 
 Las transacciones usan aislamiento Serializable y contexto asíncrono compartido para operaciones compuestas. Los fallos revierten toda la operación. El adaptador actual requiere Windows; para Linux debe sustituirse.
 
@@ -29,7 +29,7 @@ La API escucha en `127.0.0.1:3067`, verifica host/origen y exige JSON en escritu
 | Consentimiento | Autoriza/revoca por canal y suspende seguimiento sin reiniciar agenda ni reactivar por sí solo prioridad Nula.                                                           |
 | Propuesta      | Tarifa vigente; mensaje pendiente; aceptación/rechazo exige evidencia entrante del mismo caso posterior a la entrega.                                                    |
 | Contratación   | Términos sobre propuesta aceptada, constancia de pago externo por importe autorizado y validación; conversión atribuida y cierre.                                        |
-| Servicio       | Registra habilitación y etapa CUSTOMER; becas separadas de la conversión pagada.                                                                                         |
+| Servicio       | Registra habilitación y etapa CUSTOMER, crea/reutiliza cuenta del beneficiario y prepara la entrega cifrada de credenciales; becas separadas.                            |
 | Incidencias    | Devolución total invalidante antes de habilitar restaura etapa previa y bloquea promoción; no reabre automáticamente. Registra devolución parcial, disputa y resolución. |
 | Responsable    | Invitación y aceptación local con autorización de contacto y vínculo independientes; participación y agenda propias.                                                     |
 | Prueba         | Token de uso único con vencimiento; prueba única por beneficiario identificado y finalización periódica.                                                                 |
@@ -39,6 +39,12 @@ La API escucha en `127.0.0.1:3067`, verifica host/origen y exige JSON en escritu
 El pago es una constancia del operador sobre una confirmación externa con referencia; no consulta una pasarela. La entrega manual WhatsApp/correo también es una constancia humana. Telegram solo confirma entrega con el identificador del canal; no implica lectura.
 
 ## API
+
+La habilitación pagada (`POST /api/cases/:id/activate`) usa `server/access/`: una cuenta por beneficiario en `UsuarioPlataforma`, hash scrypt con sal y un registro de `HabilitacionAcceso` por contratación. La transacción registra cuenta, mensaje y habilitación; los adaptadores envían después del commit. El canal proviene de la aceptación de la propuesta, o de su entrega cuando la aceptación fue en Portal web, y el destinatario es el contacto de la participación que aceptó. El mensaje exige autorización vigente también al despacharse.
+
+La cola confidencial usa AES-256-GCM con `CREDENTIALS_ENCRYPTION_KEY` (32 bytes en base64) y la contratación como contexto autenticado. Solo el hash queda como credencial permanente; el texto cifrado se purga con la confirmación de entrega. Las consultas de expediente exponen usuario, destinatario, canal y estado, sin hash ni contraseña. No se implementa login ni acceso a contenidos educativos.
+
+`POST /api/cases/:id/access-delivery/retry` reintenta un fallo confirmado con otro mensaje, conservando la cuenta y la contraseña. No reintenta entregas inciertas. La entrega de credenciales no admite constancias manuales de entrega externa. Para WhatsApp fuera de 24 horas se requiere la plantilla específica `WHATSAPP_CREDENTIALS_TEMPLATE_NAME`, con una variable de cuerpo; no se sustituye por `hello_world`.
 
 Los esquemas Zod de cada archivo de rutas son la referencia para los cuerpos JSON.
 

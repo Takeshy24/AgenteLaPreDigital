@@ -2120,3 +2120,33 @@ CREATE TABLE dbo.App_WhatsAppInbox (
 );
 
 END;
+
+GO
+
+IF OBJECT_ID('dbo.UsuarioPlataforma', 'U') IS NULL BEGIN
+CREATE TABLE dbo.UsuarioPlataforma (
+    idUsuario BIGINT IDENTITY(1, 1) PRIMARY KEY,
+    idBeneficiario BIGINT NOT NULL UNIQUE REFERENCES dbo.Beneficiario (idBeneficiario),
+    nombreUsuario NVARCHAR(80) NOT NULL UNIQUE,
+    claveHash NVARCHAR(200) NOT NULL,
+    requiereCambioClave BIT NOT NULL DEFAULT 1,
+    activo BIT NOT NULL DEFAULT 1,
+    fechaCreacion DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.HabilitacionAcceso', 'U') IS NULL BEGIN
+CREATE TABLE dbo.HabilitacionAcceso (
+    idContratacion BIGINT PRIMARY KEY REFERENCES dbo.Contratacion (idContratacion),
+    idUsuario BIGINT NOT NULL REFERENCES dbo.UsuarioPlataforma (idUsuario),
+    idContactoEntrega BIGINT NOT NULL REFERENCES dbo.Contacto (idContacto),
+    idCanalEntrega TINYINT NOT NULL REFERENCES dbo.Cat_CanalComunicacion (id),
+    idMensajeCredenciales BIGINT NOT NULL UNIQUE REFERENCES dbo.Mensaje (idMensaje),
+    mensajeCifrado NVARCHAR(MAX) NULL,
+    fechaCreacion DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;

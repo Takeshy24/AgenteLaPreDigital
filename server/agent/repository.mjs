@@ -62,6 +62,7 @@ export async function getProfile(db, participationId) {
       await query(
         db,
         `SELECT pb.carreraDeseada career, pb.disponibilidadEstudio availability, pc.presupuestoMensual budget,
+      lc.idRolContacto role, (SELECT nombreCompleto FROM dbo.Beneficiario WHERE idBeneficiario=l.idBeneficiario) beneficiary,
       (SELECT STRING_AGG(curso, ', ') FROM dbo.BeneficiarioCursoDificil WHERE idBeneficiario=l.idBeneficiario) courses,
       (SELECT TOP 1 descripcion FROM dbo.BeneficiarioPostulacionAnterior WHERE idBeneficiario=l.idBeneficiario ORDER BY idPostulacion DESC) applications,
       (SELECT STRING_AGG(CAST(idCampoPerfil AS varchar(3)), ',') FROM dbo.PreguntaPerfil WHERE idLeadCaso=lc.idLeadCaso) asked

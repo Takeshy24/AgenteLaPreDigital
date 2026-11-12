@@ -261,7 +261,10 @@ WHERE
 ORDER BY
   i.idInvitacion DESC`,
     contracts: `SELECT
-  k.*
+  k.*,
+  CAST(CASE WHEN EXISTS (
+    SELECT 1 FROM dbo.EventoCaso refund WHERE refund.idCaso = k.idCaso AND refund.idTipoEvento = 9
+  ) THEN 1 ELSE 0 END AS bit) invalidated
 FROM
   dbo.Contratacion k
 WHERE
@@ -273,6 +276,29 @@ WHERE
     WHERE
       idLeadCaso = @id
   )`,
+    access: `SELECT
+  u.nombreUsuario username,
+  ct.nombreCompleto contact,
+  ch.nombre channel,
+  a.idMensajeCredenciales messageId,
+  m.fechaEntrega deliveredAt,
+  d.error,
+  CASE
+    WHEN m.idEstadoEntrega = 2 THEN N'Entregado'
+    WHEN d.state = N'unknown' THEN N'Entrega incierta'
+    WHEN m.idEstadoEntrega = 3 THEN N'Fallido'
+    WHEN d.state = N'sent' THEN N'Esperando confirmación'
+    ELSE N'Pendiente'
+  END delivery,
+  CAST(CASE WHEN m.idEstadoEntrega = 3 AND d.state <> N'unknown' THEN 1 ELSE 0 END AS bit) retryAllowed
+FROM dbo.HabilitacionAcceso a
+  JOIN dbo.UsuarioPlataforma u ON u.idUsuario = a.idUsuario
+  JOIN dbo.Contratacion k ON k.idContratacion = a.idContratacion
+  JOIN dbo.Contacto ct ON ct.idContacto = a.idContactoEntrega
+  JOIN dbo.Cat_CanalComunicacion ch ON ch.id = a.idCanalEntrega
+  JOIN dbo.Mensaje m ON m.idMensaje = a.idMensajeCredenciales
+  LEFT JOIN dbo.App_Dispatch d ON d.idMensaje = m.idMensaje
+WHERE k.idCaso = (SELECT idCaso FROM dbo.LeadCaso WHERE idLeadCaso = @id)`,
     trials: `SELECT
   p.*
 FROM

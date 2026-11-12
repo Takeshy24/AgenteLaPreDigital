@@ -35,6 +35,7 @@ export function integrationConfig() {
       apiVersion: (process.env.WHATSAPP_API_VERSION || 'v21.0').trim(),
       templateName: (process.env.WHATSAPP_TEMPLATE_NAME || 'hello_world').trim(),
       templateLanguage: (process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en_US').trim(),
+      credentialsTemplateName: (process.env.WHATSAPP_CREDENTIALS_TEMPLATE_NAME || '').trim(),
     },
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',

@@ -1,5 +1,5 @@
 import { agentEnabled, analyzeMessage } from '../agent/ollama.mjs';
-import { greeting, parseCallback, welcomeBack } from '../agent/profile-flow.mjs';
+import { audience, greeting, parseCallback, welcomeBack } from '../agent/profile-flow.mjs';
 import { getProfile } from '../agent/repository.mjs';
 import {
   answerAction,
@@ -194,7 +194,7 @@ async function welcome(db, contact, replyTo, withConsent) {
   );
   const participation = await getParticipation(db, open[0].id);
   await queueNextStep(db, participation, replyTo, {
-    intro: known ? welcomeBack(name) : greeting(name),
+    intro: known ? welcomeBack(name) : greeting(name, audience(profile.role, profile.beneficiary)),
   });
   await askChannelConsent(db, participation, 3, replyTo);
   return { queued: true };
@@ -203,21 +203,27 @@ async function handleStart(item, text, client) {
   const code = text.slice(7).trim();
   const result = await transaction(async (db) => {
     const hash = hashCode(code);
-    const contact = await repository.useLink(db, hash, item.chatId);
+    const used = await repository.useLink(db, hash, item.chatId);
+    const conflict = used?.conflict ?? null;
+    const contact = conflict ? null : used;
     let reply = null;
     if (contact) {
       const incoming = await recordUnassigned(contact, text);
       reply = await welcome(db, contact, incoming.id, await repository.linkHadConsent(db, hash));
     }
     await repository.finishUpdate(db, item.updateId);
-    return { contact, reply };
+    return { contact, reply, conflict };
   });
   if (result.reply?.queued) return;
   await client.call('sendMessage', {
     chat_id: item.chatId,
     text: result.contact
       ? result.reply.text
-      : '¡Ups! Ese enlace ya no es válido: puede que haya vencido o que ya se haya usado. Pide uno nuevo desde nuestra página y con gusto seguimos 😊',
+      : result.conflict === 'chat'
+        ? 'Esta cuenta de Telegram ya está vinculada a otra persona registrada en LaPreDigital. Abre el enlace desde la cuenta de Telegram de quien se registró. Si compartes el celular con un familiar, cada uno necesita su propia cuenta de Telegram. 😊'
+        : result.conflict === 'contact'
+          ? 'Este registro ya está vinculado a otra cuenta de Telegram. Escríbenos desde esa cuenta, o pide ayuda a nuestro equipo si cambiaste de cuenta. 😊'
+          : '¡Ups! Ese enlace ya no es válido: puede que haya vencido o que ya se haya usado. Pide uno nuevo desde nuestra página y con gusto seguimos 😊',
   });
 }
 async function handleConsent(item, chat, text, participants, client) {
