@@ -5,6 +5,18 @@ export function integrationConfig() {
       username: process.env.TELEGRAM_BOT_USERNAME || '',
       enabled: process.env.TELEGRAM_ENABLED === 'true',
     },
+    // Proveedor principal del agente: API de OpenAI (ChatGPT). Si falta la clave o la llamada falla,
+    // el agente usa Ollama local como respaldo.
+    openai: {
+      apiKey: (process.env.OPENAI_API_KEY || '').trim(),
+      model: (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim(),
+      baseUrl: (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1')
+        .trim()
+        .replace(/[/]+$/, ''),
+      timeout: Number(process.env.OPENAI_TIMEOUT_MS || 20000),
+      enabled:
+        process.env.OPENAI_ENABLED !== 'false' && !!(process.env.OPENAI_API_KEY || '').trim(),
+    },
     ollama: {
       url: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
       model: process.env.OLLAMA_MODEL || 'llama3.2:3b',

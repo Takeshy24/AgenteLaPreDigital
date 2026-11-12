@@ -1,4 +1,4 @@
-import { analyzeMessage } from '../agent/ollama.mjs';
+import { agentEnabled, analyzeMessage } from '../agent/ollama.mjs';
 import { greeting, parseCallback, welcomeBack } from '../agent/profile-flow.mjs';
 import { getProfile } from '../agent/repository.mjs';
 import {
@@ -29,7 +29,7 @@ import { hashCode } from './service.mjs';
 import { startOnboarding, continueOnboarding, onboardingQuestion } from '../onboarding/service.mjs';
 
 async function analyze(text, participantId) {
-  if (!integrationConfig().ollama.enabled) return { analysis: null, error: null };
+  if (!agentEnabled()) return { analysis: null, error: null };
   try {
     const workspace = await getWorkspace();
     const participant = workspace.leads.find((item) => item.id === participantId);
@@ -331,7 +331,7 @@ export async function processMessage(context, target, text) {
       await repository.saveAnalysis(
         db,
         message.id,
-        integrationConfig().ollama.model,
+        result.analysis.model ?? integrationConfig().ollama.model,
         result.analysis,
       );
     const participant = await getParticipation(db, message.participationId);

@@ -96,3 +96,53 @@ test('outbox: un envío incierto no se reintenta ni se registra como entregado',
     await close();
   }
 });
+
+test('el agente usa OpenAI y pasa a Ollama si OpenAI falla', async () => {
+  const { analyzeMessage, providerOrder } = await import('../agent/ollama.mjs');
+  const saved = { ...process.env };
+  process.env.OPENAI_API_KEY = 'sk-prueba';
+  process.env.OPENAI_ENABLED = 'true';
+  process.env.OLLAMA_ENABLED = 'true';
+  const tariffs = [{ idPlanTarifa: 2, plan: 'Meta UNT', modalidad: 'Mensual', precio: 79.9 }];
+  const output = {
+    level: 2,
+    retraction: false,
+    action: 'catalog',
+    tariffId: null,
+    fields: [],
+    understood: true,
+    needsGuardian: false,
+    guardian: null,
+  };
+  const calls = [];
+  const fetcher = (openaiOk) => async (url, init) => {
+    calls.push(String(url));
+    if (String(url).includes('openai')) {
+      assert.equal(JSON.parse(init.body).response_format.type, 'json_schema');
+      return openaiOk
+        ? {
+            ok: true,
+            json: async () => ({ choices: [{ message: { content: JSON.stringify(output) } }] }),
+          }
+        : { ok: false, status: 500, json: async () => ({ error: { message: 'caído' } }) };
+    }
+    return { ok: true, json: async () => ({ message: { content: JSON.stringify(output) } }) };
+  };
+  try {
+    assert.deepEqual(providerOrder(), ['openai', 'ollama']);
+    const primary = await analyzeMessage('¿Cuánto cuesta Meta UNT?', tariffs, {
+      fetcher: fetcher(true),
+    });
+    assert.equal(primary.provider, 'openai');
+    assert.equal(calls.length, 1);
+    const fallback = await analyzeMessage('¿Cuánto cuesta Meta UNT?', tariffs, {
+      fetcher: fetcher(false),
+    });
+    assert.equal(fallback.provider, 'ollama');
+    assert.match(fallback.fallbackReason, /openai: OpenAI respondió 500/);
+    process.env.OPENAI_API_KEY = '';
+    assert.deepEqual(providerOrder(), ['ollama']);
+  } finally {
+    process.env = saved;
+  }
+});

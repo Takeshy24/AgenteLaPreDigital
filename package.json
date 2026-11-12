@@ -14,7 +14,7 @@
     "db:clean": "node tools/clean-db.mjs",
     "db:watch": "node tools/watch-db.mjs",
     "check:mail": "node tools/check-mail.mjs",
-    "test": "node --test --test-concurrency=1",
+    "test": "node --test --test-concurrency=1 --import ./server/tests/env.mjs",
     "format": "prettier --write . && node tools/format-sql.mjs",
     "format:check": "prettier --check . && node tools/format-sql.mjs --check",
     "migrate": "node tools/migrate.mjs",
@@ -23,6 +23,7 @@
     "seed:indicators": "node tools/seed-indicators.mjs",
     "datamart:init": "node tools/datamart.mjs init",
     "datamart:refresh": "node tools/datamart.mjs refresh",
+    "datamart:rebuild": "node tools/datamart.mjs rebuild",
     "eval:agent": "node tools/eval-agent.mjs"
   },
   "dependencies": {

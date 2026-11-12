@@ -10,6 +10,8 @@ npm run seed:indicators -- --check
 npm run seed:indicators -- --yes
 ```
 
+Si la base tiene el modelo anterior sin keys sustitutas, ejecutar primero `npm run datamart:rebuild`. El seed trabaja sobre el OLTP y el ETL resuelve las nuevas keys; no presupone que una key sea igual al identificador de origen.
+
 `--check` revierte los escenarios y su recarga. La preparación inicial del esquema y la carga de los datos que ya existían se conservan. `--yes` mantiene los escenarios. Repetir el seed completo recarga el DataMart sin duplicar sus diez contactos. Si se detecta un seed incompleto, se detiene para revisar sus registros; no elimina datos para repararlo.
 
 | Caso | Evidencia y resultado esperado                                                                                                                                                                                                       |

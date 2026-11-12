@@ -23,7 +23,7 @@ Para desarrollo: `npm run server` y `npm run dev` en terminales separadas. Vite 
 - Términos, constancia manual de pago externo, validación contractual, habilitación registrada, becas y devoluciones/disputas.
 - Vinculación de responsable económico con dos consentimientos, prueba gratuita con token y derivación al personal.
 - Adaptador Telegram con vinculación temporal, selección de beneficiario y recepción/envío persistentes.
-- Ollama local con salida estructurada y campos respaldados por citas. Las reglas controlan precios, prioridades y operaciones comerciales.
+- API de OpenAI (ChatGPT) como modelo principal y Ollama local como respaldo automático, ambos con salida estructurada y campos respaldados por citas. Las reglas controlan precios, prioridades y operaciones comerciales.
 
 La base vacía se muestra sin registros ficticios. Los recuentos operativos provienen del OLTP y los indicadores del DataMart. Para el prototipo anterior: `VITE_DATA_MODE=demo`; ese modo no escribe en SQL Server.
 
@@ -117,6 +117,8 @@ Preparar y cargar la base una vez con `npm run datamart:init`. El comando crea �
 
 `DB_DATABASE` sigue apuntando al OLTP. `DATAMART_DATABASE` permite cambiar el destino, en el mismo servidor SQL. Por defecto se utiliza `LaPreDigital_DataMart`; con un OLTP cuyo nombre termina en `_test`, se utiliza `LaPreDigital_DataMart_test`.
 
+Las dimensiones tienen PK `Key... IDENTITY` y los hechos contienen solo keys y medidas. Todas las relaciones usan las keys sustitutas; los IDs del OLTP se resuelven en el ETL. Para reemplazar el modelo anterior se utiliza `npm run datamart:rebuild`, que reconstruye únicamente las tablas del DataMart y las recarga en una transacción. El [diccionario dimensional](docs/modelo-dimensional.md) describe las claves de negocio, las claves degeneradas de conteo y los roles de tiempo que conservan las 168 horas exactas.
+
 - Cada tarjeta muestra el resultado, su semáforo y las medidas M1 a M11. Al expandirla explica qué mide, cómo leer el resultado, por qué las unidades no llegan al numerador y el desglose por tiempo (año, trimestre, mes o día), canal, rol, plan y contacto.
 - Los filtros (período, canal, rol, plan y contacto) se aplican solo a los indicadores cuya medida tiene esa dimensión, según la tabla 10 del informe.
 - `GET /api/kpis` devuelve los datos y `GET /api/kpis/report.pdf` descarga el reporte en PDF con los mismos filtros (`from`, `to`, `grain`, `contact`, `channel`, `role`, `plan`).
@@ -125,7 +127,9 @@ Preparar y cargar la base una vez con `npm run datamart:init`. El comando crea �
 
 ## Escenarios de prueba que dependen del tiempo
 
-`npm run eval:agent` mide al agente con Ollama real sobre 96 mensajes etiquetados según el informe (nivel de interés, derivación, perfil, responsable, objeciones, rechazo y aceptación); `-- --holdout` usa 36 mensajes reservados y `-- --runs 2` repite cada caso. Solo lee el catálogo de la base. Las respuestas sobre planes salen de `server/agent/knowledge.mjs` (PlanTarifa, `src/shared/offer.json` y `server/agent/knowledge/conditions.json`).
+Proveedor del agente: si `.env` tiene `OPENAI_API_KEY`, cada mensaje se analiza primero con OpenAI (`OPENAI_MODEL`, por defecto `gpt-4o-mini`, salida JSON estricta). Si OpenAI no responde, devuelve un error o supera `OPENAI_TIMEOUT_MS`, el mismo mensaje se analiza con Ollama local. Sin clave, o con `OPENAI_ENABLED=false`, solo se usa Ollama. El proveedor y el modelo usados quedan en `App_AgentAnalysis`. Con OpenAI, el texto del mensaje y el historial reciente salen del equipo. Las pruebas automáticas nunca llaman a OpenAI.
+
+`npm run eval:agent` mide al agente con el proveedor configurado (o el que indique `-- --provider openai|ollama`) sobre 99 mensajes etiquetados según el informe (nivel de interés, derivación, perfil, responsable, objeciones, rechazo y aceptación); `-- --holdout` usa 36 mensajes reservados y `-- --runs 2` repite cada caso. Solo lee el catálogo de la base. Las respuestas sobre planes salen de `server/agent/knowledge.mjs` (PlanTarifa, `src/shared/offer.json` y `server/agent/knowledge/conditions.json`).
 
 `npm run seed:scenarios` siembra 13 escenarios con fechas pasadas en la base del `.env` (contadores de intentos, Nula y reactivación, reevaluación semanal, derivación de 24 horas, propuesta sin respuesta, Explora vencida, inactividad, reapertura dentro y fuera de plazo, solicitud provisional y ventanas de indicadores cerradas). Pide confirmación (`--yes` la omite) y `--apply` ejecuta la revisión de vencimientos al terminar. Solo inserta registros «Escenario E…» con correos `escenario.e…@example.test`; si ya existen, se niega y hay que limpiar antes con `npm run db:clean -- --local`. La guía de cada escenario está en `docs/casos-de-prueba-leads.md`.
 

@@ -126,6 +126,8 @@ La revisión visual automatizada de esta entrega quedó pendiente: ambos control
 
 `npm run datamart:init` prepara `LaPreDigital_DataMart` y carga los scripts de `sql/`. `DATAMART_DATABASE` cambia el destino; `DB_DATABASE` conserva la base OLTP. Ambas bases comparten servidor y autenticación.
 
+El modelo usa seis dimensiones con `Key... INT IDENTITY` como PK. Las 28 FK de los hechos referencian exclusivamente esas keys. Los hechos guardan solo keys y M1 a M11; las fechas se obtienen mediante roles de `DimTiempo` y las identidades de conteo se conservan como claves degeneradas. `npm run datamart:rebuild` reemplaza el modelo anterior en una transacción, sin cambiar las tablas OLTP. `init` y `refresh` rechazan el esquema anterior en vez de reinterpretar sus IDs como keys. El diseño está en `docs/modelo-dimensional.md`.
+
 `server/datamart/service.mjs` ejecuta el ETL en una transacción, con bloqueo compartido para lecturas y exclusivo para recargas. `server/kpis/repository.mjs` consulta únicamente los hechos y dimensiones del DataMart. No hay un cálculo alternativo sobre OLTP al fallar esa base. Las reglas de deduplicación conservan contacto-mes para perfil y caso-mes para propuestas, incluso al filtrar por canal o plan. Las becas con M10 = 0 quedan fuera del denominador.
 
 La pantalla y el PDF usan `GET /api/kpis` y `GET /api/kpis/report.pdf`. El botón Actualizar datos llama a `POST /api/kpis/refresh`, equivalente a `npm run datamart:refresh`. El arranque no ejecuta migraciones ni ETL. Para probar la carga completa: `npm run seed:indicators -- --check`; para conservar los ocho casos simulados: `npm run seed:indicators -- --yes`.

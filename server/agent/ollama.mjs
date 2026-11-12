@@ -273,7 +273,36 @@ export function buildPrompt(tariffs, context, text) {
     .filter(Boolean)
     .join(NL);
 }
-export async function analyzeMessage(text, tariffs, { fetcher = fetch, context = {} } = {}) {
+// Proveedores del modelo: OpenAI (principal) y Ollama local (respaldo). Los dos reciben el mismo
+// prompt y el mismo esquema JSON, y su salida pasa por las mismas reglas de validación.
+async function callOpenAI(messages, fetcher) {
+  const config = integrationConfig().openai;
+  const response = await fetcher(config.baseUrl + '/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey },
+    signal: AbortSignal.timeout(config.timeout),
+    body: JSON.stringify({
+      model: config.model,
+      temperature: 0,
+      messages,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'analisis_mensaje', strict: true, schema: outputFormat },
+      },
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(
+      `OpenAI respondió ${response.status}: ${detail.error?.message ?? 'sin detalle'}`,
+    );
+  }
+  const payload = await response.json();
+  const content = payload.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OpenAI no devolvió contenido.');
+  return { output: JSON.parse(content), model: config.model };
+}
+async function callOllama(messages, fetcher) {
   const config = integrationConfig().ollama;
   const url = new URL(config.url);
   if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
@@ -287,19 +316,70 @@ export async function analyzeMessage(text, tariffs, { fetcher = fetch, context =
       stream: false,
       format: outputFormat,
       options: { temperature: 0 },
-      messages: [
-        { role: 'system', content: buildPrompt(tariffs, context, text) },
-        { role: 'user', content: text },
-      ],
+      messages,
     }),
   });
   if (!response.ok)
     throw new Error('Ollama no pudo analizar el mensaje; revisa el modelo configurado.');
   const payload = await response.json();
-  const analysis = validateAnalysis(JSON.parse(payload.message.content), text, tariffs, context);
-  // Fuentes recuperadas para este mensaje: quedan guardadas con el análisis (trazabilidad).
-  analysis.sources = sourcesOf(text, tariffs);
-  return analysis;
+  return { output: JSON.parse(payload.message.content), model: config.model };
+}
+
+// Orden de proveedores: OpenAI si tiene clave y Ollama si está habilitado. `provider` fuerza uno.
+export function providerOrder(provider) {
+  const config = integrationConfig();
+  const order = [];
+  if (config.openai.enabled) order.push('openai');
+  if (config.ollama.enabled) order.push('ollama');
+  return provider ? order.filter((name) => name === provider) : order;
+}
+export const agentEnabled = () => providerOrder().length > 0;
+
+export async function analyzeMessage(
+  text,
+  tariffs,
+  { fetcher = fetch, context = {}, provider = null } = {},
+) {
+  const messages = [
+    { role: 'system', content: buildPrompt(tariffs, context, text) },
+    { role: 'user', content: text },
+  ];
+  const order = providerOrder(provider);
+  if (!order.length) throw new Error('No hay un proveedor de IA habilitado (OpenAI u Ollama).');
+  const failures = [];
+  for (const name of order) {
+    try {
+      const { output, model } = await (name === 'openai' ? callOpenAI : callOllama)(
+        messages,
+        fetcher,
+      );
+      const analysis = validateAnalysis(output, text, tariffs, context);
+      // Fuentes recuperadas y proveedor usado: quedan guardados con el análisis (trazabilidad).
+      analysis.sources = sourcesOf(text, tariffs);
+      analysis.provider = name;
+      analysis.model = model;
+      if (failures.length) analysis.fallbackReason = failures.join(' | ').slice(0, 300);
+      return analysis;
+    } catch (error) {
+      failures.push(`${name}: ${error.message}`);
+      if (order.at(-1) !== name)
+        console.warn(`El proveedor ${name} falló; se usa el respaldo. ${error.message}`);
+    }
+  }
+  throw new Error(`Ningún proveedor de IA pudo analizar el mensaje. ${failures.join(' | ')}`);
+}
+export async function openaiStatus(fetcher = fetch) {
+  const config = integrationConfig().openai;
+  if (!config.enabled) return { configured: false, model: config.model, available: false };
+  try {
+    const response = await fetcher(config.baseUrl + '/models/' + encodeURIComponent(config.model), {
+      headers: { Authorization: 'Bearer ' + config.apiKey },
+      signal: AbortSignal.timeout(5000),
+    });
+    return { configured: true, model: config.model, available: response.ok };
+  } catch {
+    return { configured: true, model: config.model, available: false };
+  }
 }
 export async function ollamaStatus(fetcher = fetch) {
   const config = integrationConfig().ollama;

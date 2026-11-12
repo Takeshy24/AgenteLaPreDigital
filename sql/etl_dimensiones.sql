@@ -1,81 +1,83 @@
+-- Carga de dimensiones desde el OLTP. MERGE inserta los miembros nuevos y actualiza los nombres
+-- que cambiaron (tipo 1: se conserva solo el valor vigente). Ejecutar antes de etl_hechos.sql.
 MERGE INTO
     LaPreDigital_DataMart.dbo.DimTiempo AS dim USING (
         SELECT DISTINCT
-            YEAR(fechas.fecha) * 10000 + MONTH(fechas.fecha) * 100 + DAY(fechas.fecha) AS idTiempo,
-            fechas.fecha,
-            YEAR(fechas.fecha) AS anio,
-            DATEPART(QUARTER, fechas.fecha) AS trimestre,
-            MONTH(fechas.fecha) AS mes,
-            DAY(fechas.fecha) AS dia
+            fechas.fechaHora,
+            CAST(fechas.fechaHora AS DATE) AS fecha,
+            YEAR(fechas.fechaHora) AS anio,
+            DATEPART(QUARTER, fechas.fechaHora) AS trimestre,
+            MONTH(fechas.fechaHora) AS mes,
+            DAY(fechas.fechaHora) AS dia
         FROM
             (
                 SELECT
-                    CAST(fechaInicioElegibilidad AS DATE) AS fecha
+                    fechaInicioElegibilidad AS fechaHora
                 FROM
                     LaPreDigital_OLTP.dbo.LeadCaso
                 WHERE
                     fechaInicioElegibilidad IS NOT NULL
                 UNION
                 SELECT
-                    CAST(fechaEntrega AS DATE)
+                    fechaEntrega
                 FROM
                     LaPreDigital_OLTP.dbo.Mensaje
                 WHERE
                     fechaEntrega IS NOT NULL
                 UNION
                 SELECT
-                    CAST(fechaHora AS DATE)
+                    fechaHora
                 FROM
                     LaPreDigital_OLTP.dbo.Mensaje
                 WHERE
                     idDireccion = 1
                 UNION
                 SELECT
-                    CAST(fechaRespuesta AS DATE)
+                    fechaRespuesta
                 FROM
                     LaPreDigital_OLTP.dbo.CambioPerfil
                 UNION
                 SELECT
-                    CAST(fechaNecesidad AS DATE)
+                    fechaNecesidad
                 FROM
                     LaPreDigital_OLTP.dbo.NecesidadVinculacion
                 UNION
                 SELECT
-                    CAST(fechaVinculacion AS DATE)
+                    fechaVinculacion
                 FROM
                     LaPreDigital_OLTP.dbo.InvitacionVinculacion
                 WHERE
                     fechaVinculacion IS NOT NULL
                 UNION
                 SELECT
-                    CAST(fechaOtorgamiento AS DATE)
+                    fechaOtorgamiento
                 FROM
                     LaPreDigital_OLTP.dbo.AutorizacionVinculacion
                 UNION
                 SELECT
-                    CAST(fechaOtorgamiento AS DATE)
+                    fechaOtorgamiento
                 FROM
                     LaPreDigital_OLTP.dbo.AutorizacionContacto
                 WHERE
                     fechaOtorgamiento IS NOT NULL
                 UNION
                 SELECT
-                    CAST(fechaEvaluacion AS DATE)
+                    fechaEvaluacion
                 FROM
                     LaPreDigital_OLTP.dbo.EvaluacionPrioridad
                 UNION
                 SELECT
-                    CAST(fechaEvento AS DATE)
+                    fechaEvento
                 FROM
                     LaPreDigital_OLTP.dbo.EventoCaso
             ) AS fechas
-    ) AS oltp ON oltp.idTiempo = dim.idTiempo
+    ) AS oltp ON oltp.fechaHora = dim.fechaHora
 WHEN NOT MATCHED THEN
 INSERT
-    (idTiempo, fecha, anio, trimestre, mes, dia)
+    (fechaHora, fecha, anio, trimestre, mes, dia)
 VALUES
     (
-        oltp.idTiempo,
+        oltp.fechaHora,
         oltp.fecha,
         oltp.anio,
         oltp.trimestre,
@@ -95,6 +97,11 @@ MERGE INTO
         WHERE
             nombreCompleto IS NOT NULL
     ) AS oltp ON oltp.idContacto = dim.idContacto
+WHEN MATCHED
+AND dim.nombreCompleto <> oltp.nombreCompleto THEN
+UPDATE
+SET
+    nombreCompleto = oltp.nombreCompleto
 WHEN NOT MATCHED THEN
 INSERT
     (idContacto, nombreCompleto)
@@ -112,7 +119,16 @@ MERGE INTO
             LaPreDigital_OLTP.dbo.Cat_CanalComunicacion
         WHERE
             id IN (1, 2, 3)
+        UNION ALL
+        SELECT
+            CAST(0 AS TINYINT),
+            N'Sin canal'
     ) AS oltp ON oltp.idCanal = dim.idCanal
+WHEN MATCHED
+AND dim.nombre <> oltp.nombre THEN
+UPDATE
+SET
+    nombre = oltp.nombre
 WHEN NOT MATCHED THEN
 INSERT
     (idCanal, nombre)
@@ -129,6 +145,11 @@ MERGE INTO
         FROM
             LaPreDigital_OLTP.dbo.Cat_RolContacto
     ) AS oltp ON oltp.idRolContacto = dim.idRolContacto
+WHEN MATCHED
+AND dim.nombre <> oltp.nombre THEN
+UPDATE
+SET
+    nombre = oltp.nombre
 WHEN NOT MATCHED THEN
 INSERT
     (idRolContacto, nombre)
@@ -147,6 +168,11 @@ MERGE INTO
         WHERE
             idPlan IN (1, 2, 3)
     ) AS oltp ON oltp.idPlan = dim.idPlan
+WHEN MATCHED
+AND dim.nombre <> oltp.nombre THEN
+UPDATE
+SET
+    nombre = oltp.nombre
 WHEN NOT MATCHED THEN
 INSERT
     (idPlan, nombre)
@@ -163,6 +189,11 @@ MERGE INTO
         FROM
             LaPreDigital_OLTP.dbo.Cat_Prioridad
     ) AS oltp ON oltp.idPrioridad = dim.idPrioridad
+WHEN MATCHED
+AND dim.nombre <> oltp.nombre THEN
+UPDATE
+SET
+    nombre = oltp.nombre
 WHEN NOT MATCHED THEN
 INSERT
     (idPrioridad, nombre)

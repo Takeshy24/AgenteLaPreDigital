@@ -1,5 +1,6 @@
 // Evalúa al agente (Ollama + reglas + base de conocimiento) con mensajes etiquetados según el informe.
-// Solo lee el catálogo de la base; no escribe nada. Uso: npm run eval:agent [-- --runs 2] [-- --json salida.json]
+// Solo lee el catálogo de la base; no escribe nada.
+// Uso: npm run eval:agent [-- --runs 2] [-- --json salida.json] [-- --provider openai|ollama]
 import { writeFileSync } from 'node:fs';
 import { analyzeMessage } from '../server/agent/ollama.mjs';
 import { handoffReason } from '../server/agent/service.mjs';
@@ -102,7 +103,7 @@ for (let run = 1; run <= runs; run++)
     const started = Date.now();
     if (!isSocialMessage(text))
       try {
-        analysis = await analyzeMessage(text, tariffs, { context });
+        analysis = await analyzeMessage(text, tariffs, { context, provider: arg('--provider') });
       } catch (failure) {
         error = failure.message.slice(0, 200);
       }
@@ -111,6 +112,12 @@ for (let run = 1; run <= runs; run++)
     if (result.problems.length)
       console.log(`FALLA ${text} -> ${result.got} | ${result.problems.join('; ')}`);
   }
+const providers = output.reduce((all, row) => {
+  const name = row.analysis?.provider ?? (row.error ? 'error' : 'reglas');
+  all[name] = (all[name] ?? 0) + 1;
+  return all;
+}, {});
+console.log('Proveedor por mensaje:', JSON.stringify(providers));
 const ok = output.filter((row) => !row.result.problems.length).length;
 const times = output.map((row) => row.seconds).sort((a, b) => a - b);
 console.log(`

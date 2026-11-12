@@ -3,6 +3,7 @@ import { request } from '../api';
 import { Button, Card, Empty } from '../components/ui';
 interface Status {
   telegram: { configured: boolean; enabled: boolean };
+  openai: { configured: boolean; model: string; available: boolean };
   ollama: { configured: boolean; model: string; available: boolean };
   followup: { enabled: boolean };
 }
@@ -68,7 +69,26 @@ export function Integrations() {
             </p>
             <small>La configuración no acredita una entrega real.</small>
           </Card>
-          <Card title="Ollama" label="AGENTE LOCAL · L-2 / L-4 / L-5">
+          <Card title="OpenAI (ChatGPT)" label="AGENTE · PROVEEDOR PRINCIPAL">
+            <span className="integration-status" data-ready={status.openai.available}>
+              {status.openai.available
+                ? 'Modelo disponible'
+                : status.openai.configured
+                  ? 'No responde: se usa Ollama'
+                  : 'Sin clave: se usa Ollama'}
+            </span>
+            <dl className="detail-list">
+              <div>
+                <dt>Modelo configurado</dt>
+                <dd>{status.openai.configured ? status.openai.model : 'No configurado'}</dd>
+              </div>
+            </dl>
+            <p>
+              Analiza cada mensaje con el mismo esquema JSON y las mismas reglas que Ollama. Si
+              falla, el agente pasa automáticamente al modelo local.
+            </p>
+          </Card>
+          <Card title="Ollama" label="AGENTE LOCAL · RESPALDO">
             <span className="integration-status" data-ready={status.ollama.available}>
               {status.ollama.available ? 'Modelo disponible' : 'Modelo no disponible'}
             </span>

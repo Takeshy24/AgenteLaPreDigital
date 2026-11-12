@@ -67,14 +67,43 @@ async function ready(db) {
   const found = (await query(db, 'SELECT DB_ID(@database) AS id', { database })).recordset[0].id;
   if (found == null)
     throw new BusinessError('El DataMart no está preparado. Ejecuta npm run datamart:init.', 503);
-  const objects = (
+  const columns = (
     await query(
       db,
-      `SELECT name FROM ${identifier(database)}.sys.tables WHERE schema_id = SCHEMA_ID(N'dbo')`,
+      `SELECT t.name AS tableName, c.name AS columnName, c.is_identity AS isIdentity
+FROM ${identifier(database)}.sys.tables AS t
+INNER JOIN ${identifier(database)}.sys.columns AS c ON c.object_id = t.object_id
+WHERE t.schema_id = 1`,
     )
   ).recordset;
-  if (tables.some((name) => !objects.some((table) => table.name === name))) {
+  if (tables.some((name) => !columns.some((column) => column.tableName === name))) {
     throw new BusinessError('Faltan tablas del DataMart. Ejecuta npm run datamart:init.', 503);
+  }
+  const dimensionKeys = {
+    DimTiempo: 'KeyTiempo',
+    DimContacto: 'KeyContacto',
+    DimCanal: 'KeyCanal',
+    DimRolContacto: 'KeyRolContacto',
+    DimPlan: 'KeyPlan',
+    DimPrioridad: 'KeyPrioridad',
+  };
+  const invalidDimension = Object.entries(dimensionKeys).some(
+    ([table, key]) =>
+      !columns.some(
+        (column) => column.tableName === table && column.columnName === key && column.isIdentity,
+      ),
+  );
+  const invalidFact = columns.some(
+    (column) =>
+      tables.includes(column.tableName) &&
+      column.tableName.startsWith('Hecho') &&
+      !/^(Key\w+|M(?:[1-9]|10|11))$/.test(column.columnName),
+  );
+  if (invalidDimension || invalidFact) {
+    throw new BusinessError(
+      'El DataMart utiliza el modelo anterior. Ejecuta npm run datamart:rebuild.',
+      503,
+    );
   }
 }
 async function load(db) {
@@ -105,13 +134,18 @@ export async function refreshDataMart() {
     return load(db);
   });
 }
-export async function initializeDataMart() {
+export async function initializeDataMart({ rebuild = false } = {}) {
   const db = await pool();
   const { database } = dataMartConfig();
   const found = (await query(db, 'SELECT DB_ID(@database) AS id', { database })).recordset[0].id;
   if (found == null) await query(db, `CREATE DATABASE ${identifier(database)}`);
   return transaction(async (connection) => {
     await lock(connection, 'Exclusive');
+    if (rebuild) {
+      for (const batch of batches('reiniciar_datamart.sql')) {
+        if (!/^USE\s/i.test(batch)) await executeBatch(connection, batch);
+      }
+    }
     for (const file of ['dimensiones.sql', 'hechos.sql']) {
       for (const batch of batches(file)) {
         const name = batch.match(/^CREATE TABLE dbo\.(\w+)/)?.[1];
@@ -124,6 +158,7 @@ export async function initializeDataMart() {
         if (exists == null) await executeBatch(connection, batch);
       }
     }
+    await ready(connection);
     return load(connection);
   });
 }

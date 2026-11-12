@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { analyzeMessage, ollamaStatus } from '../agent/ollama.mjs';
+import { analyzeMessage, ollamaStatus, openaiStatus } from '../agent/ollama.mjs';
 import { transaction } from '../db.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { getParticipation } from '../shared/repository.mjs';
@@ -30,6 +30,7 @@ export async function getIntegrationStatus() {
       configured: !!config.telegram.token && !!config.telegram.username,
       enabled: config.telegram.enabled,
     },
+    openai: await openaiStatus(),
     ollama: await ollamaStatus(),
     followup: { enabled: config.followup.enabled },
   };
