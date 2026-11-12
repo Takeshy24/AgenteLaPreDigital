@@ -335,7 +335,18 @@ test('API: /api/kpis responde los seis indicadores y el reporte es un PDF válid
       body.kpis.map((item) => item.id),
       ['L-1.1', 'L-1.2', 'L-2.1', 'L-3.1', 'L-4.1', 'L-5.1'],
     );
-    assert.ok(body.options.channels.length === 5);
+    assert.match(body.source, /DataMart/);
+    assert.deepEqual(
+      body.options.channels.map((channel) => channel.id),
+      [0, 1, 2, 3],
+    );
+    const refreshed = await fetch(`${base}/api/kpis/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(refreshed.status, 200);
+    assert.match((await refreshed.json()).database, /DataMart/);
     assert.equal((await fetch(`${base}/api/kpis?from=2026-12-01&to=2026-01-01`)).status, 400);
     assert.equal((await fetch(`${base}/api/kpis?grain=semana`)).status, 400);
     const pdf = await fetch(`${base}/api/kpis/report.pdf?grain=month`);

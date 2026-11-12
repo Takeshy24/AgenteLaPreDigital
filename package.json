@@ -20,6 +20,9 @@
     "migrate": "node tools/migrate.mjs",
     "check:ollama": "node tools/check-ollama.mjs",
     "seed:scenarios": "node tools/seed-scenarios.mjs",
+    "seed:indicators": "node tools/seed-indicators.mjs",
+    "datamart:init": "node tools/datamart.mjs init",
+    "datamart:refresh": "node tools/datamart.mjs refresh",
     "eval:agent": "node tools/eval-agent.mjs"
   },
   "dependencies": {

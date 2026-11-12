@@ -176,7 +176,7 @@ export function createKpiReport(data) {
   doc.addPage();
   heading(doc, 'Notas metodológicas', 13);
   for (const note of [
-    'Los indicadores se calculan sobre el OLTP con las reglas de las secciones 3.3 a 3.5 del informe: ventana de medición de 168 horas, unidad de conteo propia de cada indicador y denominador cero como «No aplicable».',
+    `Los indicadores se calculan sobre las tablas de hechos de ${data.source} con las reglas de las secciones 3.3 a 3.5 del informe: ventana de medición de 168 horas, unidad de conteo propia de cada indicador y denominador cero como «No aplicable».`,
     'Los semáforos son metas académicas propuestas en el informe, no resultados observados de operación real.',
     'Las unidades con la ventana de 7 días todavía abierta se cuentan, pero el resultado es provisional hasta que termine su ventana.',
     'Los datos obtenidos con el pago simulado de demostración o con contactos de prueba son simulados y deben declararse así al presentarlos.',

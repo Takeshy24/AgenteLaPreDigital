@@ -1,4 +1,4 @@
-import { Download, RotateCcw } from 'lucide-react';
+import { Download, RefreshCw, RotateCcw } from 'lucide-react';
 import { Button } from '../../components/ui';
 import type { KpiFilters as Filters, KpiResponse } from '../../api';
 
@@ -30,11 +30,15 @@ export function KpiFilters({
   options,
   onChange,
   onPdf,
+  onRefresh,
+  busy,
 }: {
   filters: Filters;
   options: KpiResponse['options'] | null;
   onChange: (filters: Filters) => void;
   onPdf: () => void;
+  onRefresh: () => void;
+  busy: boolean;
 }) {
   const set = (name: keyof Filters) => (value: string) => onChange({ ...filters, [name]: value });
   const changed = JSON.stringify(filters) !== JSON.stringify(emptyFilters);
@@ -110,11 +114,15 @@ export function KpiFilters({
           informe). La prioridad no se filtra: en L-5.1 es siempre Alta.
         </p>
         <div>
+          <Button variant="secondary" disabled={busy} onClick={onRefresh}>
+            <RefreshCw size={14} />
+            Actualizar datos
+          </Button>
           <Button variant="secondary" disabled={!changed} onClick={() => onChange(emptyFilters)}>
             <RotateCcw size={14} />
             Limpiar filtros
           </Button>
-          <Button onClick={onPdf}>
+          <Button disabled={busy || !options} onClick={onPdf}>
             <Download size={14} />
             Reporte PDF
           </Button>

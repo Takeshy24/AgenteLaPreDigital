@@ -120,8 +120,15 @@ La revisión visual automatizada de esta entrega quedó pendiente: ambos control
 - Prueba real del webhook y Checkout con claves de Stripe, conciliación de reembolsos/disputas y plataforma educativa para aplicar accesos, pruebas y habilitaciones.
 - Conectores de WhatsApp/correo. La retoma de una derivación ya prepara un aviso Telegram vinculado al mensaje pendiente.
 - Perfil académico ampliado y recorridos excepcionales restantes del informe.
-- DataMart/ETL y seis KPI actualizados, incluida la conversión pagada de casos con Alta.
 - Autenticación, permisos, auditoría por usuario real, observabilidad y operación de producción.
+
+## DataMart e indicadores
+
+`npm run datamart:init` prepara `LaPreDigital_DataMart` y carga los scripts de `sql/`. `DATAMART_DATABASE` cambia el destino; `DB_DATABASE` conserva la base OLTP. Ambas bases comparten servidor y autenticación.
+
+`server/datamart/service.mjs` ejecuta el ETL en una transacción, con bloqueo compartido para lecturas y exclusivo para recargas. `server/kpis/repository.mjs` consulta únicamente los hechos y dimensiones del DataMart. No hay un cálculo alternativo sobre OLTP al fallar esa base. Las reglas de deduplicación conservan contacto-mes para perfil y caso-mes para propuestas, incluso al filtrar por canal o plan. Las becas con M10 = 0 quedan fuera del denominador.
+
+La pantalla y el PDF usan `GET /api/kpis` y `GET /api/kpis/report.pdf`. El botón Actualizar datos llama a `POST /api/kpis/refresh`, equivalente a `npm run datamart:refresh`. El arranque no ejecuta migraciones ni ETL. Para probar la carga completa: `npm run seed:indicators -- --check`; para conservar los ocho casos simulados: `npm run seed:indicators -- --yes`.
 
 Los flujos implementados no equivalen al cumplimiento integral del informe ni a una integración de pagos o aprendizaje en producción.
 

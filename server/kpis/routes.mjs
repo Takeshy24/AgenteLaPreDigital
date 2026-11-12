@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createKpiReport } from './report.mjs';
 import { getKpis } from './service.mjs';
+import { refreshDataMart } from '../datamart/service.mjs';
 
 const date = z.iso.date();
 const optionalNumber = (max) =>
@@ -36,6 +37,13 @@ function parseFilters(query) {
 }
 
 export function registerRoutes(app) {
+  app.post('/api/kpis/refresh', async (req, res, next) => {
+    try {
+      res.json(await refreshDataMart());
+    } catch (error) {
+      next(error);
+    }
+  });
   app.get('/api/kpis', async (req, res, next) => {
     try {
       res.json(await getKpis(parseFilters(req.query)));

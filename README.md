@@ -25,7 +25,7 @@ Para desarrollo: `npm run server` y `npm run dev` en terminales separadas. Vite 
 - Adaptador Telegram con vinculación temporal, selección de beneficiario y recepción/envío persistentes.
 - Ollama local con salida estructurada y campos respaldados por citas. Las reglas controlan precios, prioridades y operaciones comerciales.
 
-La base vacía se muestra sin registros ficticios. Los recuentos son del OLTP; no representan los KPI del DataMart. Para el prototipo anterior: `VITE_DATA_MODE=demo`; ese modo no escribe en SQL Server.
+La base vacía se muestra sin registros ficticios. Los recuentos operativos provienen del OLTP y los indicadores del DataMart. Para el prototipo anterior: `VITE_DATA_MODE=demo`; ese modo no escribe en SQL Server.
 
 ## Organización y skills
 
@@ -107,15 +107,20 @@ El proyecto requiere Windows y SQL Server para ejecutar el backend actual. Las p
 
 Ollama fue probado con `llama3.2:3b`. Puede omitir o interpretar mal campos; el análisis tiene revisión humana. Telegram está configurado con un bot real y su identidad fue verificada mediante `getMe`. El servidor recibe actualizaciones por long polling; falta comprobar una conversación iniciada desde una cuenta Telegram. El procedimiento está en [la guía del backend](server/README.md).
 
-El recorrido del lead empieza en `/planes`: muestra las tarifas vigentes y guarda solicitudes en una bandeja de revisión. El operador prepara y entrega una propuesta, genera un enlace personal de siete días y lo comparte. En `/oferta/<token>`, el lead acepta el plan y condiciones, abre Stripe Checkout y ve el estado del pago. La confirmación se verifica también mediante webhook firmado. Se requieren `STRIPE_SECRET_KEY=sk_test_...` y `STRIPE_WEBHOOK_SECRET=whsec_...` para probarlo realmente. Quedan pendientes el alojamiento HTTPS, la verificación de identidad y protección contra abuso de formularios públicos, el acceso educativo, WhatsApp/correo, DataMart/ETL y usuarios/permisos de producción.
+El recorrido del lead empieza en `/planes`: muestra las tarifas vigentes y guarda solicitudes en una bandeja de revisión. El operador prepara y entrega una propuesta, genera un enlace personal de siete días y lo comparte. En `/oferta/<token>`, el lead acepta el plan y condiciones, abre Stripe Checkout y ve el estado del pago. La confirmación se verifica también mediante webhook firmado. Se requieren `STRIPE_SECRET_KEY=sk_test_...` y `STRIPE_WEBHOOK_SECRET=whsec_...` para probarlo realmente. Quedan pendientes el alojamiento HTTPS, la verificación de identidad y protección contra abuso de formularios públicos, el acceso educativo, WhatsApp/correo y usuarios/permisos de producción.
 
 ## Indicadores de la fase LEADS
 
-La consola incluye la página **Indicadores** con los seis KPI del informe (L-1.1, L-1.2, L-2.1, L-3.1, L-4.1 y L-5.1). Se calculan sobre el OLTP con las reglas de las secciones 3.3 a 3.5 (ventana de 168 horas, unidad de conteo propia de cada indicador, denominador cero como «No aplicable» y semáforos propuestos).
+La consola incluye la página **Indicadores** con los seis KPI del informe (L-1.1, L-1.2, L-2.1, L-3.1, L-4.1 y L-5.1). La pantalla y el PDF leen las cinco tablas de hechos de `LaPreDigital_DataMart`, con las reglas de las secciones 3.3 a 3.5 (ventana de 168 horas, unidad de conteo propia de cada indicador, denominador cero como «No aplicable» y semáforos propuestos).
+
+Preparar y cargar la base una vez con `npm run datamart:init`. El comando crea únicamente los objetos que faltan y ejecuta los ETL de `sql/`. Para incorporar cambios posteriores, usar **Actualizar datos** en Indicadores o `npm run datamart:refresh`. La carga de dimensiones y hechos se confirma en una sola transacción; las consultas esperan a que termine. Los cambios de filtros y la descarga del PDF solo leen los datos cargados. El servidor no crea el DataMart al arrancar y nunca sustituye sus datos por cálculos sobre el OLTP.
+
+`DB_DATABASE` sigue apuntando al OLTP. `DATAMART_DATABASE` permite cambiar el destino, en el mismo servidor SQL. Por defecto se utiliza `LaPreDigital_DataMart`; con un OLTP cuyo nombre termina en `_test`, se utiliza `LaPreDigital_DataMart_test`.
 
 - Cada tarjeta muestra el resultado, su semáforo y las medidas M1 a M11. Al expandirla explica qué mide, cómo leer el resultado, por qué las unidades no llegan al numerador y el desglose por tiempo (año, trimestre, mes o día), canal, rol, plan y contacto.
 - Los filtros (período, canal, rol, plan y contacto) se aplican solo a los indicadores cuya medida tiene esa dimensión, según la tabla 10 del informe.
 - `GET /api/kpis` devuelve los datos y `GET /api/kpis/report.pdf` descarga el reporte en PDF con los mismos filtros (`from`, `to`, `grain`, `contact`, `channel`, `role`, `plan`).
+- `POST /api/kpis/refresh` recarga las seis dimensiones y los cinco hechos. El canal técnico Portal web no se ofrece como dimensión de contacto.
 - Las ventanas de 7 días aún abiertas se cuentan, pero el resultado se marca como provisional. Los datos de demostración o pruebas son simulados y deben declararse así.
 
 ## Escenarios de prueba que dependen del tiempo
@@ -123,3 +128,5 @@ La consola incluye la página **Indicadores** con los seis KPI del informe (L-1.
 `npm run eval:agent` mide al agente con Ollama real sobre 96 mensajes etiquetados según el informe (nivel de interés, derivación, perfil, responsable, objeciones, rechazo y aceptación); `-- --holdout` usa 36 mensajes reservados y `-- --runs 2` repite cada caso. Solo lee el catálogo de la base. Las respuestas sobre planes salen de `server/agent/knowledge.mjs` (PlanTarifa, `src/shared/offer.json` y `server/agent/knowledge/conditions.json`).
 
 `npm run seed:scenarios` siembra 13 escenarios con fechas pasadas en la base del `.env` (contadores de intentos, Nula y reactivación, reevaluación semanal, derivación de 24 horas, propuesta sin respuesta, Explora vencida, inactividad, reapertura dentro y fuera de plazo, solicitud provisional y ventanas de indicadores cerradas). Pide confirmación (`--yes` la omite) y `--apply` ejecuta la revisión de vencimientos al terminar. Solo inserta registros «Escenario E…» con correos `escenario.e…@example.test`; si ya existen, se niega y hay que limpiar antes con `npm run db:clean -- --local`. La guía de cada escenario está en `docs/casos-de-prueba-leads.md`.
+
+El seed complementario `npm run seed:indicators -- --yes` agrega ocho casos y diez contactos identificados como simulados, y recarga el DataMart. Cubre las cinco tablas de hechos, múltiples preguntas y planes, autorizaciones históricas, becas, reembolsos y una validación un segundo fuera de plazo. Repetirlo no duplica escenarios. `npm run seed:indicators -- --check` valida los datos y el ETL dentro de una transacción que se revierte. La guía y los resultados esperados están en [docs/seed-indicadores.md](docs/seed-indicadores.md).

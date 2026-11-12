@@ -10,6 +10,8 @@ export function Kpis() {
   const [data, setData] = useState<KpiResponse | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -24,7 +26,21 @@ export function Kpis() {
     return () => {
       active = false;
     };
-  }, [filters]);
+  }, [filters, revision]);
+  async function refresh() {
+    setRefreshing(true);
+    setError('');
+    try {
+      await request('/kpis/refresh', 'POST', {});
+      setRevision((value) => value + 1);
+    } catch (failure) {
+      setError(
+        failure instanceof Error ? failure.message : 'No se pudieron actualizar los indicadores.',
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  }
   return (
     <div className="kpis-page">
       <KpiFilters
@@ -32,6 +48,8 @@ export function Kpis() {
         options={data?.options ?? null}
         onChange={setFilters}
         onPdf={() => window.open(apiUrl('/kpis/report.pdf?' + filterQuery(filters)), '_blank')}
+        onRefresh={refresh}
+        busy={loading || refreshing}
       />
       {error && (
         <div role="alert" className="live-alert">
@@ -42,9 +60,12 @@ export function Kpis() {
       {data && (
         <>
           <p className="kpi-stamp" role="status" aria-live="polite">
-            {loading
-              ? 'Actualizando…'
-              : `Calculado el ${data.generatedAt.replace('T', ' ')} (hora de Lima)`}
+            {refreshing
+              ? 'Cargando datos del sistema…'
+              : loading
+                ? 'Actualizando…'
+                : `Calculado el ${data.generatedAt.replace('T', ' ')} (hora de Lima)`}
+            {' · '}Origen: {data.source}. Usa «Actualizar datos» para incorporar cambios.
             {' · '}Los semáforos son metas académicas propuestas por el informe, no resultados de
             operación real.
           </p>

@@ -114,7 +114,7 @@ export const KPI_DEFINITIONS = [
     thresholds: [30, 50],
     dimensions: ['time', 'contact', 'role', 'priority'],
     rows: 'conversion',
-    inDenominator: () => true,
+    inDenominator: (row) => row.flags.m10,
     inNumerator: (row) => row.flags.m11,
     meaning:
       'Mide cuántos casos con un LEAD en prioridad Alta consiguieron pago positivo y validación contractual dentro de las 168 horas posteriores a la primera clasificación Alta.',
@@ -141,7 +141,7 @@ export function stateOf(percent, thresholds) {
 
 const round = (value) => Math.round(value * 10) / 10;
 
-function matches(row, filters, dimensions) {
+export function matchesFilters(row, filters, dimensions) {
   const day = String(row.originAt).slice(0, 10);
   if (dimensions.includes('time')) {
     if (filters.from && day < filters.from) return false;
@@ -224,7 +224,7 @@ function interpret(definition, result) {
 
 export function computeKpi(definition, allRows, filters, now, extra = {}) {
   const applied = definition.dimensions;
-  const rows = allRows.filter((row) => matches(row, filters, applied));
+  const rows = allRows.filter((row) => matchesFilters(row, filters, applied));
   const units = count(rows, definition);
   const entries = [...units.values()];
   const numerator = entries.filter((unit) => unit.done).length;
@@ -234,11 +234,11 @@ export function computeKpi(definition, allRows, filters, now, extra = {}) {
   const causeCounts = new Map();
   let provisional = 0;
   for (const unit of entries) {
+    const open = unit.rows.some((item) => (item.windowEnd[definition.id] ?? 0) > now);
+    if (open) provisional++;
     if (unit.done) continue;
     const reason =
       unit.rows.map((item) => item.reasons[definition.id]).find(Boolean) ?? 'Sin clasificar';
-    const open = unit.rows.some((item) => (item.windowEnd[definition.id] ?? 0) > now);
-    if (open) provisional++;
     const entry = causeCounts.get(reason) ?? {
       label: reason,
       count: 0,
@@ -261,14 +261,14 @@ export function computeKpi(definition, allRows, filters, now, extra = {}) {
       rows,
       definition,
       (row) => row.channel,
-      (key) => CHANNEL_NAMES[key] ?? `Canal ${key}`,
+      (key) => extra.channelNames?.[key] ?? CHANNEL_NAMES[key] ?? `Canal ${key}`,
     );
   if (applied.includes('role'))
     breakdown.role = group(
       rows,
       definition,
       (row) => row.role,
-      (key) => ROLE_NAMES[key] ?? `Rol ${key}`,
+      (key) => extra.roleNames?.[key] ?? ROLE_NAMES[key] ?? `Rol ${key}`,
     );
   if (applied.includes('plan'))
     breakdown.plan = group(

@@ -156,6 +156,7 @@ export interface KpiFilters {
   plan: string;
 }
 export interface KpiResponse {
+  source: string;
   generatedAt: string;
   kpis: Kpi[];
   options: {

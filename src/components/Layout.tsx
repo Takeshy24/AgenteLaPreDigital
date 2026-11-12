@@ -123,7 +123,9 @@ export function Layout({ children, onCreate }: { children: ReactNode; onCreate: 
           )}
           {children}
           <footer className="footer">
-            <span>LaPreDigital · Información del OLTP</span>
+            <span>
+              LaPreDigital · {page === 'kpis' ? 'Indicadores del DataMart' : 'Información del OLTP'}
+            </span>
             <span>Fechas en hora de Lima</span>
           </footer>
         </div>
