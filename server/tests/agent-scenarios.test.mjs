@@ -8,6 +8,8 @@ import { createLead } from '../leads/service.mjs';
 import { recordIncoming } from '../messages/service.mjs';
 import { actOnAnalysis } from '../agent/service.mjs';
 import { applyIntentRules } from '../agent/intents.mjs';
+import { validateAnalysis } from '../agent/ollama.mjs';
+import { getRecentHistory } from '../agent/repository.mjs';
 import { getWorkspace } from '../workspace/repository.mjs';
 import { dispatchMessage } from '../integrations/dispatch.mjs';
 
@@ -131,6 +133,56 @@ test('modalidad inexistente: Ruta UNT semestral no prepara propuesta y lo explic
         'SELECT COUNT(*) n FROM dbo.PropuestaComercial WHERE idLeadCasoEntrega=@id',
       );
       assert.equal(count.n, 0);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('cambiar Plus por Ruta en el chat prepara la tarifa y el enlace de Ruta, sin duplicarla al corregir', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const { lead, say, deliverLast, latest } = await scenario(db);
+      const { tariffs } = await getWorkspace();
+      const ruta = tariffs.find((item) => item.plan === 'Ruta UNT' && item.modalidad === 'Mensual');
+      const plus = tariffs.find(
+        (item) => item.plan === 'Meta UNT Plus' && item.modalidad === 'Mensual',
+      );
+      await say('Quiero contratar Meta UNT Plus mensual');
+      await deliverLast();
+      for (const text of [
+        'quiero ruta unt mensual porfavoooor :)',
+        'pero yo quiero ruta unt, no meta unt plus por favor',
+      ]) {
+        const analysis = validateAnalysis(
+          { ...base(), action: 'proposal', tariffId: plus.idPlanTarifa },
+          text,
+          tariffs,
+          {
+            requestedPlan: { plan: plus.plan, period: plus.modalidad },
+            history: await getRecentHistory(db, lead.id),
+          },
+        );
+        assert.equal(analysis.tariffId, ruta.idPlanTarifa);
+        await say(text, analysis);
+        const saved = await latest(
+          `SELECT TOP 1 p.idPlanTarifa tariff, p.precioAutorizado price, m.textoMensaje text,
+            (SELECT COUNT(*) FROM dbo.App_PublicOffer o WHERE o.idPropuesta=p.idPropuesta) offers
+          FROM dbo.PropuestaComercial p INNER JOIN dbo.Mensaje m ON m.idMensaje=p.idMensajeEntrega
+          WHERE p.idLeadCasoEntrega=@id ORDER BY p.idPropuesta DESC`,
+        );
+        assert.equal(saved.tariff, ruta.idPlanTarifa);
+        assert.equal(Number(saved.price), Number(ruta.precio));
+        assert.match(saved.text, /^Propuesta Ruta UNT\./);
+        assert.doesNotMatch(saved.text, /Meta UNT Plus/);
+        assert.match(saved.text, /\/oferta\/[A-Za-z0-9_-]+/);
+        assert.ok(saved.offers > 0);
+      }
+      assert.equal(
+        (await latest('SELECT COUNT(*) n FROM dbo.PropuestaComercial WHERE idLeadCasoEntrega=@id'))
+          .n,
+        2,
+      );
     });
   } finally {
     await close();

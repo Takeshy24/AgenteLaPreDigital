@@ -2,7 +2,7 @@
 // no depende de que un modelo pequeño lo clasifique bien. El modelo propone; estas reglas deciden
 // solo en los casos claros (sección 2.5, tabla 5; 2.2 derivación; F3 perfil; F4 responsable).
 // Todas las búsquedas usan palabras completas: «caro» no coincide con «Carolina».
-import { mentionedPlans, retrieve } from './knowledge.mjs';
+import { mentionedPlans, planMentions, retrieve } from './knowledge.mjs';
 
 // Texto en minúsculas, sin tildes y con espacios alrededor de cada palabra.
 export const words = (text) =>
@@ -105,27 +105,59 @@ const COURSE_CUE =
 const APPLICATION_CUE =
   / (postule|postulamos|postulo antes|di el examen|rendi el examen|primera vez|mi primera postulacion|nunca postule|ya postule|postulaciones) /;
 
-export function resolveTariff(text, tariffs) {
+const PLAN_INFORMATION =
+  / (saber|conocer|informacion|incluye|incluyen|trae|ofrece|beneficios|contiene|cuesta|cuanto|precio|precios|comparar|compara|diferencia|diferencias) /;
+const PLAN_SELECTION = / (quiero|quisiera|deseo|prefiero|me quedo con|cambiame|cambiar a) /;
+const PERIOD_SELECTION = / (si|ok|dale|claro|ya|quiero|prefiero|me quedo con|el|ese) /;
+
+function periodsIn(text) {
   const value = words(text);
-  const names = [...new Set(tariffs.map((tariff) => tariff.plan))].sort(
-    (a, b) => b.length - a.length,
-  );
-  const plan =
-    names.find((name) => value.includes(words(name))) ??
-    (value.includes(' plus ')
-      ? 'Meta UNT Plus'
-      : value.includes(' meta ')
-        ? 'Meta UNT'
-        : value.includes(' ruta ')
-          ? 'Ruta UNT'
-          : null);
+  return [
+    / (mensual|al mes|por mes) /.test(value) && 'mensual',
+    / (semestral|semestre) /.test(value) && 'semestral',
+  ].filter(Boolean);
+}
+
+function singlePlan(text) {
+  const plans = mentionedPlans(text).filter((name) => name !== 'Explora UNT');
+  return plans.length === 1 ? plans[0] : null;
+}
+
+function previousChoice(context) {
+  const history = context.history ?? [];
+  let periods = [];
+  for (const item of [...history].reverse().filter((entry) => entry.direction === 1)) {
+    if (planMentions(item.text).length)
+      return {
+        plan: singlePlan(item.text),
+        periods: periods.length ? periods : periodsIn(item.text),
+      };
+    const value = words(item.text);
+    if (!periods.length && PERIOD_SELECTION.test(value) && !PLAN_INFORMATION.test(value))
+      periods = periodsIn(item.text);
+  }
+  if (context.requestedPlan?.plan)
+    return {
+      plan: context.requestedPlan.plan,
+      periods: periods.length ? periods : periodsIn(context.requestedPlan.period),
+    };
+  const last = history.filter((item) => item.direction === 2).at(-1)?.text;
+  return { plan: singlePlan(last), periods: periods.length ? periods : periodsIn(last) };
+}
+
+export function resolveTariff(text, tariffs, context = {}) {
+  const previous = previousChoice(context);
+  const plan = planMentions(text).length ? singlePlan(text) : previous.plan;
   if (!plan) return null;
+  const currentPeriods = periodsIn(text);
+  const periods = currentPeriods.length
+    ? currentPeriods
+    : previous.plan === plan
+      ? previous.periods
+      : [];
+  if (periods.length > 1) return null;
   const options = tariffs.filter((tariff) => tariff.plan === plan);
-  const period = / (semestral|semestre) /.test(value)
-    ? 'semestral'
-    : / (mensual|al mes|por mes) /.test(value)
-      ? 'mensual'
-      : null;
+  const period = periods[0];
   const chosen = period
     ? options.find((tariff) => words(tariff.modalidad).trim() === period)
     : options.length === 1
@@ -369,28 +401,26 @@ export function applyIntentRules(analysis, text, tariffs, context = {}) {
     if (!analysis.fields.some((item) => item.field === field.field)) analysis.fields.push(field);
   if (analysis.fields.length) analysis.understood = true;
 
-  const contextPlan = context.requestedPlan?.plan ?? mentionedInHistory(context, tariffs);
   const value = words(text);
-  if (isRetraction(text)) {
+  const selectsPlan =
+    mentionedPlans(text).some((name) => name !== 'Explora UNT') &&
+    PLAN_SELECTION.test(value) &&
+    !PLAN_INFORMATION.test(value);
+  const selectsPeriod =
+    !planMentions(text).length &&
+    previousChoice(context).plan &&
+    PERIOD_SELECTION.test(value) &&
+    periodsIn(text).length &&
+    !PLAN_INFORMATION.test(value);
+  if (isRetraction(text) && !selectsPlan) {
     analysis.retraction = true;
     analysis.level = 2;
     if (analysis.action === 'proposal' || analysis.action === 'trial') analysis.action = 'ask';
     analysis.understood = true;
-  } else if (isPurchaseRequest(text)) {
+  } else if (isPurchaseRequest(text) || selectsPlan || selectsPeriod) {
     analysis.level = 3;
     analysis.action = 'proposal';
-    analysis.tariffId =
-      resolveTariff(text, tariffs) ??
-      (contextPlan ? resolveTariff(`${contextPlan} ${text}`, tariffs) : null);
-    analysis.understood = true;
-  } else if (
-    contextPlan &&
-    / (si|ok|dale|claro|ya|quiero|prefiero|me quedo con|el|ese) /.test(value) &&
-    / (mensual|semestral|semestre|al mes) /.test(value)
-  ) {
-    analysis.level = 3;
-    analysis.action = 'proposal';
-    analysis.tariffId = resolveTariff(`${contextPlan} ${text}`, tariffs);
+    analysis.retraction = false;
     analysis.understood = true;
   } else if (isTrialRequest(text)) {
     analysis.action = 'trial';
@@ -409,7 +439,7 @@ export function applyIntentRules(analysis, text, tariffs, context = {}) {
     analysis.level = Math.max(analysis.level, 2);
     analysis.understood = true;
   } else if (
-    isQuestion(text) &&
+    (isQuestion(text) || (mentionedPlans(text).length && PLAN_INFORMATION.test(value))) &&
     (retrieve(text, tariffs).length || mentionedPlans(text).length) &&
     ['ask', 'trial'].includes(analysis.action)
   ) {
@@ -430,16 +460,6 @@ export function applyIntentRules(analysis, text, tariffs, context = {}) {
       analysis.understood = true;
     }
   }
+  if (analysis.action === 'proposal') analysis.tariffId = resolveTariff(text, tariffs, context);
   return analysis;
-}
-
-function mentionedInHistory(context, tariffs) {
-  const names = [...new Set(tariffs.map((tariff) => tariff.plan))].sort(
-    (a, b) => b.length - a.length,
-  );
-  for (const item of [...(context.history ?? [])].reverse()) {
-    const found = names.find((name) => words(item.text).includes(words(name)));
-    if (found) return found;
-  }
-  return null;
 }

@@ -155,33 +155,6 @@ export function validateAnalysis(output, text, tariffs, context = {}) {
     analysis.level = 2;
   const allowed = new Set(tariffs.map((tariff) => tariff.idPlanTarifa));
   if (!allowed.has(analysis.tariffId)) analysis.tariffId = null;
-  if (analysis.action === 'proposal' && analysis.tariffId) {
-    const selected = tariffs.find((item) => item.idPlanTarifa === analysis.tariffId);
-    const incomingHistory = (context.history || [])
-      .filter((item) => item.direction === 1)
-      .map((item) => item.text)
-      .reverse();
-    const names = [...new Set(tariffs.map((item) => item.plan))].sort(
-      (a, b) => b.length - a.length,
-    );
-    const mentioned = (value) =>
-      names.find((name) => value.toLowerCase().includes(name.toLowerCase()));
-    const plan =
-      mentioned(text) ||
-      incomingHistory.map(mentioned).find(Boolean) ||
-      context.requestedPlan?.plan;
-    const period =
-      text.match(/mensual|semestral/i)?.[0] ||
-      incomingHistory.map((value) => value.match(/mensual|semestral/i)?.[0]).find(Boolean) ||
-      context.requestedPlan?.period;
-    if (
-      !plan ||
-      selected.plan !== plan ||
-      (period && selected.modalidad.toLowerCase() !== period.toLowerCase()) ||
-      (!period && tariffs.filter((item) => item.plan === plan).length > 1)
-    )
-      analysis.tariffId = null;
-  }
   if (
     analysis.action === 'handoff' &&
     !/reembolso|devoluci[oó]n|disputa|contracargo|descuento|beca|reclamo|queja|persona|asesor|humano|ya pag|pag[ué]/i.test(
@@ -251,6 +224,7 @@ export function buildPrompt(tariffs, context, text) {
     '- level: 1 = saludo, agradecimiento o datos personales sin preguntar por el servicio; 2 = pregunta qué incluye, cuánto cuesta, compara planes u objeta el precio; 3 = pide contratar, pagar, el enlace, un medio de pago, cómo comprar o activar la prueba.',
     '- action: "catalog" si pregunta por planes, precios, contenido u objeta el precio; "proposal" si pide contratar o pagar; "trial" si pide la prueba gratuita; "handoff" solo si pide hablar con una persona, reclama, pide reembolso, abre una disputa, dice que pagó y no le confirman, o pide descuento o beca; en otro caso "ask".',
     '- tariffId: solo con action "proposal" y si el mensaje o el historial dicen el plan y la modalidad; si no, null.',
+    '- La elección explícita del mensaje actual prevalece sobre el formulario y las recomendaciones anteriores. Un plan negado ("Ruta UNT, no Meta UNT Plus") no es el elegido. Si hay varias alternativas sin decidir, pide aclaración.',
     '- retraction: true solo si rechaza una propuesta o dice que ya no le interesa.',
     '- fields: solo datos escritos en ESTE mensaje. career = carrera que quiere estudiar; availability = tiempo que puede estudiar; budget = número de soles al mes (solo dígitos). quote = el fragmento exacto del mensaje. Si no hay datos, fields = [].',
     '- needsGuardian: true si dice que otra persona (padre, madre, apoderado o familiar) paga o decide.',

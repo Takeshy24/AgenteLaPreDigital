@@ -68,15 +68,37 @@ export const normalize = (text) =>
     .trim()} `;
 const has = (text, keyword) => text.includes(` ${keyword} `);
 
-export function mentionedPlans(text) {
+export function planMentions(text) {
   const value = normalize(text);
-  const plans = [];
-  if (has(value, 'explora')) plans.push('Explora UNT');
-  if (has(value, 'ruta')) plans.push('Ruta UNT');
-  if (has(value, 'plus')) plans.push('Meta UNT Plus');
-  else if (has(value, 'meta')) plans.push('Meta UNT');
-  return plans;
+  const mentions = [];
+  for (const match of value.matchAll(
+    / (explora(?: unt)?|ruta(?: unt)?|meta(?: unt)?(?: plus)?|plus)(?= )/g,
+  )) {
+    const name = match[1];
+    const plan = name.startsWith('explora')
+      ? 'Explora UNT'
+      : name.startsWith('ruta')
+        ? 'Ruta UNT'
+        : name.includes('plus')
+          ? 'Meta UNT Plus'
+          : 'Meta UNT';
+    const before = value.slice(0, match.index + 1);
+    const negated =
+      / (no(?: (?:es|era|quiero|quisiera|deseo|prefiero|busco|me interesa|quiero contratar|quiero comprar|quiero pagar))?|en vez de|en lugar de)(?: (?:el|la|plan|del))* $/.test(
+        before,
+      );
+    mentions.push({ plan, negated });
+  }
+  return mentions;
 }
+
+export const mentionedPlans = (text) => [
+  ...new Set(
+    planMentions(text)
+      .filter((item) => !item.negated)
+      .map((item) => item.plan),
+  ),
+];
 
 function chunks(tariffs) {
   const list = [];
