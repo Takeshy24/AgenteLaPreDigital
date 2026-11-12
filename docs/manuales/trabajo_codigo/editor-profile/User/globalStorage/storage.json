@@ -1,0 +1,99 @@
+{
+    "telemetry.machineId": "74f910fd3bdb0f0f5e5fd679f79306114162374d3158a237094cc04d3ab6b4ad",
+    "telemetry.sqmId": "{450DA373-2379-4C94-B071-654F9DED6E87}",
+    "telemetry.devDeviceId": "d457b53e-518f-417b-a6b2-aee37a3cfd51",
+    "backupWorkspaces": {
+        "workspaces": [],
+        "folders": [],
+        "emptyWindows": [
+            {
+                "backupFolder": "1794519177359"
+            },
+            {
+                "backupFolder": "1794519289533"
+            }
+        ]
+    },
+    "windowControlHeight": 35,
+    "profileAssociations": {
+        "workspaces": {},
+        "emptyWindows": {
+            "1794519177359": "__default__profile__",
+            "1794519289533": "__default__profile__"
+        }
+    },
+    "theme": "vs-dark",
+    "themeBackground": "#1f1f1f",
+    "windowSplash": {
+        "zoomLevel": 0,
+        "baseTheme": "vs-dark",
+        "colorInfo": {
+            "foreground": "#cccccc",
+            "background": "#1f1f1f",
+            "editorBackground": "#1f1f1f",
+            "titleBarBackground": "#181818",
+            "titleBarInactiveBackground": "#1f1f1f",
+            "titleBarBorder": "#2b2b2b",
+            "activityBarBackground": "#181818",
+            "activityBarBorder": "#2b2b2b",
+            "modernActivityBarBackground": "#181818",
+            "modernActivityBarInactiveBackground": "#181818",
+            "modernActivityBarBorder": "#252526",
+            "modernPanelBorder": "#252526",
+            "modernUIShellBackground": "#181818",
+            "modernUIInactiveShellBackground": "#1f1f1f",
+            "sideBarBackground": "#181818",
+            "sideBarBorder": "#2b2b2b",
+            "panelBackground": "#181818",
+            "editorGroupBorder": "rgba(255, 255, 255, 0.09)",
+            "editorBorder": "#252526",
+            "surfaceBackground": "#181818",
+            "surfaceBorder": "#252526",
+            "agentsPanelBackground": "#181818",
+            "agentsPanelBorder": "#303031",
+            "statusBarBackground": "#181818",
+            "statusBarInactiveBackground": "#1f1f1f",
+            "statusBarBorder": "#2b2b2b",
+            "statusBarNoFolderBackground": "#1f1f1f"
+        },
+        "layoutInfo": {
+            "sideBarSide": "left",
+            "editorPartMinWidth": 220,
+            "titleBarHeight": 35,
+            "activityBarWidth": 0,
+            "sideBarWidth": 0,
+            "auxiliaryBarWidth": 0,
+            "statusBarHeight": 28,
+            "windowBorder": false,
+            "modernUI": true,
+            "modernUICompact": false,
+            "partBounds": {
+                "editor": {
+                    "top": 61,
+                    "left": 4,
+                    "width": 1192,
+                    "height": 707,
+                    "outerEdges": {
+                        "left": true,
+                        "right": true,
+                        "top": true,
+                        "bottom": true
+                    }
+                }
+            }
+        }
+    },
+    "windowsState": {
+        "lastActiveWindow": {
+            "backupPath": "C:\\Users\\USERJSSV\\Downloads\\AgenteLaPreDigital\\docs\\manuales\\trabajo_codigo\\editor-profile\\Backups\\1794519177359",
+            "uiState": {
+                "mode": 1,
+                "x": 360,
+                "y": 140,
+                "width": 1200,
+                "height": 800
+            }
+        },
+        "openedWindows": []
+    }
+}

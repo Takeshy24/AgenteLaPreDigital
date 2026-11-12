@@ -1,0 +1,16 @@
+{
+  "name": "Code",
+  "version": "1.146.0",
+  "packageManager": "pnpm@12.16.0",
+  "nativeBuild": {
+    "runtime": "node",
+    "target": "24.22.1",
+    "disturl": "https://nodejs.org/dist",
+    "msBuildId": "488038",
+    "buildFromSource": true,
+    "forceProcessConfig": true
+  },
+  "private": true,
+  "copilotRuntimeVersion": "1.0.108-0",
+  "type": "module"
+}

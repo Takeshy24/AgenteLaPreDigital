@@ -2111,12 +2111,33 @@ CREATE TABLE dbo.App_WhatsAppInbox (
     seq BIGINT IDENTITY(1, 1) NOT NULL UNIQUE,
     eventKey NVARCHAR(150) PRIMARY KEY,
     kind NVARCHAR(10) NOT NULL CHECK (kind IN ('message', 'status')),
-    waId NVARCHAR(30) NOT NULL,
+    waId NVARCHAR(150) NOT NULL,
     payload NVARCHAR(MAX) NOT NULL,
     idMensaje BIGINT NULL REFERENCES dbo.Mensaje (idMensaje),
     receivedAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME()),
     processedAt DATETIME2(0) NULL,
     error NVARCHAR(500) NULL
+);
+
+END;
+
+GO
+
+IF COL_LENGTH('dbo.App_WhatsAppInbox', 'waId') < 300 BEGIN
+ALTER TABLE dbo.App_WhatsAppInbox
+ALTER COLUMN waId NVARCHAR(150) NOT NULL;
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_WhatsAppContact', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_WhatsAppContact (
+    phoneNumberId NVARCHAR(30) NOT NULL,
+    userId NVARCHAR(150) NOT NULL,
+    idContacto BIGINT NOT NULL REFERENCES dbo.Contacto (idContacto),
+    lastSeenAt DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME()),
+    PRIMARY KEY (phoneNumberId, userId)
 );
 
 END;

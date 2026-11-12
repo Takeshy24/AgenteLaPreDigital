@@ -11,6 +11,13 @@ import { integrationConfig } from './config.mjs';
 import * as repository from './repository.mjs';
 import { answerFromKeyboard, processMessage } from './telegram.mjs';
 import { ATTACHMENT } from '../agent/social.mjs';
+import {
+  isWhatsAppPhone,
+  isWhatsAppUserId,
+  whatsappRecipient,
+  whatsappSender,
+} from './whatsapp-identity.mjs';
+import { findWhatsAppContact, saveWhatsAppContact } from './whatsapp-repository.mjs';
 
 const GREETING =
   /^(hola|buenas|buen dia|buenos dias|buenas tardes|buenas noches|hi|hello|inicio|empezar|start)/;
@@ -32,6 +39,16 @@ export function verifyWebhookChallenge(query, verifyToken) {
   return String(query['hub.challenge'] ?? '');
 }
 
+function validMessage(message) {
+  return (
+    typeof message?.id === 'string' &&
+    !!message.id.trim() &&
+    !!whatsappSender(message) &&
+    typeof message.type === 'string' &&
+    !!message.type.trim()
+  );
+}
+
 // Convierte el cuerpo de un webhook de Meta en eventos simples y únicos (los reintentos se ignoran).
 export function extractEvents(body, phoneNumberId) {
   const events = [];
@@ -39,18 +56,29 @@ export function extractEvents(body, phoneNumberId) {
     for (const change of entry.changes ?? []) {
       const value = change.value ?? {};
       if (phoneNumberId && value.metadata?.phone_number_id !== phoneNumberId) continue;
-      for (const message of value.messages ?? [])
+      for (const original of value.messages ?? []) {
+        // Solo la cabecera de identidad emitida por Meta puede completar el teléfono oculto;
+        // una tarjeta de contacto reenviada en el cuerpo no demuestra quién escribe.
+        const contact = value.contacts?.find(
+          (item) => item.user_id && item.user_id === original.from_user_id,
+        );
+        const message =
+          !original.from && isWhatsAppPhone(contact?.wa_id)
+            ? { ...original, from: contact.wa_id }
+            : original;
+        if (!validMessage(message)) continue;
         events.push({
           key: `m:${message.id}`,
           kind: 'message',
-          waId: String(message.from),
+          waId: whatsappSender(message),
           payload: message,
         });
+      }
       for (const status of value.statuses ?? [])
         events.push({
           key: `s:${status.id}:${status.status}`,
           kind: 'status',
-          waId: String(status.recipient_id ?? ''),
+          waId: String(status.recipient_id ?? status.recipient_user_id ?? ''),
           payload: status,
         });
     }
@@ -88,7 +116,16 @@ async function handleStatus(item) {
   });
 }
 
+function sharedOwnNumber(payload) {
+  return (
+    payload.type === 'contacts' &&
+    payload.contacts?.some((contact) => contact.origin === 'contact_request')
+  );
+}
+
 function readMessage(payload) {
+  if (sharedOwnNumber(payload))
+    return { text: 'Compartí mi número de WhatsApp para continuar con mi registro.' };
   if (payload.type === 'text') return { text: payload.text?.body ?? '' };
   const reply = payload.interactive?.list_reply ?? payload.interactive?.button_reply;
   if (payload.type === 'interactive' && reply) return { text: reply.title, data: reply.id };
@@ -107,17 +144,39 @@ function emailsIn(text) {
   );
 }
 
-async function resolveContact(item, text, client) {
+async function resolveContact(item, text, client, payload) {
   const db = await pool();
+  const phoneNumberId = integrationConfig().whatsapp.phoneNumberId;
+  const userId = isWhatsAppUserId(payload.from_user_id) ? payload.from_user_id : null;
+  const remember = async (contact) => {
+    if (userId) await transaction((tx) => saveWhatsAppContact(tx, phoneNumberId, userId, contact));
+    return contact;
+  };
+  const linked = userId ? await findWhatsAppContact(db, phoneNumberId, userId) : null;
+  if (linked) return remember(linked);
+  if (isWhatsAppUserId(item.waId)) {
+    await client.send({
+      ...whatsappRecipient(item.waId),
+      type: 'interactive',
+      interactive: {
+        type: 'request_contact_info',
+        body: {
+          text: '¡Hola! 😊 Para encontrar tu registro en LaPreDigital, comparte tu número con el botón de abajo. Solo necesitas hacerlo una vez.',
+        },
+        action: { name: 'request_contact_info' },
+      },
+    });
+    return null;
+  }
   const candidates = await repository.contactsByPhone(db, item.waId);
-  if (candidates.length === 1) return candidates[0].id;
+  if (candidates.length === 1) return remember(candidates[0].id);
   if (candidates.length > 1) {
     // Un teléfono puede repetirse entre contactos: se identifica por el correo escrito en el mensaje.
     const written = emailsIn(text);
     const match = candidates.find((candidate) =>
       written.includes(String(candidate.correo).toLowerCase()),
     );
-    if (match) return match.id;
+    if (match) return remember(match.id);
     await client.sendText(
       item.waId,
       'Tu número está asociado a más de un registro. ¿Me escribes el correo con el que te registraste para identificarte? 😊',
@@ -146,7 +205,7 @@ async function askBeneficiary(item, contact, text, candidates, client) {
     );
   });
   await client.send({
-    to: item.waId,
+    ...whatsappRecipient(item.waId),
     type: 'interactive',
     interactive: {
       type: 'list',
@@ -209,11 +268,14 @@ async function welcome(item, target, text, context) {
 
 async function processWhatsAppMessage(item, client) {
   const payload = JSON.parse(item.payload);
-  const read = readMessage(payload);
   const finish = (error) =>
     transaction((db) => repository.finishWhatsAppEvent(db, item.eventKey, null, error));
+  // También descarta eventos incompletos guardados antes de validar el webhook.
+  if (!validMessage(payload) || whatsappSender(payload) !== item.waId)
+    return finish('Evento inválido: mensaje sin identificador, remitente o tipo válido.');
+  const read = readMessage(payload);
   if (!read) return finish('Reacción retirada');
-  const contact = await resolveContact(item, read.text, client);
+  const contact = await resolveContact(item, read.text, client, payload);
   if (!contact) return finish('Contacto sin identificar');
   const db = await pool();
   const participants = await repository.listContactParticipations(db, contact);
@@ -261,13 +323,14 @@ async function processWhatsAppMessage(item, client) {
     first &&
     open.length === 1 &&
     !read.data &&
-    GREETING.test(
-      read.text
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[^a-z ]/g, '')
-        .trim(),
-    )
+    (sharedOwnNumber(payload) ||
+      GREETING.test(
+        read.text
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[^a-z ]/g, '')
+          .trim(),
+      ))
   )
     return welcome(item, target, read.text, context);
   if (await answerFromKeyboard(context, target, read.text, { data: read.data })) return;

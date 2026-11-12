@@ -1,3 +1,5 @@
+import { whatsappRecipient } from './whatsapp-identity.mjs';
+
 export class WhatsAppError extends Error {
   constructor(message, uncertain = false) {
     super(message);
@@ -42,7 +44,7 @@ export function whatsappClient({ token, phoneNumberId, apiVersion = 'v21.0' }, f
     },
     sendText(to, text) {
       return this.send({
-        to,
+        ...whatsappRecipient(to),
         type: 'text',
         text: { body: text.slice(0, 4096), preview_url: false },
       });

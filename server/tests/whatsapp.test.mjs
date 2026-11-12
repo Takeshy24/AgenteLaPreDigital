@@ -5,6 +5,8 @@ import { close, query, rollbackTest } from '../db.mjs';
 import { reviewFollowup } from '../followup/service.mjs';
 import { dispatchMessage } from '../integrations/dispatch.mjs';
 import { acceptWhatsAppEvent } from '../integrations/repository.mjs';
+import { whatsappClient } from '../integrations/whatsapp-client.mjs';
+import { findWhatsAppContact, saveWhatsAppContact } from '../integrations/whatsapp-repository.mjs';
 import {
   extractEvents,
   pollWhatsApp,
@@ -37,7 +39,7 @@ async function setup() {
   const suffix = Date.now() + Math.floor(Math.random() * 1000);
   const phone = `+519${String(suffix).slice(-8)}`;
   const lead = await createLead({
-    name: 'Estudiante WhatsApp',
+    name: 'Estudiante WhatsApp ' + suffix,
     email: `wsp-${suffix}@example.test`,
     phone,
     role: 1,
@@ -166,6 +168,202 @@ test('un mismo evento reenviado por Meta se guarda una sola vez', async () => {
         ).recordset[0].n,
         1,
       );
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('el webhook descarta mensajes incompletos y conserva números nuevos válidos', () => {
+  const message = { id: 'valid', from: '51900000009', type: 'text', text: { body: 'Hola' } };
+  const body = {
+    entry: [
+      {
+        changes: [
+          {
+            value: {
+              metadata: { phone_number_id: '123456' },
+              messages: [
+                { ...message, from: undefined },
+                { ...message, from: 'undefined' },
+                { ...message, from: '' },
+                { ...message, id: '' },
+                { ...message, type: undefined },
+                message,
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  };
+  assert.deepEqual(
+    extractEvents(body, '123456').map((event) => event.waId),
+    ['51900000009'],
+  );
+});
+
+test('el webhook acepta BSUID sin teléfono, su longitud máxima y estados con recipient_user_id', () => {
+  const userId = 'PE.' + 'A'.repeat(128);
+  const body = {
+    entry: [
+      {
+        changes: [
+          {
+            value: {
+              metadata: { phone_number_id: '123456' },
+              contacts: [{ user_id: userId, profile: { name: 'Persona' } }],
+              messages: [{ id: 'bsuid-message', from_user_id: userId, ...typed('Hola') }],
+              statuses: [{ id: 'bsuid-outbound', status: 'delivered', recipient_user_id: userId }],
+            },
+          },
+        ],
+      },
+    ],
+  };
+  assert.deepEqual(
+    extractEvents(body, '123456').map((event) => [event.kind, event.waId]),
+    [
+      ['message', userId],
+      ['status', userId],
+    ],
+  );
+  body.entry[0].changes[0].value.contacts[0].wa_id = '51900000001';
+  assert.equal(extractEvents(body, '123456')[0].payload.from, '51900000001');
+  body.entry[0].changes[0].value.contacts[0].user_id = 'PE.AnotherUser';
+  assert.equal(extractEvents(body, '123456')[0].payload.from, undefined);
+});
+
+test('el cliente usa recipient para BSUID y conserva to para teléfonos', async () => {
+  const sent = [];
+  const client = whatsappClient(
+    { token: 'fake', phoneNumberId: '123456' },
+    async (_url, options) => {
+      sent.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ messages: [{ id: 'wamid.reply' }] }) };
+    },
+  );
+  await client.sendText('PE.1234567890', 'Hola');
+  await client.sendText('51900000001', 'Hola');
+  assert.equal(sent[0].recipient, 'PE.1234567890');
+  assert.equal(sent[0].to, undefined);
+  assert.equal(sent[1].to, '51900000001');
+  assert.equal(sent[1].recipient, undefined);
+});
+
+test('un BSUID nuevo recibe el botón para compartir su número sin asignarse a otro contacto', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const userId = 'PE.' + 'B'.repeat(128);
+      const key = `m:bsuid-new-${Date.now()}`;
+      await acceptWhatsAppEvent(db, {
+        key,
+        kind: 'message',
+        waId: userId,
+        payload: {
+          id: key.slice(2),
+          from_user_id: userId,
+          ...typed('Hola, ya me registré en LaPreDigital'),
+        },
+      });
+      const client = fakeWhatsApp();
+      await pollWhatsApp(client);
+      assert.equal(client.calls.length, 1);
+      assert.equal(client.calls[0].recipient, userId);
+      assert.equal(client.calls[0].to, undefined);
+      assert.equal(client.calls[0].interactive.type, 'request_contact_info');
+      assert.equal(await findWhatsAppContact(db, '123456', userId), undefined);
+      const event = (
+        await query(db, 'SELECT processedAt FROM dbo.App_WhatsAppInbox WHERE eventKey=@key', {
+          key,
+        })
+      ).recordset[0];
+      assert.ok(event.processedAt);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('el teléfono revelado vincula el BSUID y las siguientes respuestas conservan esa identidad', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup();
+      const userId = `PE.${scenario.sequence}`;
+      await receive(db, scenario, { ...typed('Hola'), from_user_id: userId });
+      assert.equal(await findWhatsAppContact(db, '123456', userId), scenario.lead.contact);
+      await flush(db, scenario);
+      assert.ok(scenario.client.calls.length > 0);
+      assert.ok(scenario.client.calls.every((call) => call.recipient === userId && !call.to));
+      const other = await setup();
+      assert.equal(await saveWhatsAppContact(db, '123456', userId, other.lead.contact), false);
+      assert.equal(await findWhatsAppContact(db, 'another-business-number', userId), undefined);
+      scenario.waId = userId;
+      const countBefore = (await incomingRows(db, scenario)).length;
+      await receive(db, scenario, { ...typed('Hola'), from: undefined, from_user_id: userId });
+      assert.equal((await incomingRows(db, scenario)).length, countBefore + 1);
+      assert.equal(await findWhatsAppContact(db, '123456', userId), scenario.lead.contact);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('compartir el número con el botón nativo inicia el cuestionario y no se trata como archivo', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup();
+      const userId = `PE.${scenario.sequence}`;
+      await receive(db, scenario, {
+        from_user_id: userId,
+        type: 'contacts',
+        contacts: [{ origin: 'contact_request', phones: [{ wa_id: scenario.waId }] }],
+      });
+      assert.equal(await findWhatsAppContact(db, '123456', userId), scenario.lead.contact);
+      const incoming = await incomingRows(db, scenario);
+      assert.match(incoming[0].text, /Compartí mi número/);
+      await flush(db, scenario);
+      assert.ok(scenario.client.calls.some((call) => call.interactive?.type === 'list'));
+      assert.ok(
+        scenario.client.calls.every((call) => !JSON.stringify(call).includes('Recibí tu archivo')),
+      );
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('un evento antiguo sin remitente se registra como inválido y no bloquea al siguiente', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const suffix = Date.now();
+      const invalidKey = `m:invalid-${suffix}`;
+      const validKey = `m:valid-${suffix}`;
+      await acceptWhatsAppEvent(db, {
+        key: invalidKey,
+        kind: 'message',
+        waId: 'undefined',
+        payload: { id: `invalid-${suffix}`, ...typed('Hola') },
+      });
+      await acceptWhatsAppEvent(db, {
+        key: validKey,
+        kind: 'message',
+        waId: '51999999990',
+        payload: { id: `valid-${suffix}`, from: '51999999990', ...typed('Hola') },
+      });
+      const client = fakeWhatsApp();
+      await pollWhatsApp(client);
+      const events = (
+        await query(
+          db,
+          'SELECT eventKey, processedAt, error FROM dbo.App_WhatsAppInbox WHERE eventKey IN (@invalid, @valid)',
+          { invalid: invalidKey, valid: validKey },
+        )
+      ).recordset;
+      assert.match(events.find((event) => event.eventKey === invalidKey).error, /Evento inválido/);
+      assert.ok(events.every((event) => event.processedAt));
+      assert.equal(client.calls.length, 1);
+      assert.equal(client.calls[0].to, '51999999990');
     });
   } finally {
     await close();

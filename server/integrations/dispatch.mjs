@@ -7,6 +7,7 @@ import { telegramClient } from './telegram-client.mjs';
 import { whatsappPayload } from './whatsapp-payload.mjs';
 import { getPayload } from '../access/repository.mjs';
 import { openMessage } from '../access/crypto.mjs';
+import { getWhatsAppRecipient } from './whatsapp-repository.mjs';
 // Solo los mensajes con opciones (o que quitan las opciones) llevan marcado en Telegram.
 function telegramMarkup(stored) {
   if (!stored) return null;
@@ -22,9 +23,17 @@ export async function dispatchMessage(id, client, { whatsapp = null, mail = null
   const message = await transaction(async (db) => {
     const row = await repository.claimMessage(db, id);
     if (!row) return null;
+    if (channel === 1)
+      row.whatsappUserId = await getWhatsAppRecipient(
+        db,
+        integrationConfig().whatsapp.phoneNumberId,
+        row.idContacto,
+      );
     let reason = '';
     const handoff = await getOpenHandoff(db, row.idContacto);
-    const destination = { 1: row.telefono, 2: row.correo, 3: row.chatId }[channel];
+    const destination = { 1: row.whatsappUserId || row.telefono, 2: row.correo, 3: row.chatId }[
+      channel
+    ];
     if (!destination)
       reason =
         {
