@@ -15,6 +15,7 @@ import {
   verifyWhatsAppSignature,
 } from '../integrations/whatsapp.mjs';
 import { createLead } from '../leads/service.mjs';
+import { saveConsent } from '../consents/service.mjs';
 
 process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
 process.env.WHATSAPP_ENABLED = 'true';
@@ -518,6 +519,53 @@ test('WhatsApp sin autorización: pregunta una vez con botones y registra el «N
         )
       ).recordset[0].n;
       assert.equal(prompts, 1);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('WhatsApp: «ya no quiero que me contacten» suspende y bloquea el seguimiento pendiente', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup();
+      await saveConsent(scenario.lead.id, { channel: 2, granted: true, version: 'test' });
+      await query(
+        db,
+        'UPDATE dbo.IntentoContacto SET fechaProgramada=DATEADD(MINUTE,-1,DATEADD(HOUR,-5,SYSUTCDATETIME())) WHERE idLeadCaso=@id AND numeroIntento=1',
+        { id: scenario.lead.id },
+      );
+      await reviewFollowup({ canSend: (channel) => channel === 1 });
+      const before = (
+        await query(db, 'SELECT COUNT(*) n FROM dbo.IntentoContacto WHERE idLeadCaso=@id', {
+          id: scenario.lead.id,
+        })
+      ).recordset[0].n;
+      const text = 'ya no quiero que me contacten, no los quiero';
+      await receive(db, scenario, typed(text));
+      const state = (
+        await query(
+          db,
+          `SELECT lc.idEstadoParticipacion state, lc.idMotivoSuspension reason, c.idEstadoCaso caseState,
+            (SELECT COUNT(*) FROM dbo.AutorizacionContacto a WHERE a.idContacto=l.idContacto AND a.idEstadoAutorizacion=1) authorizations,
+            (SELECT COUNT(*) FROM dbo.IntentoContacto i WHERE i.idLeadCaso=lc.idLeadCaso) attempts
+          FROM dbo.LeadCaso lc INNER JOIN dbo.Lead l ON l.idLead=lc.idLead
+          INNER JOIN dbo.Caso c ON c.idCaso=lc.idCaso WHERE lc.idLeadCaso=@id`,
+          { id: scenario.lead.id },
+        )
+      ).recordset[0];
+      assert.deepEqual(state, {
+        state: 2,
+        reason: 2,
+        caseState: 1,
+        authorizations: 0,
+        attempts: before,
+      });
+      assert.equal((await incomingRows(db, scenario)).at(-1).text, text);
+      assert.equal(scenario.client.calls.length, 1);
+      assert.match(scenario.client.calls[0].text.body, /no te escribiremos más/);
+      await flush(db, scenario);
+      assert.equal(scenario.client.calls.length, 1);
     });
   } finally {
     await close();

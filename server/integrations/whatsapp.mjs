@@ -2,7 +2,12 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { audience, greeting, welcomeBack } from '../agent/profile-flow.mjs';
 import { getProfile } from '../agent/repository.mjs';
 import { queueNextStep } from '../agent/profile-service.mjs';
-import { answerConsent, askChannelConsent, parseConsent } from '../agent/consent-prompt.mjs';
+import {
+  answerConsent,
+  askChannelConsent,
+  isNoContactRequest,
+  parseConsent,
+} from '../agent/consent-prompt.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, transaction } from '../db.mjs';
 import { assignUnassigned, recordIncoming, recordUnassigned } from '../messages/service.mjs';
@@ -21,7 +26,6 @@ import { findWhatsAppContact, saveWhatsAppContact } from './whatsapp-repository.
 
 const GREETING =
   /^(hola|buenas|buen dia|buenos dias|buenas tardes|buenas noches|hi|hello|inicio|empezar|start)/;
-const NO_CONTACT = /no me (escrib|contact)|no quiero recibir|dejen de escrib|deja de escrib|stop/i;
 
 export function verifyWhatsAppSignature(rawBody, header, secret) {
   if (!secret || !header?.startsWith('sha256=')) return false;
@@ -279,7 +283,7 @@ async function processWhatsAppMessage(item, client) {
   if (!contact) return finish('Contacto sin identificar');
   const db = await pool();
   const participants = await repository.listContactParticipations(db, contact);
-  if (NO_CONTACT.test(read.text))
+  if (isNoContactRequest(read.text))
     return handleNoContact(item, contact, read.text, participants, client);
   if (read.data?.startsWith('ok:')) {
     const parsed = parseConsent(read.data);

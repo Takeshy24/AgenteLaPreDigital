@@ -14,7 +14,12 @@ import {
   isSocialMessage,
   SOCIAL_ANALYSIS,
 } from '../agent/social.mjs';
-import { answerConsent, askChannelConsent, parseConsent } from '../agent/consent-prompt.mjs';
+import {
+  answerConsent,
+  askChannelConsent,
+  isNoContactRequest,
+  parseConsent,
+} from '../agent/consent-prompt.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, query, transaction } from '../db.mjs';
 import { getRecentHistory, updateFailures, getRequestedPlan } from '../agent/repository.mjs';
@@ -390,8 +395,7 @@ export async function processUpdate(item, client) {
   if (await continueOnboarding(item, chat.idContacto, message.text, client)) return;
   const participants = await repository.listContactParticipations(await pool(), chat.idContacto);
   const consentCommand =
-    ['/autorizar', '/revocar'].includes(message.text.trim()) ||
-    /no me (escrib|contact)|no quiero recibir|dejen de escrib|deja de escrib/i.test(message.text);
+    ['/autorizar', '/revocar'].includes(message.text.trim()) || isNoContactRequest(message.text);
   if (consentCommand) return handleConsent(item, chat, message.text, participants, client);
   const selection = await repository.getSelection(await pool(), chat.idContacto);
   const { candidates, target } = selectParticipation(participants, selection);

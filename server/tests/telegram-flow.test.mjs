@@ -70,7 +70,7 @@ test('Telegram respeta no contacto sin seleccionar beneficiario entre varios cas
           message_id: 1,
           from: { id: 1, is_bot: false },
           chat: { id: chatId, type: 'private' },
-          text: 'No me contacten más',
+          text: 'ya no quiero que me contacten, no los quiero',
         },
       };
       await acceptUpdate(db, update);
@@ -99,6 +99,19 @@ test('Telegram respeta no contacto sin seleccionar beneficiario entre varios cas
         })
       ).recordset[0];
       assert.ok(processed.processedAt);
+      const participations = (
+        await query(
+          db,
+          `SELECT lc.idEstadoParticipacion state, lc.idMotivoSuspension reason, c.idEstadoCaso caseState
+          FROM dbo.LeadCaso lc INNER JOIN dbo.Lead l ON l.idLead=lc.idLead
+          INNER JOIN dbo.Caso c ON c.idCaso=lc.idCaso WHERE l.idContacto=@contact`,
+          { contact: participant.idContacto },
+        )
+      ).recordset;
+      assert.equal(participations.length, 2);
+      assert.ok(
+        participations.every((row) => row.state === 2 && row.reason === 2 && row.caseState === 1),
+      );
     });
   } finally {
     await close();

@@ -9,10 +9,26 @@ import { recordIncoming } from '../messages/service.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { getParticipation } from '../shared/repository.mjs';
 import { attachMarkup } from './repository.mjs';
+import { words } from './intents.mjs';
 
 const CHANNEL_NAMES = { 1: 'WhatsApp', 3: 'Telegram' };
 export const CONSENT_YES = 'Sí, escríbanme';
 export const CONSENT_NO = 'No, gracias';
+
+// Se atiende antes del modelo y de elegir beneficiario: el permiso pertenece al contacto.
+export function isNoContactRequest(text) {
+  const value = words(text).replace(
+    / no (?:quiero|deseo) (?:que (?:dejen|dejes|deje)|dejar) de (?:escrib|contact|llam)[a-z]* /g,
+    ' ',
+  );
+  return [
+    / no (?:(?:quiero|deseo|autorizo|permito) que )?(?:me|nos) (?:(?:vuelvan|vuelvas|vuelva) a |sigan |sigas |siga )?(?:escrib|contact|llam)[a-z]* /,
+    / (?:dejen|deja|deje) de (?:escrib|contact|llam)[a-z]* /,
+    / no (?:quiero|deseo) recibir (?:mas )?(?:mensajes|correos|llamadas|notificaciones|publicidad|informacion) /,
+    / no (?:(?:quiero|deseo) que )?(?:me|nos) (?:manden|mandes|envien|envies) (?:mas )?(?:mensajes|correos|publicidad|informacion) /,
+    /^ (?:por favor )?stop $/,
+  ].some((pattern) => pattern.test(value));
+}
 
 export function parseConsent(data) {
   const match = /^ok:(\d+):([01])$/.exec(data ?? '');
