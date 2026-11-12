@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyIntentRules, extractGuardian, resolveTariff } from '../agent/intents.mjs';
+import {
+  applyIntentRules,
+  extractGuardian,
+  guardianFrom,
+  needsGuardianText,
+  resolveTariff,
+} from '../agent/intents.mjs';
+import { validateAnalysis } from '../agent/ollama.mjs';
 
 const tariffs = [
   { idPlanTarifa: 1, plan: 'Ruta UNT', modalidad: 'Mensual' },
@@ -107,4 +114,36 @@ test('datos del responsable en texto libre: sin +51, en minúsculas, por partes 
   );
   for (const text of ['Tengo 80 soles al mes', 'Mi hija se llama Carolina', 'Quiero Meta UNT'])
     assert.deepEqual(guardianParts(text), { name: null, phone: null, role: null }, text);
+});
+
+test('pedir la invitación para la esposa o pareja activa la vinculación, aunque el modelo la omita', () => {
+  for (const text of [
+    'Hola quiero enviarle el link de invitación a mi esposa',
+    'Quiero invitar a mi esposo',
+    '¿Puedes preparar la invitación para mi pareja?',
+    'Mi esposa es quien paga',
+  ]) {
+    const analysis = validateAnalysis(base(), text, tariffs);
+    assert.equal(analysis.needsGuardian, true, text);
+  }
+  assert.deepEqual(
+    guardianFrom([
+      'Hola quiero enviarle el link de invitación a mi esposa',
+      'Se llama Patricia Pérez',
+      'Su celular es 912345678',
+    ]),
+    { name: 'Patricia Pérez', phone: '+51912345678', role: 4 },
+  );
+});
+
+test('mencionar a la esposa o rechazar la invitación no declara una necesidad de vinculación', () => {
+  for (const text of [
+    'Mi esposa estudia Medicina',
+    'No quiero invitar a mi esposa',
+    'No le envíes la invitación a mi esposa',
+    '¿Qué es una invitación?',
+    'Mi esposa recibió el link de invitación',
+  ]) {
+    assert.equal(needsGuardianText(text), false, text);
+  }
 });

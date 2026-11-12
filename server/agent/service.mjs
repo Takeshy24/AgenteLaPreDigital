@@ -171,8 +171,11 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
         );
         return;
       }
+      const preparation = aud.student
+        ? 'mi preparación'
+        : `la preparación de ${contact.beneficiary}`;
       const share = `https://wa.me/${guardian.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-        `Hola ${first}, te comparto la invitación de LaPreDigital para acompañar mi preparación para la UNT: ${url}`,
+        `Hola ${first}, te comparto la invitación de LaPreDigital para acompañar ${preparation} para la UNT: ${url}`,
       )}`;
       await createReply(
         db,
@@ -191,8 +194,13 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
     if (partial) {
       if (!need) await addNeed(db, participation.idCaso, participationId, messageId);
       const own = aud.student ? 'tu' : 'su';
+      const spouse = words(text).match(/ (esposa|esposo|pareja|conyuge) /)?.[1];
       const who =
-        { 2: `${own} papá`, 3: `${own} mamá`, 4: 'esa persona' }[partial.role] ?? 'esa persona';
+        partial.name ||
+        (spouse
+          ? `${own} ${spouse}`
+          : ({ 2: `${own} papá`, 3: `${own} mamá`, 4: 'esa persona' }[partial.role] ??
+            'esa persona'));
       const preparation = aud.student ? 'tu preparación' : `la preparación de ${aud.name}`;
       const missing = [
         !partial.name && 'su nombre completo',

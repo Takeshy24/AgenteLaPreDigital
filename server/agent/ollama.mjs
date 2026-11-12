@@ -227,7 +227,7 @@ export function buildPrompt(tariffs, context, text) {
     '- La elección explícita del mensaje actual prevalece sobre el formulario y las recomendaciones anteriores. Un plan negado ("Ruta UNT, no Meta UNT Plus") no es el elegido. Si hay varias alternativas sin decidir, pide aclaración.',
     '- retraction: true solo si rechaza una propuesta o dice que ya no le interesa.',
     '- fields: solo datos escritos en ESTE mensaje. career = carrera que quiere estudiar; availability = tiempo que puede estudiar; budget = número de soles al mes (solo dígitos). quote = el fragmento exacto del mensaje. Si no hay datos, fields = [].',
-    '- needsGuardian: true si dice que otra persona (padre, madre, apoderado o familiar) paga o decide.',
+    '- needsGuardian: true si pide invitar a otra persona o generar su enlace de invitación, o si dice que otra persona (padre, madre, apoderado, esposo, esposa, pareja o familiar) paga o decide. Pide los datos faltantes antes de preparar la invitación.',
     '- guardian: solo si el mensaje trae nombre, teléfono con +51 y relación de esa persona; si no, null.',
     'Ejemplos:',
     '"Hola" -> {"level":1,"action":"ask","fields":[],"understood":true}',

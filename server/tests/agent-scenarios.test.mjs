@@ -26,13 +26,14 @@ const base = () => ({
   guardian: null,
 });
 
-async function scenario(db) {
+async function scenario(db, { role = 1, beneficiaryName } = {}) {
   const email = `${randomUUID()}@example.test`;
   const lead = await createLead({
     name: `Escenario ${randomUUID()}`,
     email,
     phone: '+51912345678',
-    role: 1,
+    role,
+    beneficiaryName,
     channel: 1,
     communicationChannel: 2,
     consent: true,
@@ -310,6 +311,58 @@ test('responsable económico por partes: pide lo que falta y envía el enlace co
         )
       ).recordset;
       assert.deepEqual(invitation, [{ nombre: 'Carlos Ruiz', tel: '+51912345678', rol: 2 }]);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('el padre pide invitar a su esposa: solicita sus datos antes de continuar el perfil de David', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const beneficiary = `David ${randomUUID()}`;
+      const { lead, say, latest } = await scenario(db, { role: 2, beneficiaryName: beneficiary });
+      const { tariffs } = await getWorkspace();
+      await say('La carrera de David es Ingeniería de Sistemas');
+      const text = 'Hola quiero enviarle el link de invitación a mi esposa';
+      const first = await say(
+        text,
+        validateAnalysis(base(), text, tariffs, { history: await getRecentHistory(db, lead.id) }),
+      );
+      assert.match(first.reply.text, /esposa/);
+      assert.match(first.reply.text, /su nombre completo y su número de celular/);
+      assert.doesNotMatch(first.reply.text, /cuánto tiempo|horas|presupuesto/);
+      assert.equal(
+        (
+          await latest(
+            'SELECT COUNT(*) n FROM dbo.NecesidadVinculacion WHERE idLeadCasoDeclara=@id',
+          )
+        ).n,
+        1,
+      );
+      assert.equal(
+        (
+          await latest(
+            `SELECT COUNT(*) n FROM dbo.InvitacionVinculacion i
+            INNER JOIN dbo.NecesidadVinculacion n ON n.idNecesidad=i.idNecesidad WHERE n.idLeadCasoDeclara=@id`,
+          )
+        ).n,
+        0,
+      );
+      const second = await say('Se llama Patricia Pérez');
+      assert.match(second.reply.text, /solo me falta su número de celular/);
+      const third = await say('Su celular es 912345678');
+      assert.match(third.reply.text, /Preparé la invitación para Patricia Pérez/);
+      assert.match(third.reply.text, /https:\/\/wa\.me\/51912345678\?text=/);
+      assert.match(third.reply.text, /\/invitacion\/[0-9a-f-]{36}/);
+      const share = third.reply.text.match(/https:\/\/wa\.me\/\d+\?text=(\S+)/)[1];
+      assert.ok(decodeURIComponent(share).includes(`la preparación de ${beneficiary}`));
+      const invitation = await latest(
+        `SELECT i.nombreInvitado name, i.telefonoInvitado phone, i.idRolInvitado role
+        FROM dbo.InvitacionVinculacion i INNER JOIN dbo.NecesidadVinculacion n ON n.idNecesidad=i.idNecesidad
+        WHERE n.idLeadCasoDeclara=@id`,
+      );
+      assert.deepEqual(invitation, { name: 'Patricia Pérez', phone: '+51912345678', role: 4 });
     });
   } finally {
     await close();

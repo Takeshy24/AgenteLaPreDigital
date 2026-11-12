@@ -25,7 +25,7 @@ import {
 import { findWhatsAppContact, saveWhatsAppContact } from './whatsapp-repository.mjs';
 
 const GREETING =
-  /^(hola|buenas|buen dia|buenos dias|buenas tardes|buenas noches|hi|hello|inicio|empezar|start)/;
+  /^(hola|buenas|buen dia|buenos dias|buenas tardes|buenas noches|hi|hello|inicio|empezar|start)$/;
 
 export function verifyWhatsAppSignature(rawBody, header, secret) {
   if (!secret || !header?.startsWith('sha256=')) return false;
@@ -323,6 +323,7 @@ async function processWhatsAppMessage(item, client) {
       repository.finishWhatsAppEvent(tx, item.eventKey, messageId, error),
   };
   const first = (await repository.countIncoming(db, contact, 1)) === 0;
+  // Un saludo seguido de una solicitud debe analizarse completo, también en el primer mensaje.
   if (
     first &&
     open.length === 1 &&

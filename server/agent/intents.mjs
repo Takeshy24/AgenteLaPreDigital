@@ -51,10 +51,28 @@ const OBJECTION_TYPES = [
 const ACCEPTANCE =
   / (acepto|aceptamos|la acepto|lo acepto|acepto la propuesta|de acuerdo con la propuesta|me quedo con la propuesta) /;
 const RELATIVE =
-  '(mama|madre|papa|padre|padres|apoderado|apoderada|tutor|tutora|abuelo|abuela|tio|tia|hermano|hermana)';
+  '(mama|madre|papa|padre|padres|apoderado|apoderada|tutor|tutora|abuelo|abuela|tio|tia|hermano|hermana|esposo|esposa|pareja|conyuge)';
 const GUARDIAN = new RegExp(
   ` (${RELATIVE} ([a-z ]* )?(paga|pagan|pagara|decide|deciden|decidira)|(paga|pagan|decide|deciden) ([a-z ]* )?${RELATIVE}|no puedo decidir|no decido yo|depende de mis padres|tengo que consultarlo|consultarlo con) `,
 );
+const INVITATION =
+  / (invitacion|invitaciones|invitar|invitarle|invitarla|invitarlo|invitarles|invita|invitale|inviten) /;
+const INVITATION_REQUEST =
+  / (quiero|quisiera|deseo|necesito|puedes|pueden|podrias|podrian|me gustaria|prepara|preparen|preparame|generame|pasame|mandame|enviame|enviale|dame|me das|invita|invitale|inviten) /;
+function requestsInvitation(text) {
+  return String(text)
+    .split(/[.,;!?¿\n]+/)
+    .some((part) => {
+      const value = words(part);
+      return (
+        INVITATION.test(value) &&
+        INVITATION_REQUEST.test(value) &&
+        !/ (no|ya no) (quiero|quisiera|deseo|necesito|invites|inviten|le envies|le envien) /.test(
+          value,
+        )
+      );
+    });
+}
 const QUESTION_START =
   /^ (q|k|ke|que|cuanto|cuantos|cuantas|como|tienen|hay|incluye|incluyen|puedo|se puede|cual|cuales|donde) /;
 const CAREER_CUE =
@@ -195,7 +213,7 @@ export function unavailableOption(text, tariffs) {
 }
 export const isPaymentQuestion = (text) => PAYMENT_ASK.test(words(text));
 export const isRetraction = (text) => RETRACTION.test(words(text));
-export const needsGuardianText = (text) => GUARDIAN.test(words(text));
+export const needsGuardianText = (text) => GUARDIAN.test(words(text)) || requestsInvitation(text);
 const isQuestion = (text) => /[?¿]/.test(text) || QUESTION_START.test(words(text));
 
 // Datos del responsable económico (F4) en texto libre: relación, nombre y celular. Cada mensaje puede
@@ -205,11 +223,12 @@ const RELATION_ROLE = [
   [2, /\b(papa|papi|padre)\b/],
   [
     4,
-    /\b(apoderado|apoderada|tutor|tutora|tio|tia|abuelo|abuela|hermano|hermana|padrino|madrina|primo|prima)\b/,
+    /\b(apoderado|apoderada|tutor|tutora|tio|tia|abuelo|abuela|hermano|hermana|padrino|madrina|primo|prima|esposo|esposa|pareja|conyuge)\b/,
   ],
 ];
+// Cónyuge o pareja del contacto no implica ser madre o padre del beneficiario: se invita como otro responsable.
 const RELATION_WORD =
-  '(?:mam[aá]|mami|madre|pap[aá]|papi|padre|apoderad[oa]|tutora?|t[ií][oa]|abuel[oa]|herman[oa]|padrino|madrina|prim[oa])';
+  '(?:mam[aá]|mami|madre|pap[aá]|papi|padre|apoderad[oa]|tutora?|t[ií][oa]|abuel[oa]|herman[oa]|padrino|madrina|prim[oa]|espos[oa]|pareja|c[oó]nyuge)';
 const NAME_STOP = new Set([
   'y',
   'su',

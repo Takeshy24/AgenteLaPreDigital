@@ -16,6 +16,7 @@ import {
 } from '../integrations/whatsapp.mjs';
 import { createLead } from '../leads/service.mjs';
 import { saveConsent } from '../consents/service.mjs';
+import { saveProfile } from '../profiles/service.mjs';
 
 process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
 process.env.WHATSAPP_ENABLED = 'true';
@@ -36,14 +37,15 @@ function fakeWhatsApp() {
   return client;
 }
 
-async function setup() {
+async function setup({ role = 1, beneficiaryName } = {}) {
   const suffix = Date.now() + Math.floor(Math.random() * 1000);
   const phone = `+519${String(suffix).slice(-8)}`;
   const lead = await createLead({
     name: 'Estudiante WhatsApp ' + suffix,
     email: `wsp-${suffix}@example.test`,
     phone,
-    role: 1,
+    role,
+    beneficiaryName,
     channel: 1,
     communicationChannel: 1,
     consent: true,
@@ -566,6 +568,61 @@ test('WhatsApp: «ya no quiero que me contacten» suspende y bloquea el seguimie
       assert.match(scenario.client.calls[0].text.body, /no te escribiremos más/);
       await flush(db, scenario);
       assert.equal(scenario.client.calls.length, 1);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('WhatsApp: el primer «Hola quiero enviarle el link de invitación a mi esposa» atiende la invitación', async (t) => {
+  const settings = {
+    OLLAMA_ENABLED: process.env.OLLAMA_ENABLED,
+    OPENAI_ENABLED: process.env.OPENAI_ENABLED,
+  };
+  process.env.OLLAMA_ENABLED = 'true';
+  process.env.OPENAI_ENABLED = 'false';
+  t.after(() => {
+    for (const [key, value] of Object.entries(settings)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const model = t.mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      message: {
+        content: JSON.stringify({
+          level: 1,
+          retraction: false,
+          action: 'ask',
+          tariffId: null,
+          fields: [],
+          understood: true,
+          needsGuardian: false,
+          guardian: null,
+        }),
+      },
+    }),
+  }));
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup({ role: 2, beneficiaryName: `David ${Date.now()}` });
+      await saveProfile(scenario.lead.id, {
+        fields: { career: 'Ingeniería de Sistemas' },
+        channel: 1,
+      });
+      await receive(db, scenario, typed('Hola quiero enviarle el link de invitación a mi esposa'));
+      const reply = (
+        await query(
+          db,
+          'SELECT TOP 1 textoMensaje text FROM dbo.Mensaje WHERE idLeadCaso=@id AND idDireccion=2 ORDER BY idMensaje DESC',
+          { id: scenario.lead.id },
+        )
+      ).recordset[0];
+      assert.match(reply.text, /esposa/);
+      assert.match(reply.text, /su nombre completo y su número de celular/);
+      assert.doesNotMatch(reply.text, /cuánto tiempo|horas|presupuesto/);
+      assert.equal(model.mock.calls.length, 1);
     });
   } finally {
     await close();
