@@ -1,0 +1,297 @@
+.priority-current {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.priority-current > div {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.priority-caption {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.live-app .priority-current > div:first-child .pill {
+  font-size: 23px;
+  font-weight: 700;
+  padding: 4px 12px;
+  letter-spacing: -0.04em;
+}
+.live-app .priority-card .priority-reason {
+  color: var(--ui-ink);
+  margin: 18px 0 8px;
+}
+.live-app .priority-card .priority-interest-saved {
+  color: var(--ui-muted);
+  font-size: 12px;
+  margin: 0 0 20px;
+}
+.priority-interest-saved strong {
+  color: var(--ui-ink);
+  font-weight: 600;
+}
+.priority-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--ui-line);
+  border-bottom: 1px solid var(--ui-line);
+}
+.priority-counts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 12px;
+}
+.priority-counts > div + div {
+  border-left: 1px solid var(--ui-line);
+  padding: 0 0 0 16px;
+}
+.priority-counts dt,
+.priority-counts span {
+  font-size: 12px;
+  color: var(--ui-muted);
+  line-height: 1.6;
+}
+.priority-counts dt {
+  font-weight: 600;
+  color: var(--ui-ink);
+}
+.priority-counts dd {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  color: var(--ui-ink);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.priority-counts dd > span {
+  font-weight: 400;
+}
+.live-app .priority-card .priority-count-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ui-muted);
+  margin: 14px 0;
+}
+.priority-count-help svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+.live-app .priority-card .priority-updated {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+.live-app .priority-review-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+}
+.priority-review-toggle svg {
+  flex: 0 0 auto;
+}
+.priority-review-toggle svg:last-child {
+  margin-left: auto;
+}
+.priority-review-toggle[aria-expanded='true'] svg:last-child,
+.priority-disclosure[open] > summary svg {
+  transform: rotate(180deg);
+}
+.live-app .priority-form {
+  gap: 12px;
+  padding: 20px 0 8px;
+}
+.priority-choices {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.priority-choices legend {
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ui-ink);
+}
+.live-app .priority-card .priority-help {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.priority-choices > .priority-help {
+  padding: 6px 0 14px;
+}
+.live-app .priority-form .priority-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--ui-line);
+  border-radius: 10px;
+  background: var(--ui-glass);
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+.live-app .priority-option input[type='radio'] {
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  padding: 0;
+  margin: 3px 0 0;
+  accent-color: var(--ui-accent);
+}
+.priority-option strong,
+.priority-option small {
+  display: block;
+}
+.priority-option strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.priority-option small {
+  margin-top: 3px;
+}
+.live-app .priority-option.is-selected,
+.live-app .priority-option:focus-within {
+  background: var(--accent-soft);
+  border-color: var(--ui-accent-deep);
+}
+.priority-evidence-preview {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--ui-accent-deep);
+  background: var(--ui-glass);
+  border-radius: 0 8px 8px 0;
+}
+.priority-evidence-preview figcaption {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.priority-evidence-preview blockquote {
+  margin: 8px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.live-app .priority-card .priority-calculation-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+.live-app .priority-card .priority-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ui-accent);
+}
+.live-app .priority-card .priority-error {
+  margin: 0;
+  color: var(--error-ink);
+}
+.priority-disclosure {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-line);
+}
+.priority-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.7;
+  color: var(--ui-ink);
+  cursor: pointer;
+}
+.priority-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.priority-disclosure > summary svg {
+  flex: 0 0 auto;
+  transition: transform 180ms var(--ui-ease);
+}
+.priority-disclosure > summary:focus-visible {
+  outline: 3px solid var(--ui-accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.live-app .priority-disclosure p {
+  color: var(--ui-muted);
+  font-size: 12px;
+  margin: 12px 0 0;
+}
+.priority-rules,
+.priority-history {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+}
+.priority-rules li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.priority-history {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.priority-history li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ui-line);
+}
+.priority-history li > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.priority-history time {
+  color: var(--ui-ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .priority-option:hover {
+    border-color: var(--ui-accent-deep);
+  }
+  .priority-disclosure > summary:hover {
+    color: var(--ui-accent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-app .priority-option,
+  .priority-disclosure > summary svg {
+    transition: none;
+  }
+}

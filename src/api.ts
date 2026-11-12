@@ -22,6 +22,7 @@ export interface Participation {
   applications: string | null;
   authorized: number;
   idEstadoCaso: number;
+  idEstadoParticipacion: number;
 }
 export interface Tariff {
   idPlanTarifa: number;
@@ -91,6 +92,7 @@ export interface Details {
   }[];
   evaluations: {
     idEvaluacion: number;
+    idReglaAplicada: number;
     prioridad: string;
     fechaEvaluacion: string;
     intentosSinRespuesta: number;

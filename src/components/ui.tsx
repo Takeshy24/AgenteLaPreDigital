@@ -53,16 +53,18 @@ export function Card({
   title,
   label,
   mode,
+  className = '',
   children,
 }: {
   title: string;
   label?: string;
   mode?: Mode;
+  className?: string;
   children: ReactNode;
 }) {
   const light = useSurfaceLight();
   return (
-    <section {...light} className={`panel live-section${mode ? ` mode-${mode}` : ''}`}>
+    <section {...light} className={`panel live-section${mode ? ` mode-${mode}` : ''} ${className}`}>
       {(label || mode) && (
         <div className="section-head">
           {label && <span className="eyebrow">{label}</span>}
