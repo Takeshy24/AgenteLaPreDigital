@@ -1,6 +1,3 @@
--- Carga de hechos desde el OLTP (recarga completa). Las vistas aplican las reglas de las secciones
--- 3.3 y 3.4 del informe; cada hecho se borra y se vuelve a cargar dentro de una transacción, de modo
--- que un error no deja la tabla vacía. Ejecutar después de etl_dimensiones.sql.
 USE LaPreDigital_DataMart;
 
 GO
@@ -392,7 +389,7 @@ FROM
     INNER JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dt ON dt.fechaHora = v.fechaInicioElegibilidad
     INNER JOIN LaPreDigital_DataMart.dbo.DimContacto AS dc ON dc.idContacto = v.idContacto
     INNER JOIN LaPreDigital_DataMart.dbo.DimRolContacto AS dr ON dr.idRolContacto = v.idRolContacto
-    INNER JOIN LaPreDigital_DataMart.dbo.DimCanal AS dca ON dca.idCanal = COALESCE(v.idCanal, 0)
+    LEFT JOIN LaPreDigital_DataMart.dbo.DimCanal AS dca ON dca.idCanal = v.idCanal
     LEFT JOIN LaPreDigital_DataMart.dbo.DimTiempo AS de ON de.fechaHora = v.fechaPrimeraEntrega
     LEFT JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dres ON dres.fechaHora = v.fechaPrimeraRespuesta;
 
@@ -406,37 +403,11 @@ BEGIN TRANSACTION;
 
 DELETE FROM LaPreDigital_DataMart.dbo.HechoAmpliacionPerfil;
 
-WITH
-    preguntas AS (
-        SELECT
-            v.*,
-            YEAR(v.fechaPreguntaEntregada) AS anio,
-            MONTH(v.fechaPreguntaEntregada) AS mes,
-            ROW_NUMBER() OVER (
-                PARTITION BY
-                    v.idContacto,
-                    YEAR(v.fechaPreguntaEntregada),
-                    MONTH(v.fechaPreguntaEntregada)
-                ORDER BY
-                    v.fechaPreguntaEntregada,
-                    v.idPregunta
-            ) AS orden,
-            MIN(v.fechaDatoRegistrado) OVER (
-                PARTITION BY
-                    v.idContacto,
-                    YEAR(v.fechaPreguntaEntregada),
-                    MONTH(v.fechaPreguntaEntregada)
-            ) AS fechaDatoMes
-        FROM
-            LaPreDigital_DataMart.dbo.v_PerfilAmpliado AS v
-    )
 INSERT INTO
     LaPreDigital_DataMart.dbo.HechoAmpliacionPerfil (
-        KeyContacto,
-        anio,
-        mes,
         KeyPregunta,
         KeyTiempo,
+        KeyContacto,
         KeyCanal,
         KeyRolContacto,
         KeyTiempoDato,
@@ -444,28 +415,24 @@ INSERT INTO
         M5
     )
 SELECT
-    dc.KeyContacto,
-    q.anio,
-    q.mes,
-    q.idPregunta,
+    v.idPregunta,
     dt.KeyTiempo,
+    dc.KeyContacto,
     dca.KeyCanal,
     dr.KeyRolContacto,
     dd.KeyTiempo,
     1,
     CASE
-        WHEN q.fechaDatoMes IS NOT NULL THEN 1
+        WHEN v.fechaDatoRegistrado IS NOT NULL THEN 1
         ELSE 0
     END
 FROM
-    preguntas AS q
-    INNER JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dt ON dt.fechaHora = q.fechaPreguntaEntregada
-    INNER JOIN LaPreDigital_DataMart.dbo.DimContacto AS dc ON dc.idContacto = q.idContacto
-    INNER JOIN LaPreDigital_DataMart.dbo.DimCanal AS dca ON dca.idCanal = q.idCanal
-    INNER JOIN LaPreDigital_DataMart.dbo.DimRolContacto AS dr ON dr.idRolContacto = q.idRolContacto
-    LEFT JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dd ON dd.fechaHora = q.fechaDatoMes
-WHERE
-    q.orden = 1;
+    LaPreDigital_DataMart.dbo.v_PerfilAmpliado AS v
+    INNER JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dt ON dt.fechaHora = v.fechaPreguntaEntregada
+    INNER JOIN LaPreDigital_DataMart.dbo.DimContacto AS dc ON dc.idContacto = v.idContacto
+    INNER JOIN LaPreDigital_DataMart.dbo.DimCanal AS dca ON dca.idCanal = v.idCanal
+    INNER JOIN LaPreDigital_DataMart.dbo.DimRolContacto AS dr ON dr.idRolContacto = v.idRolContacto
+    LEFT JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dd ON dd.fechaHora = v.fechaDatoRegistrado;
 
 COMMIT TRANSACTION;
 
@@ -479,10 +446,7 @@ DELETE FROM LaPreDigital_DataMart.dbo.HechoVinculacionEconomica;
 
 INSERT INTO
     LaPreDigital_DataMart.dbo.HechoVinculacionEconomica (
-        KeyNecesidad,
         KeyCaso,
-        anio,
-        mes,
         KeyTiempo,
         KeyContacto,
         KeyCanal,
@@ -492,10 +456,7 @@ INSERT INTO
         M7
     )
 SELECT
-    n.idNecesidad,
     n.idCaso,
-    YEAR(n.fechaNecesidad),
-    MONTH(n.fechaNecesidad),
     dt.KeyTiempo,
     dc.KeyContacto,
     dca.KeyCanal,

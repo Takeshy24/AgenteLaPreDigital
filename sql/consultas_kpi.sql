@@ -1,6 +1,3 @@
--- Los seis indicadores por mes desde el DataMart (informe 3.3 y 6.4). Cada indicador usa su unidad de
--- conteo: participación (L-1.1, L-1.2), contacto único por mes (L-2.1), caso por mes (L-3.1, L-4.1) y
--- caso único (L-5.1). Denominador cero = «No aplicable» (NULL).
 USE LaPreDigital_DataMart;
 
 GO
@@ -22,27 +19,33 @@ WITH
     ),
     perfil AS (
         SELECT
-            anio,
-            mes,
-            SUM(M4) AS M4,
-            SUM(M5) AS M5
+            t.anio,
+            t.mes,
+            COUNT(DISTINCT h.KeyContacto) AS M4,
+            COUNT(
+                DISTINCT CASE
+                    WHEN h.M5 = 1 THEN h.KeyContacto
+                END
+            ) AS M5
         FROM
-            dbo.HechoAmpliacionPerfil
+            dbo.HechoAmpliacionPerfil AS h
+            INNER JOIN dbo.DimTiempo AS t ON t.KeyTiempo = h.KeyTiempo
         GROUP BY
-            anio,
-            mes
+            t.anio,
+            t.mes
     ),
     vinculacion AS (
         SELECT
-            anio,
-            mes,
-            SUM(M6) AS M6,
-            SUM(M7) AS M7
+            t.anio,
+            t.mes,
+            SUM(h.M6) AS M6,
+            SUM(h.M7) AS M7
         FROM
-            dbo.HechoVinculacionEconomica
+            dbo.HechoVinculacionEconomica AS h
+            INNER JOIN dbo.DimTiempo AS t ON t.KeyTiempo = h.KeyTiempo
         GROUP BY
-            anio,
-            mes
+            t.anio,
+            t.mes
     ),
     propuesta AS (
         SELECT

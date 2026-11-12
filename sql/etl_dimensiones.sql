@@ -1,5 +1,3 @@
--- Carga de dimensiones desde el OLTP. MERGE inserta los miembros nuevos y actualiza los nombres
--- que cambiaron (tipo 1: se conserva solo el valor vigente). Ejecutar antes de etl_hechos.sql.
 MERGE INTO
     LaPreDigital_DataMart.dbo.DimTiempo AS dim USING (
         SELECT DISTINCT
@@ -119,10 +117,6 @@ MERGE INTO
             LaPreDigital_OLTP.dbo.Cat_CanalComunicacion
         WHERE
             id IN (1, 2, 3)
-        UNION ALL
-        SELECT
-            CAST(0 AS TINYINT),
-            N'Sin canal'
     ) AS oltp ON oltp.idCanal = dim.idCanal
 WHEN MATCHED
 AND dim.nombre <> oltp.nombre THEN

@@ -1,5 +1,3 @@
--- Borra vistas, hechos y dimensiones del DataMart (en ese orden, por las claves foráneas).
--- Después: dimensiones.sql, hechos.sql, etl_dimensiones.sql y etl_hechos.sql.
 USE LaPreDigital_DataMart;
 
 GO

@@ -17,7 +17,7 @@ Las fechas de origen y resultado usan la misma dimensión con distintos roles: p
 
 ## Tablas de hechos
 
-Las tablas físicas de hechos contienen únicamente keys y las medidas M1 a M11. No contienen nombres, fechas, estados, precios, IDs de catálogo ni otros atributos descriptivos. Hay 28 claves foráneas hacia las dimensiones.
+Las tablas físicas de hechos contienen únicamente keys y las medidas M1 a M11, con restricciones CHECK: cada medida vale 0 o 1, M3 ≤ M2 y M11 ≤ M10, y una medida de logro en 1 exige la key de tiempo de ese logro. No contienen nombres, fechas, estados, precios, IDs de catálogo ni otros atributos descriptivos. Hay 28 claves foráneas hacia las dimensiones.
 
 | Hecho                     | Grano conservado                                     | Medidas    |
 | ------------------------- | ---------------------------------------------------- | ---------- |
@@ -39,9 +39,10 @@ M4/M5 y M8/M9 no se suman entre preguntas, canales o planes para obtener el tota
 
 - `sql/dimensiones.sql`: creación de la base y las seis dimensiones con keys IDENTITY.
 - `sql/hechos.sql`: creación de los cinco hechos, sus PK y sus FK.
-- `sql/etl_dimensiones.sql`: MERGE por identidad de negocio; SQL Server genera las keys nuevas.
-- `sql/etl_hechos.sql`: vistas de preparación y recarga DELETE/INSERT, resolviendo las keys con JOIN.
-- `sql/reiniciar_datamart.sql`: elimina solo las once tablas dimensionales para reconstruir el modelo; no modifica tablas del OLTP.
+- `sql/etl_dimensiones.sql`: MERGE por identidad de negocio; SQL Server genera las keys nuevas y los nombres que cambian en el OLTP se actualizan (tipo 1).
+- `sql/etl_hechos.sql`: vistas de preparación y recarga DELETE/INSERT de cada hecho dentro de su propia transacción, resolviendo las keys con JOIN.
+- `sql/reiniciar_datamart.sql`: elimina las vistas de preparación y las once tablas dimensionales para reconstruir el modelo; no modifica tablas del OLTP.
+- `sql/consultas_kpi.sql`: los seis indicadores por mes, cada uno con su unidad de conteo (M4/M5 por contacto-mes y M8/M9 por caso-mes con COUNT DISTINCT). Sirve para conciliar el DataMart con el panel.
 
 Para actualizar una instalación con el modelo anterior:
 
