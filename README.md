@@ -63,6 +63,10 @@ Levantar todo con un solo comando: `npm run up`. Comprueba que el puerto esté l
 
 Trabajo local sin túnel: comentar `PUBLIC_ORIGIN` y `LANDING_ORIGINS`, dejar `VITE_API_URL` vacío y ejecutar `npm run up`; la landing queda en `http://127.0.0.1:3067/landing`. Para desarrollar la interfaz: `npm run server` y `npm run dev` en terminales separadas.
 
+Monitorear cambios de registros: `npm run db:watch`. Usa `DB_SERVER`, `DB_DATABASE` y la autenticación del `.env`; instala triggers de monitoreo y muestra por registro CREADO, EDITADO o ELIMINADO, tabla, clave primaria, usuario SQL y hora de Lima. Detecta cambios confirmados desde la aplicación, SSMS u otra conexión y consulta la cola cada segundo. Los avisos contienen las claves, sin copiar los demás campos. `Ctrl+C` retira los triggers y la cola; solo puede existir un monitor por base. Requiere permisos para crear tablas y modificar las tablas vigiladas. Para comprobar la conexión sin instalar nada: `npm run db:watch -- --check`.
+
+El monitor cubre las tablas existentes al arrancar: reiniciarlo si se crean tablas nuevas. No captura `TRUNCATE TABLE`, cambios de estructura ni cargas masivas sin `FIRE_TRIGGERS`. Si se cierra la terminal a la fuerza, los triggers residuales dejan de registrar al perderse la conexión; el siguiente arranque los reutiliza y `npm run db:watch -- --uninstall` los retira. La limpieza `db:clean` conserva la cola para poder mostrar también sus eliminaciones.
+
 Despliegue en Vercel (proyecto `lapredigital-landing`, producción en `https://lapredigital-landing.vercel.app`): se compila en local y solo se sube el resultado estático, de modo que el código fuente, el servidor y el `.env` no salen del equipo. Las variables `VITE_SITE=landing` y `VITE_API_URL=<URL de ngrok>` están en el proyecto de Vercel; deben guardarse sin espacios, saltos de línea ni BOM (en Windows, evitar enviarlas con `echo` o canalización de PowerShell). Para volver a publicar tras un cambio:
 
 ```bash

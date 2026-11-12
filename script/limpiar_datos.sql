@@ -17,7 +17,7 @@ FROM sys.tables t
 JOIN sys.schemas s ON s.schema_id = t.schema_id
 WHERE t.name NOT LIKE 'Cat[_]%'
   AND t.name NOT LIKE 'Param[_]%'
-  AND t.name NOT IN ('PlanComercial', 'PlanTarifa', 'Operador', 'App_IntegrationCursor');
+  AND t.name NOT IN ('PlanComercial', 'PlanTarifa', 'Operador', 'App_IntegrationCursor', 'App_DbWatchEvent');
 
 IF '$(MODO)' = 'resumen'
 BEGIN

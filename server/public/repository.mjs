@@ -87,7 +87,7 @@ export async function getOffer(db, hash) {
     await query(
       db,
       `SELECT TOP 1 o.idOferta, o.idPropuesta, p.idCaso, p.idLeadCasoEntrega,
-      p.idResultado, p.precioAutorizado, m.idEstadoEntrega,
+      p.idResultado, p.precioAutorizado, t.precio precioCatalogo, o.expiresAt, m.idEstadoEntrega,
       c.nombreCompleto contacto, b.nombreCompleto beneficiario,
       pc.nombre [plan], modal.nombre modalidad, lc.idLead, l.idContacto,
       k.idContratacion, k.idEventoPago, k.idEventoValidacion

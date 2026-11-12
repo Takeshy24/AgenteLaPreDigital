@@ -13,6 +13,7 @@ type Offer = {
   paid: boolean;
   validated: boolean;
   demoPayments?: boolean;
+  conditions?: string[];
 };
 export function PublicOffer() {
   const token = window.location.pathname.split('/').at(-1) || '';
@@ -96,6 +97,16 @@ export function PublicOffer() {
             </p>
           ) : (
             <>
+              {!!offer.conditions?.length && (
+                <div className="public-conditions">
+                  <h3>Condiciones de contratación</h3>
+                  <ul>
+                    {offer.conditions.map((condition) => (
+                      <li key={condition}>{condition}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {!offer.termsAccepted && (
                 <>
                   <label className="public-check">
@@ -104,7 +115,8 @@ export function PublicOffer() {
                       checked={accepted}
                       onChange={(e) => setAccepted(e.target.checked)}
                     />
-                    Acepto expresamente esta propuesta, el plan, periodo e importe mostrados.
+                    Acepto expresamente esta propuesta (plan, periodo e importe) y las condiciones
+                    de contratación indicadas.
                   </label>
                   <button disabled={!accepted || busy} onClick={() => act('accept')}>
                     Aceptar propuesta y condiciones

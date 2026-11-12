@@ -211,3 +211,22 @@
   border: 1px dashed var(--ui-line);
   box-shadow: none;
 }
+.public-conditions {
+  border: 1px solid var(--ui-line, #ffffff24);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.public-conditions h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--ui-ink);
+}
+.public-conditions ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--ui-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}

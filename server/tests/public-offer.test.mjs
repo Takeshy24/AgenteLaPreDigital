@@ -43,7 +43,9 @@ test('oferta pública: enlace, aceptación web y condiciones sin atribuirlas al 
       });
       const link = await createOfferLink(proposal.id, 'http://127.0.0.1:3067');
       const token = link.url.split('/').at(-1);
-      assert.equal((await viewOffer(token)).accepted, false);
+      const shown = await viewOffer(token);
+      assert.equal(shown.accepted, false);
+      assert.ok(shown.conditions.some((item) => /no confirma el pago/.test(item)));
       await acceptOffer(token);
       assert.equal((await viewOffer(token)).termsAccepted, true);
       await acceptOffer(token);
@@ -182,4 +184,28 @@ test('descuento: solo el operador lo aprueba, menor al catálogo; abrir el pago 
     process.env.DEMO_PAYMENTS = previous;
     await close();
   }
+});
+
+test('la oferta muestra las condiciones de contratación de la sección 2.4', async () => {
+  const { offerConditions } = await import('../public/conditions.mjs');
+  const conditions = offerConditions({
+    plan: 'Meta UNT',
+    modalidad: 'Semestral',
+    precioAutorizado: 350,
+    precioCatalogo: 399.9,
+    expiresAt: '2026-11-20T10:00:00',
+  });
+  assert.match(conditions[0], /S\/ 350\.00 por cada semestre contratado .*sin cuotas pendientes/);
+  assert.match(conditions[1], /descuento aprobado .* S\/ 399\.90/);
+  assert.ok(conditions.some((item) => /primera respuesta de soporte: 12 horas/.test(item)));
+  assert.ok(conditions.some((item) => /no confirma el pago/.test(item)));
+  assert.ok(conditions.some((item) => /vence el 20 de noviembre de 2026/.test(item)));
+  const plain = offerConditions({
+    plan: 'Ruta UNT',
+    modalidad: 'Mensual',
+    precioAutorizado: 39.9,
+    precioCatalogo: 39.9,
+  });
+  assert.ok(!plain.some((item) => /descuento/.test(item)));
+  assert.match(plain[0], /por cada mes contratado/);
 });

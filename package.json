@@ -12,6 +12,7 @@
     "up": "node tools/up.mjs",
     "up:check": "node tools/up.mjs --check",
     "db:clean": "node tools/clean-db.mjs",
+    "db:watch": "node tools/watch-db.mjs",
     "check:mail": "node tools/check-mail.mjs",
     "test": "node --test --test-concurrency=1",
     "format": "prettier --write . && node tools/format-sql.mjs",

@@ -14,7 +14,7 @@ import { inviteGuardian } from '../links/service.mjs';
 import { describePlans } from './catalog.mjs';
 import { unavailableOption, words } from './intents.mjs';
 import { recordProposalResponse } from '../proposals/service.mjs';
-import { answerFromKnowledge } from './knowledge.mjs';
+import { answerFromKnowledge, mentionedPlans } from './knowledge.mjs';
 import { PAYMENT_QUESTION } from './ollama.mjs';
 import {
   findPendingProposal,
@@ -247,11 +247,19 @@ La aceptación no confirma el pago.`,
           : known.budget == null
             ? '¡Gracias! Una última pregunta: ¿cuánto podrías invertir al mes en tu preparación?'
             : '¿Qué plan o modalidad te interesa? Con gusto te aclaro los precios y te ayudo a preparar una propuesta.';
-    if (analysis.action === 'proposal' && !analysis.tariffId)
-      response = `${unavailableOption(text, workspace.tariffs) ?? '¿Qué plan y modalidad quieres contratar?'} Ruta UNT tiene modalidad mensual; Meta UNT y Meta UNT Plus, mensual o semestral.`;
+    if (analysis.action === 'proposal' && !analysis.tariffId) {
+      const invalid = unavailableOption(text, workspace.tariffs);
+      response = invalid
+        ? `${invalid} Meta UNT y Meta UNT Plus pueden ser mensuales o semestrales. ¿Cuál prefieres?`
+        : '¿Qué plan y modalidad quieres contratar? Ruta UNT tiene modalidad mensual; Meta UNT y Meta UNT Plus, mensual o semestral.';
+    }
     if (analysis.action === 'catalog') {
       // Respuesta extractiva desde la base de conocimiento; si no hay fragmentos, el catálogo completo.
-      const answer = answerFromKnowledge(text, workspace.tariffs);
+      // «¿Qué incluye Meta UNT?» pide la ficha completa del plan (beneficios y precios).
+      const planSheet =
+        mentionedPlans(text).length &&
+        / (incluye|incluyen|trae|ofrece|beneficios|contiene) /.test(words(text));
+      const answer = planSheet ? null : answerFromKnowledge(text, workspace.tariffs);
       response = answer?.text ?? describePlans(text, workspace.tariffs);
       const invalid = unavailableOption(text, workspace.tariffs);
       if (invalid) response = `${invalid} ${response}`;

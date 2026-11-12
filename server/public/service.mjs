@@ -11,6 +11,7 @@ import {
 } from '../contracts/service.mjs';
 import * as repository from './repository.mjs';
 import { registerInquiry } from './intake.mjs';
+import { offerConditions } from './conditions.mjs';
 import { getParticipation } from '../shared/repository.mjs';
 import { evaluatePriority } from '../priorities/service.mjs';
 
@@ -64,6 +65,7 @@ export async function viewOffer(token) {
     paid: !!offer.idEventoPago,
     validated: !!offer.idEventoValidacion,
     demoPayments: process.env.DEMO_PAYMENTS === '1',
+    conditions: offerConditions(offer),
   };
 }
 
@@ -83,7 +85,10 @@ export async function acceptOffer(token) {
     }
     await acceptTerms(
       offer.idCaso,
-      { proposalId: offer.idPropuesta, reference: `Aceptación digital: oferta #${offer.idOferta}` },
+      {
+        proposalId: offer.idPropuesta,
+        reference: `Aceptación digital: oferta #${offer.idOferta} y condiciones mostradas (informe 2.4)`,
+      },
       { public: true },
     );
     return { accepted: true };

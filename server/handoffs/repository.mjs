@@ -45,10 +45,12 @@ WHERE
 export async function resumeExpired(db) {
   return query(
     db,
-    `UPDATE dbo.Derivacion
+    `DECLARE @resumedContacts TABLE (idContacto bigint);
+
+UPDATE dbo.Derivacion
 SET
   fechaRetomaAgente = ${now}
-OUTPUT INSERTED.idContacto
+OUTPUT INSERTED.idContacto INTO @resumedContacts
 WHERE
   fechaAtencion IS NULL
   AND fechaRetomaAgente IS NULL
@@ -63,6 +65,8 @@ WHERE
         codigo = N'ATENCION_DERIVACION_HORAS'
     ),
     fechaInicio
-  ) <= ${now}`,
+  ) <= ${now};
+
+SELECT idContacto FROM @resumedContacts;`,
   );
 }

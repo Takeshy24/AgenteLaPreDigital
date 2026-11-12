@@ -221,13 +221,15 @@ function extractFields(text, context) {
   ) {
     const first =
       / (primera vez|nunca postule|no) /.test(value) && !/ (ya postule|postule) /.test(value);
-    const times = / (dos|tres|2|3|varias) (veces|vez) /.exec(value)?.[1];
+    const times = / (una|1|dos|2|tres|3|varias) (veces|vez) /.exec(value)?.[1];
     fields.push({
       field: 'applications',
       value: first
         ? 'Primera postulación (no postuló antes)'
         : times
-          ? `Postuló ${times} veces`
+          ? / (una|1) /.test(` ${times} `)
+            ? 'Postuló una vez'
+            : `Postuló ${{ 2: 'dos', 3: 'tres' }[times] ?? times} veces`
           : text.trim().slice(0, 200),
       quote: text.slice(0, 200),
     });
