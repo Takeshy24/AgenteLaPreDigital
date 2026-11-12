@@ -11,8 +11,15 @@ import { offerTrial } from '../trials/service.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { getNeed, addNeed } from '../links/repository.mjs';
 import { inviteGuardian } from '../links/service.mjs';
+import { CHANNEL_NAMES, deliverDirectInvitation, findDirectTarget } from '../links/direct.mjs';
 import { describePlans } from './catalog.mjs';
-import { unavailableOption, words } from './intents.mjs';
+import {
+  guardianComplete,
+  guardianFrom,
+  guardianParts,
+  unavailableOption,
+  words,
+} from './intents.mjs';
 import { recordProposalResponse } from '../proposals/service.mjs';
 import { answerFromKnowledge, mentionedPlans } from './knowledge.mjs';
 import { PAYMENT_QUESTION } from './ollama.mjs';
@@ -20,6 +27,8 @@ import {
   findPendingProposal,
   latestOpenProposal,
   getProfile,
+  pendingGuardianNeed,
+  incomingSince,
   saveObjection,
   appendOfferLink,
   recordQuestion,
@@ -104,24 +113,85 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
       return;
     }
     if (handoff && !handoff.fechaRetomaAgente) return;
-    if (analysis.guardian && participation.idEstadoCaso === 1) {
-      const invitation = await inviteGuardian(participationId, { ...analysis.guardian, messageId });
+    // Responsable económico (F4): los datos pueden llegar en varios mensajes. Mientras la necesidad
+    // no tenga invitación, se unen las partes recibidas desde que se declaró y se pide solo lo que falta.
+    const need =
+      participation.idEstadoCaso === 1 ? await pendingGuardianNeed(db, participation.idCaso) : null;
+    let guardian = analysis.guardian;
+    let partial = null;
+    if (!guardian && participation.idEstadoCaso === 1 && (need || analysis.needsGuardian)) {
+      const texts = need ? await incomingSince(db, participationId, need.messageId) : [];
+      if (!texts.includes(text)) texts.push(text);
+      const parts = guardianFrom(texts);
+      const current = guardianParts(text);
+      if (guardianComplete(parts)) guardian = { ...parts, quote: text.slice(0, 500) };
+      else if (analysis.needsGuardian || current.name || current.phone) partial = parts;
+    }
+    if (guardian && participation.idEstadoCaso === 1) {
+      const invitation = await inviteGuardian(participationId, { ...guardian, messageId });
       const url = `${process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3001}`}/invitacion/${invitation.code}`;
+      const first = guardian.name.split(' ')[0];
+      const relation = { 2: 'papá', 3: 'mamá', 4: 'responsable' }[guardian.role] ?? 'responsable';
+      const target = await findDirectTarget(db, guardian.phone, participation.idContacto);
+      const invitationText =
+        `Hola ${first}, ${contact.name} indicó que eres su ${relation} y que acompañas su preparación para la UNT. ` +
+        `Si estás de acuerdo, revisa y acepta la invitación aquí: ${url}
+` +
+        'Si no reconoces esta solicitud, puedes ignorar este mensaje.';
+      const direct = target
+        ? await deliverDirectInvitation(db, {
+            target,
+            text: invitationText,
+            replyTo: messageId,
+            email: {
+              subject: `${contact.name} te invita a acompañar su preparación en LaPreDigital`,
+              text: invitationText,
+              html: `<p>Hola ${first},</p><p>${contact.name} indicó que eres su ${relation} y que acompañas su preparación para la UNT.</p><p><a href="${url}">Revisar y aceptar la invitación</a></p><p>Si no reconoces esta solicitud, puedes ignorar este correo.</p>`,
+            },
+          })
+        : null;
+      if (direct) {
+        await createReply(
+          db,
+          participation,
+          `¡Listo! ${guardian.name} ya tiene una cuenta con nosotros, así que le envié la invitación directamente por ${CHANNEL_NAMES[direct.channel]}. Cuando la acepte, se unirá a tu caso.`,
+          messageId,
+        );
+        return;
+      }
+      const share = `https://wa.me/${guardian.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+        `Hola ${first}, te comparto la invitación de LaPreDigital para acompañar mi preparación para la UNT: ${url}`,
+      )}`;
       await createReply(
         db,
         participation,
-        `Reenvía este enlace a ${analysis.guardian.name}: ${url}\nDesde allí podrá aceptar la vinculación al caso y autorizar el contacto. No le escribiré antes de que autorice.`,
+        `¡Listo! Preparé la invitación para ${guardian.name}.
+` +
+          `Envíasela por WhatsApp con un toque (el mensaje ya va escrito): ${share}
+` +
+          `O reenvíale este enlace: ${url}
+` +
+          'Desde allí podrá aceptar la vinculación y autorizar el contacto. No le escribiremos antes de que acepte.',
         messageId,
       );
       return;
     }
-    if (analysis.needsGuardian && participation.idEstadoCaso === 1) {
-      if (!(await getNeed(db, participation.idCaso)))
-        await addNeed(db, participation.idCaso, participationId, messageId);
+    if (partial) {
+      if (!need) await addNeed(db, participation.idCaso, participationId, messageId);
+      const who = { 2: 'tu papá', 3: 'tu mamá', 4: 'esa persona' }[partial.role] ?? 'esa persona';
+      const missing = [
+        !partial.name && 'su nombre completo',
+        !partial.phone && 'su número de celular',
+        !partial.role && 'qué es tuyo (papá, mamá u otro familiar)',
+      ].filter(Boolean);
+      const list =
+        missing.length > 1 ? `${missing.slice(0, -1).join(', ')} y ${missing.at(-1)}` : missing[0];
       await createReply(
         db,
         participation,
-        'Podemos incluir a la persona que decide o paga tu preparación. Indica en un mensaje su nombre completo, teléfono internacional y relación contigo (padre, madre o apoderado). Prepararé un enlace que podrás reenviarle para que autorice la vinculación y el contacto.',
+        analysis.needsGuardian && !partial.name && !partial.phone
+          ? `¡Claro! Podemos incluir a ${who} en tu preparación. Para enviarle una invitación, cuéntame ${list}. No le escribiremos hasta que acepte.`
+          : `¡Gracias! Para preparar la invitación de ${who} solo me falta ${list}.`,
         messageId,
       );
       return;

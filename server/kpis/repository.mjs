@@ -6,11 +6,12 @@ export function listInitial(db) {
   return rows(
     db,
     `
-SELECT h.KeyParticipacion AS idLeadCaso, c.idContacto, c.nombreCompleto AS contactName,
+SELECT caso.idCaso, c.idContacto, c.nombreCompleto AS contactName,
     ca.idCanal, r.idRolContacto, t.fechaHora AS fechaInicioElegibilidad,
     entrega.fechaHora AS fechaPrimeraEntrega, respuesta.fechaHora AS fechaPrimeraRespuesta,
     h.M1, h.M2, h.M3
 FROM ${martTable('HechoContactoInicial')} AS h
+INNER JOIN ${martTable('DimCaso')} AS caso ON caso.KeyCaso = h.KeyCaso
 INNER JOIN ${martTable('DimContacto')} AS c ON c.KeyContacto = h.KeyContacto
 INNER JOIN ${martTable('DimTiempo')} AS t ON t.KeyTiempo = h.KeyTiempo
 INNER JOIN ${martTable('DimRolContacto')} AS r ON r.KeyRolContacto = h.KeyRolContacto
@@ -23,7 +24,7 @@ export function listProfile(db) {
   return rows(
     db,
     `
-SELECT h.KeyPregunta AS idPregunta, c.idContacto, c.nombreCompleto AS contactName,
+SELECT c.idContacto, c.nombreCompleto AS contactName,
     ca.idCanal, r.idRolContacto, t.fechaHora AS fechaPreguntaEntregada,
     dato.fechaHora AS fechaDatoRegistrado, h.M4, h.M5
 FROM ${martTable('HechoAmpliacionPerfil')} AS h
@@ -38,11 +39,12 @@ export function listLinking(db) {
   return rows(
     db,
     `
-SELECT h.KeyCaso AS idCaso, c.idContacto AS idContactoDeclara, c.nombreCompleto AS contactName,
+SELECT caso.idCaso, c.idContacto AS idContactoDeclara, c.nombreCompleto AS contactName,
     ca.idCanal, r.idRolContacto AS idRolContactoDeclara,
     DATEFROMPARTS(t.anio, t.mes, 1) AS mesCohorte, t.fechaHora AS fechaNecesidad,
     vinculacion.fechaHora AS fechaVinculacionLograda, h.M6, h.M7
 FROM ${martTable('HechoVinculacionEconomica')} AS h
+INNER JOIN ${martTable('DimCaso')} AS caso ON caso.KeyCaso = h.KeyCaso
 INNER JOIN ${martTable('DimContacto')} AS c ON c.KeyContacto = h.KeyContacto
 INNER JOIN ${martTable('DimTiempo')} AS t ON t.KeyTiempo = h.KeyTiempo
 INNER JOIN ${martTable('DimCanal')} AS ca ON ca.KeyCanal = h.KeyCanal
@@ -54,9 +56,10 @@ export function listProposals(db) {
   return rows(
     db,
     `
-SELECT h.KeyPropuesta AS idPropuesta, h.KeyCaso AS idCaso, ca.idCanal, p.idPlan,
+SELECT caso.idCaso, ca.idCanal, p.idPlan,
     t.fechaHora AS fechaEntrega, aceptacion.fechaHora AS fechaAceptacionExpresa, h.M8, h.M9
 FROM ${martTable('HechoPropuestaComercial')} AS h
+INNER JOIN ${martTable('DimCaso')} AS caso ON caso.KeyCaso = h.KeyCaso
 INNER JOIN ${martTable('DimTiempo')} AS t ON t.KeyTiempo = h.KeyTiempo
 INNER JOIN ${martTable('DimCanal')} AS ca ON ca.KeyCanal = h.KeyCanal
 INNER JOIN ${martTable('DimPlan')} AS p ON p.KeyPlan = h.KeyPlan
@@ -67,12 +70,13 @@ export function listConversion(db) {
   return rows(
     db,
     `
-SELECT h.KeyCaso AS idCaso, c.idContacto AS idContactoPrimeraAlta, c.nombreCompleto AS contactName,
+SELECT caso.idCaso, c.idContacto AS idContactoPrimeraAlta, c.nombreCompleto AS contactName,
     r.idRolContacto AS idRolContactoPrimeraAlta, p.idPrioridad,
     t.fechaHora AS fechaPrimeraAlta, pago.fechaHora AS fechaPagoConfirmado,
     validacion.fechaHora AS fechaValidacionContractual, reembolso.fechaHora AS fechaReembolsoInvalidante,
     beca.fechaHora AS fechaBecaCompleta, h.M10, h.M11
 FROM ${martTable('HechoConversionPagada')} AS h
+INNER JOIN ${martTable('DimCaso')} AS caso ON caso.KeyCaso = h.KeyCaso
 INNER JOIN ${martTable('DimContacto')} AS c ON c.KeyContacto = h.KeyContacto
 INNER JOIN ${martTable('DimTiempo')} AS t ON t.KeyTiempo = h.KeyTiempo
 INNER JOIN ${martTable('DimRolContacto')} AS r ON r.KeyRolContacto = h.KeyRolContacto

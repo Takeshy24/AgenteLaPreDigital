@@ -55,3 +55,13 @@ CREATE TABLE dbo.DimPrioridad (
     idPrioridad TINYINT NOT NULL UNIQUE,
     nombre NVARCHAR(50) NOT NULL
 );
+
+GO
+
+CREATE TABLE dbo.DimCaso (
+    KeyCaso INT IDENTITY(1, 1) NOT NULL PRIMARY KEY,
+    idCaso BIGINT NOT NULL UNIQUE,
+    beneficiario NVARCHAR(150) NOT NULL,
+    estado NVARCHAR(50) NOT NULL,
+    motivoCierre NVARCHAR(80) NULL
+);

@@ -140,3 +140,25 @@ export async function saveObjection(db, { id, type, text, messageId }) {
     { id, type, text: String(text).slice(0, 500), messageId },
   );
 }
+// Necesidad de vinculación del caso que todavía no tiene invitación: el agente sigue reuniendo los
+// datos del responsable desde el mensaje en que se declaró (F4).
+export async function pendingGuardianNeed(db, caseId) {
+  return (
+    await query(
+      db,
+      `SELECT TOP 1 n.idNecesidad id, n.idMensajeEvidencia messageId FROM dbo.NecesidadVinculacion n
+    WHERE n.idCaso=@caseId AND NOT EXISTS (SELECT 1 FROM dbo.InvitacionVinculacion i WHERE i.idNecesidad=n.idNecesidad)
+    ORDER BY n.idNecesidad DESC`,
+      { caseId },
+    )
+  ).recordset[0];
+}
+export async function incomingSince(db, id, messageId) {
+  return (
+    await query(
+      db,
+      'SELECT textoMensaje text FROM dbo.Mensaje WHERE idLeadCaso=@id AND idDireccion=1 AND idMensaje>=@messageId ORDER BY idMensaje',
+      { id, messageId },
+    )
+  ).recordset.map((row) => row.text);
+}

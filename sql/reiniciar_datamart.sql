@@ -45,3 +45,5 @@ DROP TABLE IF EXISTS dbo.DimRolContacto;
 DROP TABLE IF EXISTS dbo.DimPlan;
 
 DROP TABLE IF EXISTS dbo.DimPrioridad;
+
+DROP TABLE IF EXISTS dbo.DimCaso;

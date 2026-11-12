@@ -230,3 +230,9 @@
   font-size: 14px;
   line-height: 1.5;
 }
+.public-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: -4px 0 4px 28px;
+}

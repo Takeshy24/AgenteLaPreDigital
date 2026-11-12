@@ -5,6 +5,7 @@ GO
 CREATE OR ALTER VIEW dbo.v_ContactoInicial AS
 SELECT
     lc.idLeadCaso,
+    lc.idCaso,
     l.idContacto,
     canal.idCanal,
     lc.idRolContacto,
@@ -52,6 +53,7 @@ WHERE
     lc.fechaInicioElegibilidad IS NOT NULL
 GROUP BY
     lc.idLeadCaso,
+    lc.idCaso,
     l.idContacto,
     canal.idCanal,
     lc.idRolContacto,
@@ -355,9 +357,9 @@ DELETE FROM LaPreDigital_DataMart.dbo.HechoContactoInicial;
 
 INSERT INTO
     LaPreDigital_DataMart.dbo.HechoContactoInicial (
-        KeyParticipacion,
-        KeyTiempo,
+        KeyCaso,
         KeyContacto,
+        KeyTiempo,
         KeyCanal,
         KeyRolContacto,
         KeyTiempoPrimeraEntrega,
@@ -367,9 +369,9 @@ INSERT INTO
         M3
     )
 SELECT
-    v.idLeadCaso,
-    dt.KeyTiempo,
+    dcs.KeyCaso,
     dc.KeyContacto,
+    dt.KeyTiempo,
     dca.KeyCanal,
     dr.KeyRolContacto,
     de.KeyTiempo,
@@ -386,6 +388,7 @@ SELECT
     END
 FROM
     LaPreDigital_DataMart.dbo.v_ContactoInicial AS v
+    INNER JOIN LaPreDigital_DataMart.dbo.DimCaso AS dcs ON dcs.idCaso = v.idCaso
     INNER JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dt ON dt.fechaHora = v.fechaInicioElegibilidad
     INNER JOIN LaPreDigital_DataMart.dbo.DimContacto AS dc ON dc.idContacto = v.idContacto
     INNER JOIN LaPreDigital_DataMart.dbo.DimRolContacto AS dr ON dr.idRolContacto = v.idRolContacto
@@ -405,7 +408,6 @@ DELETE FROM LaPreDigital_DataMart.dbo.HechoAmpliacionPerfil;
 
 INSERT INTO
     LaPreDigital_DataMart.dbo.HechoAmpliacionPerfil (
-        KeyPregunta,
         KeyTiempo,
         KeyContacto,
         KeyCanal,
@@ -415,7 +417,6 @@ INSERT INTO
         M5
     )
 SELECT
-    v.idPregunta,
     dt.KeyTiempo,
     dc.KeyContacto,
     dca.KeyCanal,
@@ -427,7 +428,21 @@ SELECT
         ELSE 0
     END
 FROM
-    LaPreDigital_DataMart.dbo.v_PerfilAmpliado AS v
+    (
+        SELECT
+            idContacto,
+            fechaPreguntaEntregada,
+            idCanal,
+            idRolContacto,
+            MIN(fechaDatoRegistrado) AS fechaDatoRegistrado
+        FROM
+            LaPreDigital_DataMart.dbo.v_PerfilAmpliado
+        GROUP BY
+            idContacto,
+            fechaPreguntaEntregada,
+            idCanal,
+            idRolContacto
+    ) AS v
     INNER JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dt ON dt.fechaHora = v.fechaPreguntaEntregada
     INNER JOIN LaPreDigital_DataMart.dbo.DimContacto AS dc ON dc.idContacto = v.idContacto
     INNER JOIN LaPreDigital_DataMart.dbo.DimCanal AS dca ON dca.idCanal = v.idCanal
@@ -456,7 +471,7 @@ INSERT INTO
         M7
     )
 SELECT
-    n.idCaso,
+    dcs.KeyCaso,
     dt.KeyTiempo,
     dc.KeyContacto,
     dca.KeyCanal,
@@ -469,6 +484,7 @@ SELECT
     END
 FROM
     LaPreDigital_DataMart.dbo.v_NecesidadesNuevas AS n
+    INNER JOIN LaPreDigital_DataMart.dbo.DimCaso AS dcs ON dcs.idCaso = n.idCaso
     INNER JOIN LaPreDigital_OLTP.dbo.LeadCaso AS lc ON lc.idLeadCaso = n.idLeadCasoDeclara
     INNER JOIN LaPreDigital_OLTP.dbo.Lead AS l ON l.idLead = lc.idLead
     INNER JOIN LaPreDigital_OLTP.dbo.Mensaje AS m ON m.idMensaje = n.idMensajeEvidencia
@@ -508,7 +524,6 @@ DELETE FROM LaPreDigital_DataMart.dbo.HechoPropuestaComercial;
 
 INSERT INTO
     LaPreDigital_DataMart.dbo.HechoPropuestaComercial (
-        KeyPropuesta,
         KeyCaso,
         KeyTiempo,
         KeyCanal,
@@ -518,27 +533,46 @@ INSERT INTO
         M9
     )
 SELECT
-    p.idPropuesta,
-    p.idCaso,
+    dcs.KeyCaso,
     dt.KeyTiempo,
     dca.KeyCanal,
     dp.KeyPlan,
     da.KeyTiempo,
     1,
     CASE
-        WHEN a.fechaAceptacionExpresa BETWEEN m.fechaEntrega AND DATEADD(HOUR, 168, m.fechaEntrega) THEN 1
+        WHEN e.fechaAceptacionEnVentana IS NOT NULL THEN 1
         ELSE 0
     END
 FROM
-    LaPreDigital_OLTP.dbo.PropuestaComercial AS p
-    INNER JOIN LaPreDigital_OLTP.dbo.Mensaje AS m ON m.idMensaje = p.idMensajeEntrega
-    AND m.idEstadoEntrega = 2
-    INNER JOIN LaPreDigital_OLTP.dbo.PlanTarifa AS t ON t.idPlanTarifa = p.idPlanTarifa
-    INNER JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dt ON dt.fechaHora = m.fechaEntrega
-    INNER JOIN LaPreDigital_DataMart.dbo.DimCanal AS dca ON dca.idCanal = m.idCanal
-    INNER JOIN LaPreDigital_DataMart.dbo.DimPlan AS dp ON dp.idPlan = t.idPlan
-    LEFT JOIN LaPreDigital_DataMart.dbo.v_AceptacionesPropuesta AS a ON a.idPropuesta = p.idPropuesta
-    LEFT JOIN LaPreDigital_DataMart.dbo.DimTiempo AS da ON da.fechaHora = a.fechaAceptacionExpresa;
+    (
+        SELECT
+            p.idCaso,
+            m.fechaEntrega,
+            m.idCanal,
+            t.idPlan,
+            MIN(a.fechaAceptacionExpresa) AS fechaAceptacion,
+            MIN(
+                CASE
+                    WHEN a.fechaAceptacionExpresa BETWEEN m.fechaEntrega AND DATEADD(HOUR, 168, m.fechaEntrega) THEN a.fechaAceptacionExpresa
+                END
+            ) AS fechaAceptacionEnVentana
+        FROM
+            LaPreDigital_OLTP.dbo.PropuestaComercial AS p
+            INNER JOIN LaPreDigital_OLTP.dbo.Mensaje AS m ON m.idMensaje = p.idMensajeEntrega
+            AND m.idEstadoEntrega = 2
+            INNER JOIN LaPreDigital_OLTP.dbo.PlanTarifa AS t ON t.idPlanTarifa = p.idPlanTarifa
+            LEFT JOIN LaPreDigital_DataMart.dbo.v_AceptacionesPropuesta AS a ON a.idPropuesta = p.idPropuesta
+        GROUP BY
+            p.idCaso,
+            m.fechaEntrega,
+            m.idCanal,
+            t.idPlan
+    ) AS e
+    INNER JOIN LaPreDigital_DataMart.dbo.DimCaso AS dcs ON dcs.idCaso = e.idCaso
+    INNER JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dt ON dt.fechaHora = e.fechaEntrega
+    INNER JOIN LaPreDigital_DataMart.dbo.DimCanal AS dca ON dca.idCanal = e.idCanal
+    INNER JOIN LaPreDigital_DataMart.dbo.DimPlan AS dp ON dp.idPlan = e.idPlan
+    LEFT JOIN LaPreDigital_DataMart.dbo.DimTiempo AS da ON da.fechaHora = COALESCE(e.fechaAceptacionEnVentana, e.fechaAceptacion);
 
 COMMIT TRANSACTION;
 
@@ -565,7 +599,7 @@ INSERT INTO
         M11
     )
 SELECT
-    v.idCaso,
+    dcs.KeyCaso,
     dt.KeyTiempo,
     dc.KeyContacto,
     dr.KeyRolContacto,
@@ -588,6 +622,7 @@ SELECT
     END
 FROM
     LaPreDigital_DataMart.dbo.v_ConversionPagada AS v
+    INNER JOIN LaPreDigital_DataMart.dbo.DimCaso AS dcs ON dcs.idCaso = v.idCaso
     INNER JOIN LaPreDigital_DataMart.dbo.DimTiempo AS dt ON dt.fechaHora = v.fechaPrimeraAlta
     INNER JOIN LaPreDigital_DataMart.dbo.DimContacto AS dc ON dc.idContacto = v.idContacto
     INNER JOIN LaPreDigital_DataMart.dbo.DimRolContacto AS dr ON dr.idRolContacto = v.idRolContacto

@@ -84,3 +84,27 @@ test('preguntas de pago son Compra y el contexto resuelve «sí, el mensual»', 
   const yes = applyIntentRules(base(), 'sí, el mensual', tariffs, context);
   assert.deepEqual([yes.action, yes.tariffId, yes.level], ['proposal', 2, 3]);
 });
+
+test('datos del responsable en texto libre: sin +51, en minúsculas, por partes y otros familiares', async () => {
+  const { guardianParts, guardianFrom } = await import('../agent/intents.mjs');
+  assert.deepEqual(guardianParts('Se llama Rosa Díaz Pérez y su celular es 987654321'), {
+    name: 'Rosa Díaz Pérez',
+    phone: '+51987654321',
+    role: null,
+  });
+  assert.deepEqual(guardianParts('se llama rosa diaz, cel 987654321').name, 'Rosa Diaz');
+  assert.deepEqual(
+    guardianParts('Mi tía Carmen López es la que me paga, su número es 999 888 777'),
+    { name: 'Carmen López', phone: '+51999888777', role: 4 },
+  );
+  assert.equal(
+    guardianParts('Mi mamá María de los Ángeles Torres, 51987654321').name,
+    'María de los Ángeles Torres',
+  );
+  assert.deepEqual(
+    guardianFrom(['Mi papá es el que decide', 'Se llama Carlos Ruiz', 'Su número es 912 345 678']),
+    { name: 'Carlos Ruiz', phone: '+51912345678', role: 2 },
+  );
+  for (const text of ['Tengo 80 soles al mes', 'Mi hija se llama Carolina', 'Quiero Meta UNT'])
+    assert.deepEqual(guardianParts(text), { name: null, phone: null, role: null }, text);
+});

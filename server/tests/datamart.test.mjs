@@ -39,6 +39,7 @@ test('seed OLTP → ETL → indicadores del DataMart: ventanas, conteos únicos,
         'DimRolContacto',
         'DimPlan',
         'DimPrioridad',
+        'DimCaso',
       ];
       for (const table of [...factTables, ...dimensionTables])
         await query(db, `DELETE FROM ${martTable(table)}`);
@@ -64,7 +65,7 @@ INNER JOIN LaPreDigital_DataMart_test.sys.columns AS c ON c.object_id = t.object
 WHERE c.is_identity = 1 AND t.name LIKE N'Dim%'`,
         )
       ).recordset;
-      assert.equal(identities.length, 6, 'Cada dimensión tiene una Key surrogate IDENTITY');
+      assert.equal(identities.length, 7, 'Cada dimensión tiene una Key surrogate IDENTITY');
       assert.ok(identities.every((column) => column.columna.startsWith('Key')));
       const factColumns = (
         await query(
@@ -87,7 +88,7 @@ INNER JOIN LaPreDigital_DataMart_test.sys.columns AS pc ON pc.object_id = fk.par
 INNER JOIN LaPreDigital_DataMart_test.sys.columns AS rc ON rc.object_id = fk.referenced_object_id AND rc.column_id = fk.referenced_column_id`,
         )
       ).recordset;
-      assert.equal(relations.length, 28);
+      assert.equal(relations.length, 32);
       assert.ok(
         relations.every(
           (relation) => relation.origen.startsWith('Key') && relation.destino.startsWith('Key'),

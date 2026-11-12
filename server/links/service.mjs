@@ -31,16 +31,20 @@ export async function acceptGuardian(code, data) {
       throw new BusinessError('El caso de esta invitación está cerrado.');
     if (!data.contactConsent || !data.linkConsent)
       throw new BusinessError('Se necesitan ambas autorizaciones expresas.');
-    const participant = await createLead({
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      role: invitation.idRolInvitado,
-      beneficiaryId: invitation.idBeneficiario,
-      channel: null,
-      communicationChannel: data.channel,
-      consent: true,
-    });
+    const channels = data.channels?.length ? data.channels : [data.channel];
+    const participant = await createLead(
+      {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        role: invitation.idRolInvitado,
+        beneficiaryId: invitation.idBeneficiario,
+        channel: null,
+        communicationChannel: channels[0],
+        consent: true,
+      },
+      { channels },
+    );
     const context = await getParticipation(db, participant.id);
     if (context.idCaso !== invitation.idCaso)
       throw new BusinessError('La negociación cambió durante la vinculación.');

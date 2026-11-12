@@ -8,8 +8,8 @@ const reason = (done, windowEnd, now, closed) =>
 
 export function initialRows(records, now) {
   return records.map((h) => ({
-    unitKey: String(h.idLeadCaso),
-    unitLabel: `Participación #${h.idLeadCaso}`,
+    unitKey: `${h.idCaso}|${h.idContacto}`,
+    unitLabel: `${h.contactName} · Caso #${h.idCaso}`,
     originAt: h.fechaInicioElegibilidad,
     contactId: h.idContacto,
     contactName: h.contactName,

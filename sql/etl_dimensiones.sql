@@ -193,3 +193,40 @@ INSERT
     (idPrioridad, nombre)
 VALUES
     (oltp.idPrioridad, oltp.nombre);
+
+GO
+
+MERGE INTO
+    LaPreDigital_DataMart.dbo.DimCaso AS dim USING (
+        SELECT
+            c.idCaso,
+            b.nombreCompleto AS beneficiario,
+            e.nombre AS estado,
+            m.nombre AS motivoCierre
+        FROM
+            LaPreDigital_OLTP.dbo.Caso AS c
+            INNER JOIN LaPreDigital_OLTP.dbo.Beneficiario AS b ON b.idBeneficiario = c.idBeneficiario
+            INNER JOIN LaPreDigital_OLTP.dbo.Cat_EstadoCaso AS e ON e.id = c.idEstadoCaso
+            LEFT JOIN LaPreDigital_OLTP.dbo.Cat_MotivoCierreCaso AS m ON m.id = c.idMotivoCierre
+    ) AS oltp ON oltp.idCaso = dim.idCaso
+WHEN MATCHED
+AND (
+    dim.beneficiario <> oltp.beneficiario
+    OR dim.estado <> oltp.estado
+    OR ISNULL(dim.motivoCierre, N'') <> ISNULL(oltp.motivoCierre, N'')
+) THEN
+UPDATE
+SET
+    beneficiario = oltp.beneficiario,
+    estado = oltp.estado,
+    motivoCierre = oltp.motivoCierre
+WHEN NOT MATCHED THEN
+INSERT
+    (idCaso, beneficiario, estado, motivoCierre)
+VALUES
+    (
+        oltp.idCaso,
+        oltp.beneficiario,
+        oltp.estado,
+        oltp.motivoCierre
+    );

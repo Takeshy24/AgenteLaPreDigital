@@ -399,9 +399,9 @@ FROM
   dbo.Mensaje m
 WITH
   (UPDLOCK, HOLDLOCK)
-  JOIN dbo.LeadCaso lc ON lc.idLeadCaso = m.idLeadCaso
-  JOIN dbo.Lead l ON l.idLead = lc.idLead
-  JOIN dbo.Caso c ON c.idCaso = lc.idCaso
+  LEFT JOIN dbo.LeadCaso lc ON lc.idLeadCaso = m.idLeadCaso
+  LEFT JOIN dbo.Lead l ON l.idLead = lc.idLead
+  LEFT JOIN dbo.Caso c ON c.idCaso = lc.idCaso
   LEFT JOIN dbo.App_TelegramChat tc ON tc.idContacto = m.idContacto
   JOIN dbo.Contacto ct ON ct.idContacto = m.idContacto
 WHERE

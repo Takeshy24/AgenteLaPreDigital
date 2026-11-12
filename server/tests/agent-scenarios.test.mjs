@@ -232,3 +232,169 @@ test('necesidades académicas por texto libre: cursos, postulación y puntaje; p
     await close();
   }
 });
+
+test('responsable económico por partes: pide lo que falta y envía el enlace con WhatsApp listo', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const { say, lead } = await scenario(db);
+      const first = await say('Mi papá es el que decide');
+      assert.match(
+        first.reply.text,
+        /incluir a tu papá.*su nombre completo y su número de celular/,
+      );
+      const second = await say('Se llama Carlos Ruiz');
+      assert.match(second.reply.text, /solo me falta su número de celular/);
+      const third = await say('Su número es 912 345 678');
+      assert.match(third.reply.text, /Preparé la invitación para Carlos Ruiz/);
+      assert.match(third.reply.text, /https:\/\/wa\.me\/51912345678\?text=Hola%20Carlos/);
+      assert.match(third.reply.text, /\/invitacion\/[0-9a-f-]{36}/);
+      const invitation = (
+        await query(
+          db,
+          `SELECT i.nombreInvitado nombre, i.telefonoInvitado tel, i.idRolInvitado rol
+          FROM dbo.InvitacionVinculacion i JOIN dbo.NecesidadVinculacion n ON n.idNecesidad=i.idNecesidad
+          JOIN dbo.LeadCaso lc ON lc.idCaso=n.idCaso WHERE lc.idLeadCaso=@id`,
+          { id: lead.id },
+        )
+      ).recordset;
+      assert.deepEqual(invitation, [{ nombre: 'Carlos Ruiz', tel: '+51912345678', rol: 2 }]);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('invitación directa al responsable ya registrado: Telegram, WhatsApp en 24 h, correo y respaldo', async () => {
+  const { deliverDirectInvitation, findDirectTarget } = await import('../links/direct.mjs');
+  const { acceptPublicInvitation, viewInvitation } = await import('../public/invitations.mjs');
+  const { saveConsent } = await import('../consents/service.mjs');
+  process.env.TELEGRAM_ENABLED = 'true';
+  process.env.TELEGRAM_BOT_TOKEN ||= 'token-de-prueba';
+  process.env.WHATSAPP_ENABLED = 'true';
+  const mother = async (db, channel) => {
+    const email = `rosa-${randomUUID()}@example.test`;
+    const lead = await createLead({
+      name: `Rosa Díaz ${randomUUID().slice(0, 6)}`,
+      email,
+      phone: '+51987654321',
+      role: 3,
+      beneficiaryName: `Juan ${randomUUID().slice(0, 6)}`,
+      channel: 1,
+      communicationChannel: channel,
+      consent: true,
+    });
+    const contact = (
+      await query(db, 'SELECT idContacto FROM dbo.Contacto WHERE correo=@email', { email })
+    ).recordset[0].idContacto;
+    return { lead, contact };
+  };
+  const lastTo = async (db, contact) =>
+    (
+      await query(
+        db,
+        'SELECT TOP 1 idMensaje id, idCanal canal, idEstadoEntrega estado, idLeadCaso, textoMensaje text FROM dbo.Mensaje WHERE idContacto=@contact AND idDireccion=2 ORDER BY idMensaje DESC',
+        { contact },
+      )
+    ).recordset[0];
+  try {
+    // Telegram: la madre ya inició el bot y autorizó Telegram.
+    await rollbackTest(async (db) => {
+      const rosa = await mother(db, 2);
+      await query(
+        db,
+        "UPDATE dbo.Contacto SET inicioBotTelegram=1, usuarioTelegram=N'rosa' WHERE idContacto=@c; INSERT dbo.App_TelegramChat(idContacto,chatId) VALUES(@c,@chat)",
+        { c: rosa.contact, chat: `r-${randomUUID().slice(0, 12)}` },
+      );
+      await query(
+        db,
+        'UPDATE dbo.AutorizacionContacto SET fechaOtorgamiento=DATEADD(DAY,-2,fechaOtorgamiento) WHERE idContacto=@c',
+        { c: rosa.contact },
+      );
+      await saveConsent(rosa.lead.id, { channel: 3, granted: true, version: 'test' });
+      await query(db, 'DELETE dbo.AutorizacionContacto WHERE idContacto=@c AND idCanal=2', {
+        c: rosa.contact,
+      });
+      const { say, lead } = await scenario(db);
+      const reply = await say('Mi mamá se llama Rosa Díaz, su número es 987654321');
+      assert.match(reply.reply.text, /le envié la invitación directamente por Telegram/);
+      const sent = await lastTo(db, rosa.contact);
+      assert.deepEqual([sent.canal, sent.estado, sent.idLeadCaso], [3, 1, null]);
+      assert.match(sent.text, /Escenario .* indicó que eres su mamá.*\/invitacion\//s);
+      const calls = [];
+      await dispatchMessage(sent.id, {
+        call: async (method, data) => {
+          calls.push({ method, data });
+          return { message_id: 77 };
+        },
+      });
+      assert.equal(calls[0].method, 'sendMessage');
+      assert.match(calls[0].data.text, /\/invitacion\//);
+      assert.equal((await lastTo(db, rosa.contact)).estado, 2, 'Telegram confirmó la entrega');
+      const code = sent.text.match(/\/invitacion\/([0-9a-f-]{36})/)[1];
+      assert.equal((await viewInvitation(code)).known, true);
+      await acceptPublicInvitation(code, {
+        name: 'Rosa',
+        channels: [3],
+        contactConsent: true,
+        linkConsent: true,
+      });
+      const linked = (
+        await query(
+          db,
+          'SELECT COUNT(*) n FROM dbo.LeadCaso lc JOIN dbo.Lead l ON l.idLead=lc.idLead JOIN dbo.LeadCaso est ON est.idCaso=lc.idCaso WHERE est.idLeadCaso=@id AND l.idContacto=@c',
+          { id: lead.id, c: rosa.contact },
+        )
+      ).recordset[0].n;
+      assert.equal(linked, 1, 'La madre registrada se une al caso sin crear otro contacto');
+    });
+    // WhatsApp: autorizó WhatsApp y escribió en las últimas 24 horas.
+    await rollbackTest(async (db) => {
+      const rosa = await mother(db, 1);
+      await query(
+        db,
+        "INSERT dbo.Mensaje(idContacto,idLead,idLeadCaso,idDireccion,idCanal,textoMensaje) VALUES(@c,(SELECT idLead FROM dbo.LeadCaso WHERE idLeadCaso=@id),@id,1,1,N'Hola')",
+        { c: rosa.contact, id: rosa.lead.id },
+      );
+      const { say } = await scenario(db);
+      const reply = await say('Mi mamá se llama Rosa Díaz, su número es 987654321');
+      assert.match(reply.reply.text, /directamente por WhatsApp/);
+      assert.equal((await lastTo(db, rosa.contact)).canal, 1);
+    });
+    // WhatsApp fuera de las 24 horas y sin otro canal: se usa el enlace para reenviar.
+    await rollbackTest(async (db) => {
+      await mother(db, 1);
+      const { say } = await scenario(db);
+      const reply = await say('Mi mamá se llama Rosa Díaz, su número es 987654321');
+      assert.match(reply.reply.text, /wa\.me\/51987654321/);
+      assert.doesNotMatch(reply.reply.text, /directamente/);
+    });
+    // Correo: se envía y queda entregado.
+    await rollbackTest(async (db) => {
+      const rosa = await mother(db, 2);
+      const target = await findDirectTarget(db, '+51987654321', -1);
+      const student = await scenario(db);
+      const asked = await recordIncoming(student.lead.id, {
+        text: 'Mi mamá paga',
+        channel: 3,
+        level: 1,
+      });
+      const sent = [];
+      const result = await deliverDirectInvitation(
+        db,
+        {
+          target,
+          text: 'Hola Rosa, revisa la invitación: https://x/invitacion/abc',
+          replyTo: asked.id,
+          email: { subject: 'Invitación', text: 'Hola', html: '<p>Hola</p>' },
+        },
+        { mailer: async (mail) => sent.push(mail) },
+      );
+      assert.deepEqual(result, { channel: 2 });
+      assert.equal(sent[0].subject, 'Invitación');
+      const row = await lastTo(db, rosa.contact);
+      assert.deepEqual([row.canal, row.estado], [2, 2]);
+    });
+  } finally {
+    await close();
+  }
+});

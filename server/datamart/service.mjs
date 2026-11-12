@@ -9,6 +9,7 @@ const tables = [
   'DimRolContacto',
   'DimPlan',
   'DimPrioridad',
+  'DimCaso',
   'HechoContactoInicial',
   'HechoAmpliacionPerfil',
   'HechoVinculacionEconomica',
@@ -86,6 +87,7 @@ WHERE t.schema_id = 1`,
     DimRolContacto: 'KeyRolContacto',
     DimPlan: 'KeyPlan',
     DimPrioridad: 'KeyPrioridad',
+    DimCaso: 'KeyCaso',
   };
   const invalidDimension = Object.entries(dimensionKeys).some(
     ([table, key]) =>

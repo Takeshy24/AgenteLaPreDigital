@@ -65,8 +65,17 @@ export function registerRoutes(app) {
       const data = z
         .object({
           name: z.string().trim().min(2).max(150),
-          email: z.email().max(254),
-          phone: z.string().regex(/^\+[0-9 ]{7,19}$/),
+          email: z.email().max(254).optional(),
+          phone: z
+            .string()
+            .refine((value) => normalizePhone(value) !== null, { message: 'Teléfono no válido' })
+            .transform(normalizePhone)
+            .optional(),
+          channels: z
+            .array(z.union([z.literal(1), z.literal(2), z.literal(3)]))
+            .min(1)
+            .max(3)
+            .optional(),
           contactConsent: z.literal(true),
           linkConsent: z.literal(true),
         })

@@ -166,28 +166,104 @@ export const isRetraction = (text) => RETRACTION.test(words(text));
 export const needsGuardianText = (text) => GUARDIAN.test(words(text));
 const isQuestion = (text) => /[?¿]/.test(text) || QUESTION_START.test(words(text));
 
-// Datos del responsable escritos en un mensaje: nombre (tras «se llama»), relación y teléfono +51.
+// Datos del responsable económico (F4) en texto libre: relación, nombre y celular. Cada mensaje puede
+// traer solo una parte; guardianFrom une las partes de varios mensajes.
+const RELATION_ROLE = [
+  [3, /\b(mama|mami|madre)\b/],
+  [2, /\b(papa|papi|padre)\b/],
+  [
+    4,
+    /\b(apoderado|apoderada|tutor|tutora|tio|tia|abuelo|abuela|hermano|hermana|padrino|madrina|primo|prima)\b/,
+  ],
+];
+const RELATION_WORD =
+  '(?:mam[aá]|mami|madre|pap[aá]|papi|padre|apoderad[oa]|tutora?|t[ií][oa]|abuel[oa]|herman[oa]|padrino|madrina|prim[oa])';
+const NAME_STOP = new Set([
+  'y',
+  'su',
+  'sus',
+  'cel',
+  'celular',
+  'numero',
+  'número',
+  'telefono',
+  'teléfono',
+  'whatsapp',
+  'es',
+  'el',
+  'la',
+  'que',
+  'quien',
+  'quién',
+  'con',
+  'al',
+  'paga',
+  'pagara',
+  'pagará',
+  'decide',
+  'me',
+  'mi',
+  'nro',
+  'tel',
+  'fono',
+  'correo',
+  'ella',
+  'él',
+  'el',
+]);
+const CONNECTORS = new Set(['de', 'del', 'los', 'las']);
+const titleCase = (value) =>
+  value
+    .split(' ')
+    .map((word) => (CONNECTORS.has(word) ? word : word[0].toUpperCase() + word.slice(1)))
+    .join(' ');
+function nameAfter(text, index) {
+  const tokens = text.slice(index).split(/\s+/);
+  const name = [];
+  for (const raw of tokens) {
+    const token = raw.replace(/[.,;:!?()]+$/g, '');
+    const clean = token.toLocaleLowerCase('es');
+    if (!/^[a-záéíóúñü]+$/i.test(token) || NAME_STOP.has(clean)) break;
+    name.push(clean);
+    if (/[.,;:!?]$/.test(raw) || name.length === 6) break;
+  }
+  while (name.length && CONNECTORS.has(name.at(-1))) name.pop();
+  return name.filter((word) => !CONNECTORS.has(word)).length >= 2
+    ? titleCase(name.join(' '))
+    : null;
+}
+export function guardianParts(text) {
+  const plain = words(text);
+  const role = RELATION_ROLE.find(([, pattern]) => pattern.test(plain))?.[0] ?? null;
+  const phoneMatch = /(?:\+\s?\d{1,3}[\s-]*)?(?:\d[\s-]*){8,11}\d/.exec(text);
+  let phone = null;
+  if (phoneMatch) {
+    const digits = phoneMatch[0].replace(/[^0-9]/g, '');
+    if (phoneMatch[0].trim().startsWith('+')) phone = '+' + digits;
+    else if (/^9\d{8}$/.test(digits)) phone = '+51' + digits;
+    else if (/^519\d{8}$/.test(digits)) phone = '+' + digits;
+  }
+  let name = null;
+  const called = /(?:se\s+llama|su\s+nombre\s+es|nombre\s*:|llamad[oa])\s+/i.exec(text);
+  if (called) name = nameAfter(text, called.index + called[0].length);
+  if (!name) {
+    const relation = new RegExp(`\\b${RELATION_WORD}\\s+(?=[A-ZÁÉÍÓÚÑ])`, 'u').exec(text);
+    if (relation) name = nameAfter(text, relation.index + relation[0].length);
+  }
+  return { name, phone, role };
+}
+export function guardianFrom(texts) {
+  const merged = { name: null, phone: null, role: null };
+  for (const text of texts) {
+    const parts = guardianParts(text);
+    for (const key of Object.keys(merged)) if (parts[key]) merged[key] = parts[key];
+  }
+  return merged;
+}
+export const guardianComplete = (parts) => !!(parts.name && parts.phone && parts.role);
 export function extractGuardian(text) {
-  const value = words(text);
-  const role = / (mama|madre) /.test(value)
-    ? 3
-    : / (papa|padre) /.test(value)
-      ? 2
-      : / (apoderado|apoderada|tutor|tutora) /.test(value)
-        ? 4
-        : null;
-  const phone = /\+51[\s-]*9(?:[\s-]*\d){8}/.exec(text)?.[0];
-  const name =
-    /(?:se llama|su nombre es|nombre:)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,3})/.exec(
-      text,
-    )?.[1];
-  if (!role || !phone || !name) return null;
-  return {
-    name,
-    phone: '+51' + phone.replace(/[^0-9]/g, '').slice(-9),
-    role,
-    quote: text.slice(0, 500),
-  };
+  const parts = guardianParts(text);
+  return guardianComplete(parts) ? { ...parts, quote: text.slice(0, 500) } : null;
 }
 
 // Extracción de respaldo de los datos del perfil cuando el modelo no los entrega.
