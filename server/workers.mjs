@@ -7,6 +7,23 @@ import { telegramClient } from './integrations/telegram-client.mjs';
 import { pollTelegram } from './integrations/telegram.mjs';
 import { whatsappClient } from './integrations/whatsapp-client.mjs';
 import { pollWhatsApp } from './integrations/whatsapp.mjs';
+
+export async function runWorkerCycle({ telegram, whatsapp, maintenance, dispatch, reportError }) {
+  for (const [name, task] of [
+    ['Telegram', telegram],
+    ['WhatsApp', whatsapp],
+    ['mantenimiento', maintenance],
+    ['envíos', dispatch],
+  ]) {
+    if (!task) continue;
+    try {
+      await task();
+    } catch (error) {
+      reportError(name, error);
+    }
+  }
+}
+
 export async function startWorkers() {
   const config = integrationConfig();
   const enabled = config.telegram.enabled && !!config.telegram.token;
@@ -61,24 +78,26 @@ SELECT
     : null;
   async function tick() {
     if (stopped) return;
-    running = (async () => {
-      try {
-        if (client) await pollTelegram(client);
-        if (whatsapp) await pollWhatsApp(whatsapp);
-        if (Date.now() - lastReview >= config.followup.interval) {
-          if (config.followup.enabled)
-            await reviewFollowup({
-              canSend: (channel) =>
-                (enabled && channel === 3) || (whatsappEnabled && channel === 1),
-            });
-          else await reviewMaintenance();
-          lastReview = Date.now();
-        }
-        if (client || whatsapp) await dispatchPending(client, { whatsapp });
-      } catch (error) {
-        if (!stopped) console.error('Integraciones:', error.message);
-      }
-    })();
+    const reviewDue = Date.now() - lastReview >= config.followup.interval;
+    running = runWorkerCycle({
+      telegram: client ? () => pollTelegram(client) : null,
+      whatsapp: whatsapp ? () => pollWhatsApp(whatsapp) : null,
+      maintenance: reviewDue
+        ? async () => {
+            lastReview = Date.now();
+            if (config.followup.enabled)
+              await reviewFollowup({
+                canSend: (channel) =>
+                  (enabled && channel === 3) || (whatsappEnabled && channel === 1),
+              });
+            else await reviewMaintenance();
+          }
+        : null,
+      dispatch: client || whatsapp ? () => dispatchPending(client, { whatsapp }) : null,
+      reportError: (name, error) => {
+        if (!stopped) console.error(`Integraciones (${name}):`, error.message);
+      },
+    });
     await running;
     if (!stopped) timer = setTimeout(tick, 1000);
   }

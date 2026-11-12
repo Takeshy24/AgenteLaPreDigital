@@ -74,6 +74,10 @@ El cuerpo admite también `telegram: true` (con `channels` vacío basta). Si el 
 
 Cuando el correo ya existe y se pidió Telegram, con SMTP configurado (`server/integrations/mailer.mjs`, nodemailer) el enlace con código se envía a ese correo y la respuesta no lo incluye; se envía una sola vez mientras el enlace anterior siga vigente (10 minutos) y un fallo de envío se registra sin cambiar la respuesta. Sin SMTP, la respuesta incluye el enlace del bot sin código. `useLink` permite que un enlace válido reemplace al contacto provisional (sin correo, teléfono ni LEADs) de un chat que escribió `/start` sin código; un chat ligado a un contacto con datos nunca se reasigna.
 
+Un contacto nuevo que autoriza Correo y no pide Telegram recibe una confirmación del registro por SMTP. Incluye el enlace público de WhatsApp si está configurado. Se envía después de confirmar la transacción; si SMTP lo acepta, se registra como mensaje por Correo y cumple el primer intento pendiente. Si falla, el registro se conserva y el intento sigue pendiente. No se reenvía al repetir un correo existente. El resto del seguimiento automático continúa limitado a Telegram y WhatsApp.
+
+Las tareas de Telegram, WhatsApp, mantenimiento y despacho registran sus errores de forma independiente: un error de mantenimiento no impide despachar respuestas. Tras modificar archivos del backend, reiniciar `npm run up` o `npm start` para que el proceso cargue el código nuevo; la compilación de Vite no recarga un servidor Node que ya estaba abierto. La retoma de derivaciones usa `OUTPUT INTO` para funcionar con los triggers del monitor.
+
 ## Telegram: conexión local activa
 
 El adaptador usa [Telegram Bot API](https://core.telegram.org/bots/api) con long polling. No requiere publicar la consola ni un webhook. El token local se verificó con `getMe`, el usuario se ajustó al bot devuelto por Telegram y el servidor quedó con `TELEGRAM_ENABLED=true`. Aún falta probar recepción y respuesta con una conversación iniciada por una persona.

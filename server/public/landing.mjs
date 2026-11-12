@@ -54,6 +54,28 @@ export function telegramEmail(url) {
   };
 }
 
+export function registrationEmail() {
+  const link = whatsappUrl();
+  return {
+    subject: 'Recibimos tu registro en LaPreDigital',
+    text: [
+      '¡Hola!',
+      '',
+      'Gracias por tu interés en LaPreDigital. Recibimos tu solicitud y te contactaremos por los canales que autorizaste.',
+      ...(link ? ['', 'Si deseas conversar ahora, puedes escribirnos por WhatsApp:', link] : []),
+      '',
+      'Si no solicitaste este registro, puedes ignorar este correo.',
+      '',
+      'El equipo de LaPreDigital',
+    ].join('\n'),
+    html: `<p>¡Hola!</p>
+<p>Gracias por tu interés en LaPreDigital. Recibimos tu solicitud y te contactaremos por los canales que autorizaste.</p>
+${link ? `<p><a href="${link}">Conversar en WhatsApp</a></p>` : ''}
+<p>Si no solicitaste este registro, puedes ignorar este correo.</p>
+<p>El equipo de LaPreDigital</p>`,
+  };
+}
+
 // Un formulario público no puede vincularse a un correo ya registrado: no prueba que quien
 // escribe sea su dueño y dejaría autorizaciones y LEADs a nombre de otra persona. Se guarda
 // para que el personal comercial revise la identidad, una sola vez por correo y beneficiario.
@@ -103,22 +125,25 @@ async function prepareEmailedLink(db, contact, email, send) {
   if (!send) return { receipt: receipt(botUrl()) };
   if (await hasActiveLink(db, contact)) return { receipt: receipt(null) };
   const url = await telegramLink(db, contact, { consent: true });
-  return { receipt: receipt(null), mail: url ? { to: email, url, contact } : null };
+  return {
+    receipt: receipt(null),
+    mail: url ? { to: email, message: telegramEmail(url), contact } : null,
+  };
 }
 
-async function sendTelegramEmail(send, { to, url, contact }) {
-  const message = telegramEmail(url);
+async function sendLandingEmail(send, { to, message, contact }) {
   try {
     await send({ to, ...message });
   } catch (error) {
-    console.error('No se pudo enviar el correo de verificación:', error.message);
-    return;
+    console.error('No se pudo enviar el correo de registro:', error.message);
+    return false;
   }
   try {
     await recordAutomaticEmail(contact, message.text);
   } catch (error) {
     console.error('No se pudo registrar el correo en la agenda:', error.message);
   }
+  return true;
 }
 
 // options.send: función que envía el correo. null = sin correo configurado.
@@ -148,12 +173,15 @@ export async function registerLanding(data, { send = defaultSender() } = {}) {
       { channels, reviewNameMatches: true },
     );
     const url = data.telegram ? await telegramLink(db, lead.contact, { consent: true }) : null;
-    if (!url) return { receipt: receipt(null) };
+    const message = url ? telegramEmail(url) : channels.includes(2) ? registrationEmail() : null;
     return {
-      receipt: { ...receipt(url), ...(send ? { emailed: true } : {}) },
-      mail: send ? { to: email, url, contact: lead.contact } : null,
+      receipt: receipt(url),
+      mail: send && message ? { to: email, message, contact: lead.contact } : null,
     };
   });
-  if (outcome.mail) await sendTelegramEmail(send, outcome.mail);
+  if (outcome.mail) {
+    const sent = await sendLandingEmail(send, outcome.mail);
+    if (sent && outcome.receipt.telegramUrl) outcome.receipt.emailed = true;
+  }
   return outcome.receipt;
 }

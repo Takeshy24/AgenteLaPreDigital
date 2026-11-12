@@ -7,7 +7,7 @@ import { sendEmail, verifySmtp } from '../integrations/mailer.mjs';
 import { getChat, saveLink, useLink } from '../integrations/repository.mjs';
 import { createLead } from '../leads/service.mjs';
 import { createChatContact } from '../onboarding/repository.mjs';
-import { registerLanding, telegramEmail } from '../public/landing.mjs';
+import { registerLanding, registrationEmail, telegramEmail } from '../public/landing.mjs';
 
 process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
 process.env.WHATSAPP_PUBLIC_NUMBER = ''; // los comprobantes exactos no dependen del .env
@@ -322,6 +322,120 @@ test('landing: un contacto nuevo que pide Telegram recibe el botón y también e
         assert.ok(without.telegramUrl);
       }),
     );
+  } finally {
+    await close();
+  }
+});
+
+test('A1: solo correo recibe confirmación, cumple el primer intento y no duplica el envío', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const form = {
+        name: `Estudiante Solo Correo ${Date.now()}`,
+        email: uniqueEmail('solo-correo'),
+        phone: '+51977000777',
+        role: 1,
+        channels: [2],
+        telegram: false,
+      };
+      const sent = [];
+      const send = async (message) => sent.push(message);
+      assert.deepEqual(await registerLanding(form, { send }), { registered: true });
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].to, form.email);
+      assert.match(sent[0].subject, /registro/);
+      assert.doesNotMatch(sent[0].text, /t\.me|Telegram/);
+      const { recordset } = await query(
+        db,
+        `
+          SELECT lc.idEstadoParticipacion AS state, lc.idPrioridadActual AS priority,
+                 COUNT(i.idIntento) AS attempts, COUNT(i.idMensajeEnvio) AS delivered
+          FROM dbo.Contacto c
+          JOIN dbo.Lead l ON l.idContacto = c.idContacto
+          JOIN dbo.LeadCaso lc ON lc.idLead = l.idLead
+          JOIN dbo.IntentoContacto i ON i.idLeadCaso = lc.idLeadCaso
+          WHERE c.correo = @email
+          GROUP BY lc.idEstadoParticipacion, lc.idPrioridadActual;
+        `,
+        { email: form.email },
+      );
+      assert.deepEqual(recordset, [{ state: 1, priority: 1, attempts: 7, delivered: 1 }]);
+      assert.equal(
+        await count(
+          db,
+          `SELECT COUNT(*) n FROM dbo.Mensaje m
+           JOIN dbo.Contacto c ON c.idContacto = m.idContacto
+           WHERE c.correo = @email AND m.idCanal = 2 AND m.idEstadoEntrega = 2`,
+          { email: form.email },
+        ),
+        1,
+      );
+      await registerLanding(form, { send });
+      assert.equal(sent.length, 1);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('la confirmación usa solo el enlace público y no envía correo sin autorización', async () => {
+  try {
+    await withEnv({ WHATSAPP_PUBLIC_NUMBER: '987654321' }, () =>
+      rollbackTest(async () => {
+        const message = registrationEmail();
+        assert.match(message.text, /https:\/\/wa\.me\/51987654321/);
+        assert.match(message.html, /Conversar en WhatsApp/);
+        let sent = 0;
+        await registerLanding(
+          {
+            name: `Estudiante Solo WhatsApp ${Date.now()}`,
+            email: uniqueEmail('sin-autorizacion-correo'),
+            phone: '+51988000888',
+            role: 1,
+            channels: [1],
+          },
+          { send: async () => sent++ },
+        );
+        assert.equal(sent, 0);
+      }),
+    );
+  } finally {
+    await close();
+  }
+});
+
+test('A1: SMTP fallido conserva el registro y los siete intentos pendientes', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const email = uniqueEmail('confirmacion-falla');
+      const result = await registerLanding(
+        {
+          name: `Estudiante Correo Fallido ${Date.now()}`,
+          email,
+          phone: '+51999000999',
+          role: 1,
+          channels: [2],
+        },
+        {
+          send: async () => {
+            throw new Error('SMTP de prueba no disponible');
+          },
+        },
+      );
+      assert.deepEqual(result, { registered: true });
+      assert.equal(
+        await count(
+          db,
+          `SELECT COUNT(*) n FROM dbo.IntentoContacto i
+           JOIN dbo.LeadCaso lc ON lc.idLeadCaso = i.idLeadCaso
+           JOIN dbo.Lead l ON l.idLead = lc.idLead
+           JOIN dbo.Contacto c ON c.idContacto = l.idContacto
+           WHERE c.correo = @email AND i.idMensajeEnvio IS NULL AND i.omitido = 0`,
+          { email },
+        ),
+        7,
+      );
+    });
   } finally {
     await close();
   }
