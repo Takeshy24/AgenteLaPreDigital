@@ -8,6 +8,7 @@ import { whatsappPayload } from './whatsapp-payload.mjs';
 import { getPayload } from '../access/repository.mjs';
 import { openMessage } from '../access/crypto.mjs';
 import { getWhatsAppRecipient } from './whatsapp-repository.mjs';
+import { welcomeApproved } from './welcome-approval.mjs';
 import {
   INVITATION_IMPEDIMENTS,
   invitationDeliveryImpediment,
@@ -20,11 +21,19 @@ function telegramMarkup(stored) {
   if (markup.inline && markup.inline_keyboard) return { inline_keyboard: markup.inline_keyboard };
   return markup.inline_keyboard || markup.remove_keyboard ? replyMarkup(markup) : null;
 }
-export async function dispatchMessage(id, client, { whatsapp = null, mail = null } = {}) {
+export async function dispatchMessage(
+  id,
+  client,
+  { whatsapp = null, mail = null, welcomeReady } = {},
+) {
   const channel = await repository.channelOf(await pool(), id);
   if (channel === 1 && !whatsapp) return { sent: false };
   const credentials = await getPayload(await pool(), id);
   if (channel === 2 && (!mail || !credentials)) return { sent: false };
+  const approvedWelcome =
+    channel === 1 && (await repository.isLandingWelcomeMessage(await pool(), id))
+      ? (welcomeReady ?? (await welcomeApproved(integrationConfig().whatsapp)))
+      : false;
   const message = await transaction(async (db) => {
     const row = await repository.claimMessage(db, id);
     if (!row) return null;
@@ -69,6 +78,20 @@ export async function dispatchMessage(id, client, { whatsapp = null, mail = null
     if (reason) {
       await repository.markFailed(db, id, reason);
       await notifyInvitationFailure(db, id, reason);
+      return null;
+    }
+    const welcome = row.markup ? JSON.parse(row.markup).welcome : null;
+    if (
+      channel === 1 &&
+      welcome?.source === 'landing' &&
+      !approvedWelcome &&
+      !(await repository.insideServiceWindow(db, row.idContacto))
+    ) {
+      await repository.releasePendingMessage(
+        db,
+        id,
+        'Bienvenida pendiente: la plantilla de WhatsApp aún no tiene aprobación verificada.',
+      );
       return null;
     }
     return row;
@@ -165,15 +188,19 @@ async function sendWhatsApp(id, message, whatsapp) {
   return { sent: true, externalId: accepted.externalId };
 }
 export async function dispatchPending(client, { whatsapp = null, mail = null } = {}) {
-  const config = integrationConfig().telegram;
+  const config = integrationConfig();
   if (!client) {
-    if (!config.enabled || !config.token) client = null;
-    else client = telegramClient(config.token);
+    if (!config.telegram.enabled || !config.telegram.token) client = null;
+    else client = telegramClient(config.telegram.token);
   }
   if (!client && !whatsapp && !mail) return { sent: 0 };
   let sent = 0;
   const channels = [...(client ? [3] : []), ...(whatsapp ? [1] : []), ...(mail ? [2] : [])];
-  for (const message of await repository.pendingMessages(await pool(), channels))
-    if ((await dispatchMessage(message.id, client, { whatsapp, mail })).sent) sent++;
+  const welcomeReady =
+    whatsapp && (await repository.hasPendingWelcome(await pool()))
+      ? await welcomeApproved(config.whatsapp)
+      : false;
+  for (const message of await repository.pendingMessages(await pool(), channels, { welcomeReady }))
+    if ((await dispatchMessage(message.id, client, { whatsapp, mail, welcomeReady })).sent) sent++;
   return { sent };
 }

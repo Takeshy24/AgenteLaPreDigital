@@ -110,8 +110,8 @@ export function KpiFilters({
       </div>
       <div className="kpi-filter-actions">
         <p>
-          Cada filtro se aplica solo a los indicadores cuya medida tiene esa dimensión (tabla 10 del
-          informe). La prioridad no se filtra: en L-5.1 es siempre Alta.
+          Al cambiar un filtro, resaltan los indicadores que lo admiten y se atenúan los demás.
+          «Agrupar el tiempo» cambia el desglose temporal. La prioridad de L-5.1 es siempre Alta.
         </p>
         <div>
           <Button variant="secondary" disabled={busy} onClick={onRefresh}>

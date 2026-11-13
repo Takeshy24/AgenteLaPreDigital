@@ -1,0 +1,22 @@
+{
+  "businessAccountId": "2351954361878234",
+  "name": "lapredigital_bienvenida_registro",
+  "language": "es",
+  "category": "MARKETING",
+  "allow_category_change": true,
+  "components": [
+    {
+      "type": "BODY",
+      "text": "¡Hola! Gracias por registrarte en LaPreDigital. Soy el asistente y te ayudaré con tu preparación para la UNT. Responde este mensaje y comenzamos. Si no deseas recibir más mensajes, escribe NO ME CONTACTEN."
+    }
+  ],
+  "result": {
+    "id": "3004462393258538",
+    "name": "lapredigital_bienvenida_registro",
+    "status": "PENDING",
+    "language": "es",
+    "category": "MARKETING"
+  },
+  "createdAt": "2026-11-13T07:06:22.427Z",
+  "checkedAt": "2026-11-13T07:13:53.514Z"
+}

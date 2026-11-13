@@ -1,7 +1,8 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Filter, Minus } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { Kpi, KpiBreakdownItem, KpiDimension, KpiFilters } from '../../api';
 import { formatDate } from '../../shared/dates';
+import { filterImpact, filterLabels } from './filter-impact';
 
 const stateTone = { ok: 'green', alert: 'amber', critical: 'red', na: 'gray' } as const;
 const dimensionNames: Record<KpiDimension, string> = {
@@ -11,12 +12,6 @@ const dimensionNames: Record<KpiDimension, string> = {
   plan: 'Plan',
   contact: 'Contacto',
   priority: 'Prioridad',
-};
-const filterDimension: Record<string, KpiDimension | undefined> = {
-  contact: 'contact',
-  channel: 'channel',
-  role: 'role',
-  plan: 'plan',
 };
 
 const percentText = (value: number | null) => (value == null ? '—' : `${value}%`);
@@ -65,23 +60,45 @@ function BreakdownTable({ items }: { items: KpiBreakdownItem[] }) {
   );
 }
 
-export function KpiCard({ kpi, filters }: { kpi: Kpi; filters: KpiFilters }) {
+export function KpiCard({
+  kpi,
+  filters,
+  focus = null,
+  updating = false,
+}: {
+  kpi: Kpi;
+  filters: KpiFilters;
+  focus?: keyof KpiFilters | null;
+  updating?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const available = kpi.dimensions.filter((dimension) => kpi.breakdown[dimension] !== undefined);
   const [dimension, setDimension] = useState<KpiDimension>(available[0] ?? 'time');
   const panelId = useId();
-  const ignored = Object.entries(filterDimension)
-    .filter(
-      ([name, dim]) =>
-        filters[name as keyof KpiFilters] !== '' && dim && !kpi.dimensions.includes(dim),
-    )
-    .map(([, dim]) => dimensionNames[dim as KpiDimension].toLowerCase());
+  const impact = filterImpact(kpi.dimensions, filters, focus);
   return (
-    <article className={`kpi-card ${kpi.state.code}${open ? ' open' : ''}`}>
+    <article
+      className={`kpi-card ${kpi.state.code} filter-${impact.state}${open ? ' open' : ''}${updating ? ' is-updating' : ''}`}
+      aria-busy={updating}
+    >
       <header>
         <span className="kpi-code">{kpi.id}</span>
         <span className={`pill ${stateTone[kpi.state.code]}`}>{kpi.state.label}</span>
       </header>
+      {impact.state !== 'neutral' && (
+        <p className={`kpi-filter-badge ${impact.affected ? 'applies' : 'unaffected'}`}>
+          {impact.affected ? (
+            <Filter size={13} aria-hidden="true" />
+          ) : (
+            <Minus size={13} aria-hidden="true" />
+          )}
+          {focus
+            ? `${filterLabels[focus]}: ${impact.affected ? (focus === 'grain' ? 'cambia el desglose' : 'se aplica') : 'no aplica'}`
+            : impact.affected
+              ? 'Con filtros aplicados'
+              : 'Sin efecto de los filtros elegidos'}
+        </p>
+      )}
       <h3>{kpi.name}</h3>
       <div className="kpi-figure">
         <strong>{percentText(kpi.percent)}</strong>
@@ -100,9 +117,12 @@ export function KpiCard({ kpi, filters }: { kpi: Kpi; filters: KpiFilters }) {
           7 días abierta.
         </p>
       )}
-      {ignored.length > 0 && (
+      {impact.applied.length > 0 && (
+        <p className="kpi-filter-applied">Aplica: {impact.applied.join(', ')}.</p>
+      )}
+      {impact.ignored.length > 0 && (
         <p className="kpi-flag muted">
-          No filtra por {ignored.join(' ni ')}: la medida no tiene esa dimensión.
+          No aplica: {impact.ignored.join(', ')}. La medida no tiene esa dimensión.
         </p>
       )}
       <button

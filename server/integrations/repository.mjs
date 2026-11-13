@@ -361,7 +361,7 @@ VALUES
     },
   );
 }
-export async function pendingMessages(db, channels = [3]) {
+export async function pendingMessages(db, channels = [3], { welcomeReady = false } = {}) {
   const list =
     channels
       .map((channel) => Number(channel))
@@ -388,8 +388,13 @@ WHERE
     d.idMensaje IS NULL
     OR d.state = N'pending'
   )
+  AND (
+    m.idCanal <> 1 OR JSON_VALUE(d.markup,'$.welcome.source') IS NULL OR @welcomeReady=1
+    OR EXISTS(SELECT 1 FROM dbo.Mensaje incoming WHERE incoming.idContacto=m.idContacto AND incoming.idDireccion=1 AND incoming.idCanal=1 AND incoming.fechaHora>=DATEADD(HOUR,-24,${now}))
+  )
 ORDER BY
   m.idMensaje`,
+      { welcomeReady },
     )
   ).recordset;
 }
@@ -463,6 +468,49 @@ WHERE
   );
   row.markup = prior?.markup ?? null;
   return row;
+}
+export async function releasePendingMessage(db, id, error) {
+  await query(
+    db,
+    "UPDATE dbo.App_Dispatch SET state=N'pending',claimedAt=NULL,error=@error WHERE idMensaje=@id",
+    { id, error },
+  );
+}
+export async function hasLandingWelcome(db, contact) {
+  return (
+    (
+      await query(
+        db,
+        `SELECT TOP 1 1 found FROM dbo.Mensaje m
+JOIN dbo.App_Dispatch d ON d.idMensaje=m.idMensaje
+WHERE m.idContacto=@contact AND m.idEstadoEntrega IN (1,2) AND d.state IN (N'pending',N'sending',N'sent')
+AND JSON_VALUE(d.markup,'$.welcome.source')=N'landing'`,
+        { contact },
+      )
+    ).recordset.length > 0
+  );
+}
+export async function isLandingWelcomeMessage(db, id) {
+  return (
+    (
+      await query(
+        db,
+        "SELECT 1 found FROM dbo.App_Dispatch WHERE idMensaje=@id AND JSON_VALUE(markup,'$.welcome.source')=N'landing'",
+        { id },
+      )
+    ).recordset.length > 0
+  );
+}
+export async function hasPendingWelcome(db) {
+  return (
+    (
+      await query(
+        db,
+        `SELECT TOP 1 1 found FROM dbo.App_Dispatch d JOIN dbo.Mensaje m ON m.idMensaje=d.idMensaje
+WHERE d.state=N'pending' AND m.idEstadoEntrega=1 AND m.idCanal=1 AND JSON_VALUE(d.markup,'$.welcome.source')=N'landing'`,
+      )
+    ).recordset.length > 0
+  );
 }
 export async function markSent(db, id, externalId) {
   await query(

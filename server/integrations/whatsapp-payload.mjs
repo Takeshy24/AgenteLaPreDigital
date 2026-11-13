@@ -1,6 +1,7 @@
 import { insideServiceWindow } from './repository.mjs';
 import { pool } from '../db.mjs';
 import { whatsappRecipient } from './whatsapp-identity.mjs';
+import { welcomeTemplate } from './welcome-rules.mjs';
 
 const clean = (text) =>
   String(text)
@@ -58,6 +59,41 @@ export async function whatsappPayload(message, config) {
     const error = new Error('Falta una plantilla de credenciales aprobada para WhatsApp.');
     error.uncertain = false;
     throw error;
+  }
+  const welcome = message.markup ? JSON.parse(message.markup).welcome : null;
+  if (welcome?.source === 'landing') {
+    const selected = welcomeTemplate(config);
+    if (!selected) {
+      const error = new Error('La bienvenida espera una plantilla aprobada de WhatsApp.');
+      error.uncertain = false;
+      throw error;
+    }
+    return {
+      ...recipient,
+      type: 'template',
+      template: {
+        name: selected.name,
+        language: { code: selected.language },
+        ...(selected.parameter === 'none'
+          ? {}
+          : {
+              components: [
+                {
+                  type: 'body',
+                  parameters: [
+                    {
+                      type: 'text',
+                      text:
+                        selected.parameter === 'name'
+                          ? welcome.name
+                          : clean(message.textoMensaje).slice(0, 900),
+                    },
+                  ],
+                },
+              ],
+            }),
+      },
+    };
   }
   const templateName = message.credentials ? config.credentialsTemplateName : config.templateName;
   const template = {

@@ -11,6 +11,7 @@ import * as repository from './repository.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { telegramBotUrl as botUrl, whatsappUrl } from './channel-links.mjs';
 export { whatsappUrl } from './channel-links.mjs';
+import { prepareLandingWelcome } from './welcome.mjs';
 
 const LANDING_CAPTURE_CHANNEL = 1;
 const REVIEW_PLAN = 'Sin plan elegido (landing)';
@@ -170,10 +171,11 @@ export async function registerLanding(data, { send = defaultSender() } = {}) {
       { channels, reviewNameMatches: true },
     );
     const url = await telegramLink(db, lead.contact, { consent: data.telegram === true });
+    const welcome = await prepareLandingWelcome(db, lead, channels);
     const message =
       data.telegram && url ? telegramEmail(url) : channels.includes(2) ? registrationEmail() : null;
     return {
-      receipt: receipt(url),
+      receipt: { ...receipt(url), ...(welcome ? { whatsappWelcome: welcome.state } : {}) },
       mail:
         send && message
           ? { to: email, message, contact: lead.contact, telegram: !!(data.telegram && url) }

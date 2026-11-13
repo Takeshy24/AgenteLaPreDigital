@@ -90,6 +90,12 @@ Para un correo existente se guarda la solicitud para revisar identidad, sin modi
 
 Un contacto nuevo que autoriza Correo y no pide Telegram recibe una confirmación del registro por SMTP. Incluye el enlace público de WhatsApp si está configurado. Se envía después de confirmar la transacción; si SMTP lo acepta, se registra como mensaje por Correo y cumple el primer intento pendiente. Si falla, el registro se conserva y el intento sigue pendiente. No se reenvía al repetir un correo existente. El resto del seguimiento automático continúa limitado a Telegram y WhatsApp.
 
+Al completar la landing por primera vez con autorización de WhatsApp y una participación identificada, se prepara una bienvenida en la misma transacción del registro. Utiliza el intento 1 de la agenda para evitar un segundo aviso genérico del día 0; no depende de que el seguimiento periódico esté activado. Se despacha con el proceso de envíos, después de confirmar la transacción. Repetir el formulario, registrar solo Correo o dejar la identidad en revisión no genera otra bienvenida de WhatsApp.
+
+Fuera de una conversación reciente, la bienvenida requiere `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_WELCOME_TEMPLATE_NAME`, `WHATSAPP_WELCOME_TEMPLATE_LANGUAGE` y `WHATSAPP_WELCOME_TEMPLATE_PARAMETER` (`none`, `name` o `message`). Se consulta el estado real de Meta por nombre e idioma y se reutiliza la comprobación durante un minuto; solo `APPROVED` permite el envío. `hello_world` no se usa como bienvenida. Una plantilla sin configurar, pendiente o rechazada deja el mensaje esperando, sin bloquear otros envíos. Si Meta aprueba la plantilla, las bienvenidas pendientes se procesan automáticamente. La autorización del contacto se comprueba de nuevo al despachar. El registro del formulario no abre la ventana de WhatsApp ni confirma una entrega; esa confirmación llega por webhook.
+
+La plantilla `lapredigital_bienvenida_registro`, en español (`es`), se creó en la cuenta asociada al número configurado. El comprobante de creación y la última consulta de estado se conservan en `docs/whatsapp/bienvenida-meta.json`, sin credenciales. No se envían mensajes de prueba reales durante las verificaciones.
+
 Las tareas de Telegram, WhatsApp, mantenimiento y despacho registran sus errores de forma independiente: un error de mantenimiento no impide despachar respuestas. Tras modificar archivos del backend, reiniciar `npm run up` o `npm start` para que el proceso cargue el código nuevo; la compilación de Vite no recarga un servidor Node que ya estaba abierto. La retoma de derivaciones usa `OUTPUT INTO` para funcionar con los triggers del monitor.
 
 ## Telegram: conexión local activa
@@ -138,6 +144,8 @@ La clave `sk_test_...` local respondió correctamente a una consulta de la cuent
 ## Verificación
 
 `npm test` cubre reglas, contratación, consentimiento, reapertura, responsable, pruebas/becas, seguimiento, API HTTP, formato SQL y adaptadores controlados. Las pruebas de negocio usan SQL Server real con rollback obligatorio. No dejan contactos de prueba, aunque consumen IDENTITY. Requieren la base migrada y permisos de lectura/escritura. `npm run build` valida TypeScript; `npm run format:check` comprueba el formato.
+
+En Indicadores, el último filtro modificado resalta las tarjetas cuya medida admite su dimensión y atenúa las demás sin deshabilitarlas. Cada tarjeta distingue filtros aplicados e ignorados. El alcance procede de las dimensiones que devuelve el cálculo del Data Mart: Plan afecta solo L-4.1, Canal no afecta L-5.1 y Contacto/Rol no afectan L-4.1. Periodo afecta a todos; agrupar por año, trimestre, mes o día cambia el desglose temporal. Mientras se recalcula se marca el estado de carga; ante un error se conserva y se identifica el último cálculo confirmado.
 
 La revisión visual automatizada de esta entrega quedó pendiente: ambos controladores fallaron al inicializar con `failed to write kernel assets`. La compilación y las pruebas HTTP no sustituyen esa inspección.
 
