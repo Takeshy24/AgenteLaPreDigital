@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { answerFromKnowledge, retrieve } from '../agent/knowledge.mjs';
 import { handoffReason } from '../agent/service.mjs';
+import { initialDocuments } from '../knowledge/initial.mjs';
 
 const tariffs = [
   { idPlanTarifa: 1, plan: 'Ruta UNT', modalidad: 'Mensual', precio: 39.9 },
@@ -10,12 +11,18 @@ const tariffs = [
 ];
 
 test('la respuesta sale de los fragmentos recuperados y conserva su fuente', () => {
-  const live = answerFromKnowledge('¿Tienen clases en vivo?', tariffs);
-  assert.match(live.text, /Transmisiones académicas en vivo — .*Meta UNT: sí/);
-  assert.equal(live.sources[0].source, 'Informe v30, sección 2.4, tabla 4 (src/shared/offer.json)');
-  const price = answerFromKnowledge('cuanto cuesta meta', tariffs);
-  assert.match(price.text, /Meta UNT: S\/ 79\.90 al mes o S\/ 399\.90 el semestre/);
-  assert.equal(price.sources[0].source, 'OLTP, tabla PlanTarifa (catálogo vigente)');
+  const documents = initialDocuments(tariffs).map((item, index) => ({
+    documentId: index + 1,
+    position: 1,
+    version: 1,
+    ...item,
+  }));
+  const live = answerFromKnowledge('¿Tienen clases en vivo?', tariffs, documents);
+  assert.match(live.text, /Transmisiones académicas en vivo[\s\S]*Meta UNT: Sí/);
+  assert.match(live.sources[0].source, /PlanTarifa.*offer\.json.*documento/);
+  const price = answerFromKnowledge('cuanto cuesta meta', tariffs, documents);
+  assert.match(price.text, /79\.90/);
+  assert.match(price.sources[0].id, /^documento:/);
   assert.equal(answerFromKnowledge('Hola', tariffs), null);
   assert.equal(retrieve('Mi hija se llama Carolina', tariffs).length, 0);
 });

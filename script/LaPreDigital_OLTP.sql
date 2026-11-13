@@ -2171,3 +2171,115 @@ CREATE TABLE dbo.HabilitacionAcceso (
 );
 
 END;
+
+GO
+
+IF OBJECT_ID('dbo.App_KnowledgeDocument', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_KnowledgeDocument (
+    idDocumento INT IDENTITY(1, 1) NOT NULL PRIMARY KEY,
+    titulo NVARCHAR(150) NOT NULL,
+    contenido NVARCHAR(MAX) NOT NULL,
+    palabrasClave NVARCHAR(1000) NOT NULL DEFAULT N'',
+    fuente NVARCHAR(300) NOT NULL DEFAULT N'',
+    activo BIT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 1,
+    nombreArchivo NVARCHAR(255) NULL,
+    tipoArchivo VARCHAR(10) NOT NULL,
+    archivoOriginal VARBINARY(MAX) NULL,
+    claveOrigen NVARCHAR(100) NULL,
+    fechaCreacion DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME()),
+    fechaActualizacion DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_KnowledgeFragment', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_KnowledgeFragment (
+    idDocumento INT NOT NULL REFERENCES dbo.App_KnowledgeDocument (idDocumento),
+    numero INT NOT NULL,
+    contenido NVARCHAR(1800) NOT NULL,
+    PRIMARY KEY (idDocumento, numero)
+);
+
+END;
+
+GO
+
+IF OBJECT_ID('dbo.App_AgentPolicy', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_AgentPolicy (
+    id TINYINT NOT NULL PRIMARY KEY CHECK (id = 1),
+    configuracion NVARCHAR(MAX) NOT NULL CHECK (ISJSON(configuracion) = 1),
+    version INT NOT NULL DEFAULT 1,
+    fechaActualizacion DATETIME2(0) NOT NULL DEFAULT DATEADD(HOUR, -5, SYSUTCDATETIME())
+);
+
+END;
+
+GO
+
+IF NOT EXISTS (
+    SELECT
+        1
+    FROM
+        dbo.App_AgentPolicy
+    WHERE
+        id = 1
+)
+INSERT
+    dbo.App_AgentPolicy (id, configuracion)
+VALUES
+    (
+        1,
+        N'{"profileQuestions":true,"optionalQuestions":true,"recommendAfterProfile":true,"proposalLinks":true,"trialLinks":true,"guardianInvitations":true,"useLeadData":false,"questionOrder":["career","availability","budget"]}'
+    );
+
+GO
+
+IF OBJECT_ID('dbo.App_AdminUser', 'U') IS NULL BEGIN
+CREATE TABLE dbo.App_AdminUser (
+    id TINYINT NOT NULL PRIMARY KEY CHECK (id = 1),
+    usuario NVARCHAR(50) NOT NULL UNIQUE CHECK (usuario = N'admin'),
+    claveHash NVARCHAR(200) NOT NULL
+);
+
+END;
+
+GO
+
+IF NOT EXISTS (
+    SELECT
+        1
+    FROM
+        dbo.App_AdminUser
+    WHERE
+        id = 1
+)
+INSERT
+    dbo.App_AdminUser (id, usuario, claveHash)
+VALUES
+    (
+        1,
+        N'admin',
+        N'scrypt$131072$8$1$9OtFHBvhnrgPQ5s5UgiE5A$4iWxnLMbwt5hxzrMgWS4UV9dXtseO6zJpLoQIQkMUKM'
+    );
+
+GO
+
+IF JSON_VALUE(
+    (
+        SELECT
+            configuracion
+        FROM
+            dbo.App_AgentPolicy
+        WHERE
+            id = 1
+    ),
+    '$.useLeadData'
+) IS NULL
+UPDATE dbo.App_AgentPolicy
+SET
+    configuracion = JSON_MODIFY(configuracion, '$.useLeadData', CAST(0 AS BIT))
+WHERE
+    id = 1;

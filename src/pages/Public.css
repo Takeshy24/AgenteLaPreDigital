@@ -127,6 +127,13 @@
 .public-error {
   color: #ff9e9e;
 }
+.public-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
 .public-small {
   font-size: 12px;
 }

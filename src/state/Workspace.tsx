@@ -9,8 +9,17 @@ import {
 } from 'react';
 import { request, type Bootstrap, type Details, type PublicInquiry } from '../api';
 export type Page =
-  'overview' | 'pending' | 'leads' | 'catalog' | 'followup' | 'kpis' | 'integrations';
+  | 'overview'
+  | 'pending'
+  | 'leads'
+  | 'catalog'
+  | 'followup'
+  | 'kpis'
+  | 'integrations'
+  | 'knowledge'
+  | 'agent-rules';
 function useWorkspaceState() {
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [data, setData] = useState<Bootstrap | null>(null),
     [selectedId, setSelectedId] = useState<number | null>(null),
     [detail, setDetail] = useState<Details | null>(null),
@@ -22,8 +31,6 @@ function useWorkspaceState() {
     [inquiryError, setInquiryError] = useState('');
   const lock = useRef(false),
     selection = useRef(0);
-  const latestData = useRef(data);
-  latestData.current = data;
   const reload = useCallback(async (id?: number | null) => {
     const fresh = await request<Bootstrap>('/bootstrap');
     setData(fresh);
@@ -37,14 +44,7 @@ function useWorkspaceState() {
       const result = await request<PublicInquiry[]>('/public-inquiries');
       setInquiries(result);
       setInquiryError('');
-      if (
-        result.some(
-          (item) =>
-            item.participationId &&
-            !latestData.current?.leads.some((lead) => lead.id === item.participationId),
-        )
-      )
-        setData(await request<Bootstrap>('/bootstrap'));
+      setData(await request<Bootstrap>('/bootstrap'));
     } catch (failure) {
       setInquiryError((failure as Error).message);
     }
@@ -103,6 +103,8 @@ function useWorkspaceState() {
     };
   }, []);
   async function open(id: number) {
+    if (unsavedChanges && !window.confirm('Tienes cambios sin guardar. ¿Descartarlos?')) return;
+    setUnsavedChanges(false);
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     selection.current = id;
     setSelectedId(id);
@@ -116,6 +118,8 @@ function useWorkspaceState() {
     }
   }
   function navigate(next: Page) {
+    if (unsavedChanges && !window.confirm('Tienes cambios sin guardar. ¿Descartarlos?')) return;
+    setUnsavedChanges(false);
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     selection.current = 0;
     setSelectedId(null);
@@ -173,6 +177,8 @@ function useWorkspaceState() {
     reload,
     setError,
     setNotice,
+    setUnsavedChanges,
+    unsavedChanges,
   };
 }
 type Workspace = ReturnType<typeof useWorkspaceState>;

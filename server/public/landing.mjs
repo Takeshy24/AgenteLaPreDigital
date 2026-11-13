@@ -8,6 +8,9 @@ import { findContacts } from '../leads/repository.mjs';
 import { saveLead } from '../leads/service.mjs';
 import { telegramLink } from './intake.mjs';
 import * as repository from './repository.mjs';
+import { BusinessError } from '../shared/errors.mjs';
+import { telegramBotUrl as botUrl, whatsappUrl } from './channel-links.mjs';
+export { whatsappUrl } from './channel-links.mjs';
 
 const LANDING_CAPTURE_CHANNEL = 1;
 const REVIEW_PLAN = 'Sin plan elegido (landing)';
@@ -18,11 +21,6 @@ export function normalizePhone(value) {
   if (/^9\d{8}$/.test(digits)) return '+51' + digits;
   if (/^\+\d{8,15}$/.test(digits)) return digits;
   return null;
-}
-
-function botUrl() {
-  const { username } = integrationConfig().telegram;
-  return username ? `https://t.me/${username.replace(/^@/, '')}` : null;
 }
 
 function defaultSender() {
@@ -102,20 +100,14 @@ async function saveIdentityReview(db, data, email) {
   await repository.linkInquiry(db, id, null, null, 'Revisar identidad');
 }
 
-// Enlace público al número de WhatsApp del negocio (no es un dato secreto: es el mismo para todos).
-export function whatsappUrl() {
-  const digits = String(process.env.WHATSAPP_PUBLIC_NUMBER || '').replace(/[^0-9]/g, '');
-  const number = /^9[0-9]{8}$/.test(digits) ? '51' + digits : digits;
-  if (!/^[0-9]{8,15}$/.test(number)) return null;
-  return `https://wa.me/${number}?text=${encodeURIComponent('Hola, ya me registré en LaPreDigital')}`;
-}
-
-function receipt(telegramUrl) {
+function receipt(telegramUrl = null) {
   const link = whatsappUrl();
   return {
     registered: true,
-    ...(telegramUrl ? { telegramUrl } : {}),
+    recorded: true,
+    ...(telegramUrl || botUrl() ? { telegramUrl: telegramUrl || botUrl() } : {}),
     ...(link ? { whatsappUrl: link } : {}),
+    telegramLinkExpires: !!telegramUrl?.includes('?start='),
   };
 }
 
@@ -123,11 +115,12 @@ function receipt(telegramUrl) {
 // dueño y nadie más. Se envía una vez cada 10 minutos por contacto, mientras el enlace siga vigente.
 async function prepareEmailedLink(db, contact, email, send) {
   if (!send) return { receipt: receipt(botUrl()) };
-  if (await hasActiveLink(db, contact)) return { receipt: receipt(null) };
+  if (await hasActiveLink(db, contact))
+    return { receipt: { ...receipt(), telegramEmail: 'pending' } };
   const url = await telegramLink(db, contact, { consent: true });
   return {
     receipt: receipt(null),
-    mail: url ? { to: email, message: telegramEmail(url), contact } : null,
+    mail: url ? { to: email, message: telegramEmail(url), contact, telegram: true } : null,
   };
 }
 
@@ -148,7 +141,11 @@ async function sendLandingEmail(send, { to, message, contact }) {
 
 // options.send: función que envía el correo. null = sin correo configurado.
 export async function registerLanding(data, { send = defaultSender() } = {}) {
-  if (data.website) return { registered: true };
+  if (data.website?.trim())
+    throw new BusinessError(
+      'No se pudo validar el formulario. Recarga la página y vuelve a completar tus datos.',
+      400,
+    );
   const email = data.email.trim().toLowerCase();
   const channels = [...new Set(data.channels)];
   const outcome = await transaction(async (db) => {
@@ -172,16 +169,23 @@ export async function registerLanding(data, { send = defaultSender() } = {}) {
       },
       { channels, reviewNameMatches: true },
     );
-    const url = data.telegram ? await telegramLink(db, lead.contact, { consent: true }) : null;
-    const message = url ? telegramEmail(url) : channels.includes(2) ? registrationEmail() : null;
+    const url = await telegramLink(db, lead.contact, { consent: data.telegram === true });
+    const message =
+      data.telegram && url ? telegramEmail(url) : channels.includes(2) ? registrationEmail() : null;
     return {
       receipt: receipt(url),
-      mail: send && message ? { to: email, message, contact: lead.contact } : null,
+      mail:
+        send && message
+          ? { to: email, message, contact: lead.contact, telegram: !!(data.telegram && url) }
+          : null,
     };
   });
   if (outcome.mail) {
     const sent = await sendLandingEmail(send, outcome.mail);
-    if (sent && outcome.receipt.telegramUrl) outcome.receipt.emailed = true;
+    if (outcome.mail.telegram) {
+      if (sent && outcome.receipt.telegramLinkExpires) outcome.receipt.emailed = true;
+      outcome.receipt.telegramEmail = sent ? 'sent' : 'failed';
+    }
   }
   return outcome.receipt;
 }

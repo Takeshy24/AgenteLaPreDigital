@@ -5,11 +5,78 @@ import test from 'node:test';
 import { app } from '../app.mjs';
 import { close, query, rollbackTest } from '../db.mjs';
 import { normalizePhone, registerLanding } from '../public/landing.mjs';
+import { getWorkspace } from '../workspace/repository.mjs';
 
 process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
 process.env.WHATSAPP_PUBLIC_NUMBER = ''; // los comprobantes exactos no dependen del .env
 const count = async (db, sql, params) => (await query(db, sql, params)).recordset[0].n;
 const uniqueEmail = (label) => `${label}-${Date.now()}@example.test`;
+
+test('comprobante: siempre ofrece WhatsApp y Telegram tras guardar, aunque solo se autorice correo', async () => {
+  const previousNumber = process.env.WHATSAPP_PUBLIC_NUMBER;
+  process.env.WHATSAPP_PUBLIC_NUMBER = '987654321';
+  try {
+    await withBot('bot_de_prueba', () =>
+      rollbackTest(async (db) => {
+        for (const [index, option] of [
+          { channels: [2], telegram: false },
+          { channels: [1], telegram: false },
+          { channels: [], telegram: true },
+        ].entries()) {
+          const email = uniqueEmail('ambos-canales-' + index);
+          const result = await registerLanding(
+            { name: 'Ambos canales ' + index, email, phone: '+51900000111', role: 1, ...option },
+            { send: null },
+          );
+          assert.equal(result.recorded, true);
+          assert.match(result.whatsappUrl, /^https:\/\/wa\.me\/51987654321\?/);
+          assert.match(result.telegramUrl, /^https:\/\/t\.me\/bot_de_prueba\?start=/);
+          assert.equal(result.telegramLinkExpires, true);
+          const link = (
+            await query(
+              db,
+              'SELECT t.consentimiento FROM dbo.App_TelegramLink t JOIN dbo.Contacto c ON c.idContacto=t.idContacto WHERE c.correo=@email',
+              { email },
+            )
+          ).recordset[0];
+          assert.equal(link.consentimiento, option.telegram);
+          assert.ok((await getWorkspace()).leads.some((lead) => lead.email === email));
+        }
+      }),
+    );
+  } finally {
+    if (previousNumber === undefined) delete process.env.WHATSAPP_PUBLIC_NUMBER;
+    else process.env.WHATSAPP_PUBLIC_NUMBER = previousNumber;
+    await close();
+  }
+});
+
+test('comprobante: un fallo SQL se propaga y revierte el contacto en lugar de confirmar un registro inexistente', async () => {
+  const email = uniqueEmail('fallo-sql');
+  try {
+    await assert.rejects(() =>
+      registerLanding(
+        {
+          name: 'Fallo transaccional',
+          email,
+          phone: '+51900000112',
+          role: 255,
+          beneficiaryName: 'Beneficiario Fallo Transaccional',
+          channels: [2],
+          telegram: false,
+        },
+        { send: null },
+      ),
+    );
+    const db = await (await import('../db.mjs')).pool();
+    assert.equal(
+      await count(db, 'SELECT COUNT(*) n FROM dbo.Contacto WHERE correo=@email', { email }),
+      0,
+    );
+  } finally {
+    await close();
+  }
+});
 
 test('normalizePhone acepta móviles peruanos e internacionales y rechaza el resto', () => {
   assert.equal(normalizePhone('987 654 321'), '+51987654321');
@@ -31,7 +98,8 @@ test('landing: el estudiante crea contacto, beneficiario, LEAD, caso, participac
         role: 1,
         channels: [1, 2],
       });
-      assert.deepEqual(result, { registered: true });
+      assert.equal(result.recorded, true);
+      assert.equal(result.registered, true);
       const contact = (
         await query(db, 'SELECT idContacto id FROM dbo.Contacto WHERE correo=@email', { email })
       ).recordset[0];
@@ -135,7 +203,8 @@ test('landing: un nombre ya registrado por otro contacto queda en revisión sin 
         beneficiaryName: 'Estudiante Homonimo Landing',
         channels: [2],
       });
-      assert.deepEqual(result, { registered: true });
+      assert.equal(result.recorded, true);
+      assert.equal(result.registered, true);
       assert.equal(
         await count(
           db,
@@ -187,18 +256,22 @@ test('landing: un nombre ya registrado por otro contacto queda en revisión sin 
   }
 });
 
-test('landing: el campo trampa descarta el envío sin escribir en la base', async () => {
+test('landing: el campo trampa rechaza el envío sin fingir éxito ni escribir en la base', async () => {
   const email = uniqueEmail('landing-bot');
   try {
     await rollbackTest(async (db) => {
-      await registerLanding({
-        name: 'Bot Landing',
-        email,
-        phone: '+51900000003',
-        role: 1,
-        channels: [1],
-        website: 'https://spam.example',
-      });
+      await assert.rejects(
+        () =>
+          registerLanding({
+            name: 'Bot Landing',
+            email,
+            phone: '+51900000003',
+            role: 1,
+            channels: [1],
+            website: 'https://spam.example',
+          }),
+        (error) => error.status === 400,
+      );
       assert.equal(
         await count(db, 'SELECT COUNT(*) n FROM dbo.Contacto WHERE correo=@email', { email }),
         0,
@@ -273,7 +346,7 @@ test('landing con Telegram: un contacto nuevo recibe un enlace de un solo uso si
   }
 });
 
-test('landing sin Telegram configurado o sin pedirlo no devuelve enlace', async () => {
+test('landing: sin bot no inventa enlaces y sin marcar Telegram ofrece enlace sin autorizar el canal', async () => {
   try {
     await withBot('', () =>
       rollbackTest(async () => {
@@ -285,11 +358,11 @@ test('landing sin Telegram configurado o sin pedirlo no devuelve enlace', async 
           channels: [2],
           telegram: true,
         });
-        assert.deepEqual(noBot, { registered: true });
+        assert.deepEqual(noBot, { registered: true, recorded: true, telegramLinkExpires: false });
       }),
     );
     await withBot('bot_de_prueba', () =>
-      rollbackTest(async () => {
+      rollbackTest(async (db) => {
         const notRequested = await registerLanding({
           name: 'Sin Pedir Telegram',
           email: uniqueEmail('landing-no-pidio'),
@@ -298,7 +371,12 @@ test('landing sin Telegram configurado o sin pedirlo no devuelve enlace', async 
           channels: [2],
           telegram: false,
         });
-        assert.deepEqual(notRequested, { registered: true });
+        assert.equal(notRequested.recorded, true);
+        assert.match(notRequested.telegramUrl, /^https:\/\/t\.me\/bot_de_prueba\?start=/);
+        assert.equal(notRequested.telegramLinkExpires, true);
+        const links = (await query(db, 'SELECT consentimiento FROM dbo.App_TelegramLink'))
+          .recordset;
+        assert.ok(links.every((item) => item.consentimiento === false));
       }),
     );
   } finally {
@@ -350,7 +428,12 @@ test('landing: un correo ya registrado no se vincula, no recibe enlace con códi
           telegram: true,
         };
         const result = await registerLanding(attacker, { send: null });
-        assert.deepEqual(result, { registered: true, telegramUrl: 'https://t.me/bot_de_prueba' });
+        assert.deepEqual(result, {
+          registered: true,
+          recorded: true,
+          telegramLinkExpires: false,
+          telegramUrl: 'https://t.me/bot_de_prueba',
+        });
         assert.deepEqual(await state(), before);
         await registerLanding(attacker, { send: null });
         const reviews = (

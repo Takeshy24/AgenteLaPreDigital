@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { request } from '../../api';
 import { Button } from '../../components/ui';
+import { confirmedReceipt } from './landing-receipt';
 
 type Fields = {
   name: string;
@@ -19,7 +20,6 @@ type Fields = {
   beneficiaryName: string;
   channels: number[];
   telegram: boolean;
-  website: string;
 };
 type FieldName = 'name' | 'email' | 'phone' | 'role' | 'beneficiaryName' | 'channels';
 type Errors = Partial<Record<FieldName, string>>;
@@ -43,17 +43,7 @@ const emptyFields: Fields = {
   beneficiaryName: '',
   channels: [],
   telegram: false,
-  website: '',
 };
-
-// El servidor decide el enlace; la página solo lo usa si apunta a Telegram.
-function safeTelegramUrl(url?: string) {
-  return url && /^https:\/\/t\.me\/[A-Za-z0-9_]+(\?start=[A-Za-z0-9_-]+)?$/.test(url) ? url : '';
-}
-
-function safeWhatsAppUrl(url?: string) {
-  return url && /^https:\/\/wa\.me\/[0-9]{8,15}(\?text=[A-Za-z0-9%._~-]*)?$/.test(url) ? url : '';
-}
 
 // Sin celular propio, el estudiante no recibiría los mensajes: es mejor que lo registre un familiar.
 const NO_PHONE_ADVICE =
@@ -109,6 +99,8 @@ export function LandingForm() {
   const [telegramUrl, setTelegramUrl] = useState('');
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [emailed, setEmailed] = useState(false);
+  const [telegramLinkExpires, setTelegramLinkExpires] = useState(false);
+  const [telegramEmail, setTelegramEmail] = useState('');
 
   function setField(name: keyof Fields) {
     return (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -142,12 +134,7 @@ export function LandingForm() {
     if (Object.keys(found).length) return;
     setStatus('sending');
     try {
-      const result = await request<{
-        registered: boolean;
-        telegramUrl?: string;
-        whatsappUrl?: string;
-        emailed?: boolean;
-      }>('/public/landing', 'POST', {
+      const payload = await request<unknown>('/public/landing', 'POST', {
         name: fields.name.trim(),
         email: fields.email.trim(),
         phone: fields.phone.trim(),
@@ -155,11 +142,13 @@ export function LandingForm() {
         beneficiaryName: fields.role === '1' ? undefined : fields.beneficiaryName.trim(),
         channels: fields.channels,
         telegram: fields.telegram,
-        website: fields.website,
       });
-      setTelegramUrl(safeTelegramUrl(result.telegramUrl));
-      setWhatsappUrl(safeWhatsAppUrl(result.whatsappUrl));
+      const result = confirmedReceipt(payload);
+      setTelegramUrl(result.telegramUrl);
+      setWhatsappUrl(result.whatsappUrl);
       setEmailed(result.emailed === true);
+      setTelegramLinkExpires(result.telegramLinkExpires === true);
+      setTelegramEmail(result.telegramEmail ?? '');
       setStatus('done');
     } catch (error) {
       setFailure(
@@ -183,7 +172,7 @@ export function LandingForm() {
             ? 'Te contactaremos por los canales que autorizaste.'
             : 'Continúa en Telegram o WhatsApp para conversar con nuestro agente.'}
         </p>
-        {whatsappUrl && (
+        {whatsappUrl ? (
           <>
             <a
               className="landing-telegram landing-whatsapp"
@@ -195,8 +184,15 @@ export function LandingForm() {
             </a>
             <p className="landing-hint">Se abrirá WhatsApp con un mensaje listo para enviar.</p>
           </>
+        ) : (
+          <>
+            <Button variant="secondary" disabled>
+              Continuar en WhatsApp
+            </Button>
+            <p className="landing-hint">WhatsApp no está disponible en este momento.</p>
+          </>
         )}
-        {telegramUrl && (
+        {telegramUrl ? (
           <>
             <a
               className="landing-telegram"
@@ -207,15 +203,36 @@ export function LandingForm() {
               Continuar en Telegram
             </a>
             <p className="landing-hint">
-              Pulsa Iniciar en el bot. El enlace vence en 10 minutos.
+              {telegramLinkExpires
+                ? 'Pulsa Iniciar en el bot. Este enlace personal vence en 10 minutos.'
+                : 'Abre el bot y pulsa Iniciar para continuar de forma segura.'}
               {emailed ? ' También lo enviamos a tu correo.' : ''}
             </p>
           </>
+        ) : (
+          <>
+            <Button variant="secondary" disabled>
+              Continuar en Telegram
+            </Button>
+            <p className="landing-hint">Telegram no está disponible en este momento.</p>
+          </>
         )}
-        {!telegramUrl && fields.telegram && (
+        {!telegramLinkExpires && telegramEmail === 'sent' && (
           <p className="landing-hint">
-            Si el correo es tuyo, te enviamos un enlace para continuar en Telegram. Revisa también
-            la carpeta de spam; vence en 10 minutos.
+            Enviamos un enlace personal al correo indicado para verificar el acceso a Telegram.
+            Revisa también la carpeta de spam; vence en 10 minutos.
+          </p>
+        )}
+        {telegramEmail === 'pending' && (
+          <p className="landing-hint">
+            Si solicitaste un enlace personal por correo, revisa tu bandeja y la carpeta de spam.
+            Puedes continuar desde el botón de Telegram.
+          </p>
+        )}
+        {telegramEmail === 'failed' && (
+          <p className="landing-hint">
+            Tu solicitud quedó guardada, pero no pudimos enviar el enlace por correo. Puedes
+            continuar por WhatsApp o abrir el bot de Telegram.
           </p>
         )}
       </div>
@@ -333,16 +350,6 @@ export function LandingForm() {
           Te daremos un enlace para abrir nuestro bot. Allí podrás autorizar el seguimiento.
         </p>
       </div>
-      <input
-        className="landing-trap"
-        type="text"
-        name="website"
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        value={fields.website}
-        onChange={setField('website')}
-      />
       {failure && (
         <p className="landing-failure" role="alert">
           {failure}

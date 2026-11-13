@@ -32,20 +32,23 @@ export function LeadTable() {
           }}
         />
       )}
-      <section className="data-section" id="solicitudes">
+      <section className="data-section inquiry-compact" id="solicitudes">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">FORMULARIO PÚBLICO</span>
+            <span className="eyebrow">CAPTACIONES WEB Y CHAT</span>
             <h2>Solicitudes por revisar {pendingInquiries && `(${pendingInquiries.length})`}</h2>
+            <p className="inquiry-caption">
+              {pendingInquiries?.length
+                ? 'Requieren datos o confirmación de identidad.'
+                : pendingInquiries
+                  ? 'Sin solicitudes pendientes de revisión.'
+                  : 'Consultando solicitudes…'}
+            </p>
           </div>
           <Button variant="secondary" onClick={() => void refreshInquiries()}>
             Actualizar
           </Button>
         </div>
-        <p className="inquiry-note">
-          Aquí aparecen las solicitudes que necesitan datos o confirmación de identidad. Las ya
-          vinculadas se gestionan en «Negociaciones registradas».
-        </p>
         {inquiryError && (
           <div className="live-alert" role="alert">
             No se pudieron consultar las solicitudes: {inquiryError}
@@ -67,7 +70,7 @@ export function LeadTable() {
                 {pendingInquiries.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      {item.name}
+                      {item.name || item.phone || 'Contacto en chat'}
                       <small className="live-sub">{item.email}</small>
                     </td>
                     <td>{item.beneficiary}</td>
@@ -84,12 +87,6 @@ export function LeadTable() {
               </tbody>
             </table>
           </div>
-        ) : !inquiryError ? (
-          <Empty>
-            {pendingInquiries
-              ? 'No hay solicitudes pendientes de revisión.'
-              : 'Consultando solicitudes…'}
-          </Empty>
         ) : null}
       </section>
       <section className="data-section">

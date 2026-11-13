@@ -126,10 +126,7 @@ test('modalidad inexistente: Ruta UNT semestral no prepara propuesta y lo explic
       const { say, latest } = await scenario(db);
       const { reply, analysis } = await say('Quiero contratar Ruta UNT semestral');
       assert.deepEqual([analysis.action, analysis.tariffId], ['proposal', null]);
-      assert.match(
-        reply.text,
-        /^Ruta UNT no tiene modalidad semestral; solo se contrata mensual\./,
-      );
+      assert.match(reply.text, /Esa combinación no está disponible.*plan y modalidad/);
       const count = await latest(
         'SELECT COUNT(*) n FROM dbo.PropuestaComercial WHERE idLeadCasoEntrega=@id',
       );
@@ -421,7 +418,9 @@ test('invitación directa al responsable ya registrado: Telegram, WhatsApp en 24
       });
       const { say, lead } = await scenario(db);
       const reply = await say('Mi mamá se llama Rosa Díaz, su número es 987654321');
-      assert.match(reply.reply.text, /le envié la invitación directamente por Telegram/);
+      assert.match(reply.reply.text, /Preparé el envío de la invitación directamente por Telegram/);
+      assert.match(reply.reply.text, /pendiente de confirmación/);
+      assert.match(reply.reply.text, /\/invitacion\//);
       const sent = await lastTo(db, rosa.contact);
       assert.deepEqual([sent.canal, sent.estado, sent.idLeadCaso], [3, 1, null]);
       assert.match(sent.text, /Escenario .* indicó que eres su mamá.*\/invitacion\//s);
@@ -494,7 +493,8 @@ test('invitación directa al responsable ya registrado: Telegram, WhatsApp en 24
         },
         { mailer: async (mail) => sent.push(mail) },
       );
-      assert.deepEqual(result, { channel: 2 });
+      assert.equal(result.channel, 2);
+      assert.equal(result.queued, false);
       assert.equal(sent[0].subject, 'Invitación');
       const row = await lastTo(db, rosa.contact);
       assert.deepEqual([row.canal, row.estado], [2, 2]);

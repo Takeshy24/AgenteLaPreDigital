@@ -1,0 +1,193 @@
+.recommendation-settings {
+  padding: 26px;
+  margin-bottom: 28px;
+  border: 1px solid var(--ui-line);
+  border-radius: 16px;
+  background: linear-gradient(130deg, var(--ui-panel-raised), var(--ui-panel) 65%);
+}
+.recommendation-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.recommendation-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 12px;
+  font-size: 22px;
+  letter-spacing: -0.035em;
+}
+.recommendation-head h2 svg {
+  color: var(--ui-accent);
+  flex-shrink: 0;
+}
+.recommendation-head p {
+  max-width: 750px;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0;
+}
+.recommendation-head > button {
+  flex-shrink: 0;
+}
+.recommendation-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border: 1px solid var(--ui-line);
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 24px;
+  background: var(--ui-bg);
+}
+.recommendation-control > div {
+  display: grid;
+  gap: 8px;
+}
+.recommendation-control b {
+  font-size: 14px;
+}
+.recommendation-control small {
+  color: var(--ui-muted);
+  line-height: 1.7;
+  font-size: 12px;
+}
+.recommendation-switch {
+  width: 51px;
+  height: 29px;
+  border-radius: 20px;
+  padding: 3px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-panel-raised);
+  display: flex;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.recommendation-switch span {
+  height: 21px;
+  width: 21px;
+  border-radius: 50%;
+  background: var(--ui-muted);
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease;
+}
+.recommendation-switch[aria-checked='true'] {
+  background: var(--ui-accent);
+}
+.recommendation-switch[aria-checked='true'] span {
+  transform: translateX(21px);
+  background: var(--ui-bg);
+}
+.recommendation-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.recommendation-count {
+  margin: 20px 0 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.recommendation-count b {
+  font-size: 20px;
+  color: var(--ui-ink);
+}
+.recommendation-settings progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--ui-bg);
+}
+.recommendation-settings progress::-webkit-progress-bar {
+  background: var(--ui-bg);
+}
+.recommendation-settings progress::-webkit-progress-value {
+  background: var(--ui-accent);
+}
+.recommendation-settings progress::-moz-progress-bar {
+  background: var(--ui-accent);
+}
+.recommendation-note,
+.recommendation-preview > p {
+  font-size: 12px;
+  color: var(--ui-muted);
+  line-height: 1.8;
+  margin: 14px 0 0;
+}
+.recommendation-preview {
+  border-top: 1px solid var(--ui-line);
+  margin-top: 22px;
+  padding-top: 18px;
+}
+.recommendation-preview form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 18px;
+}
+.recommendation-preview label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+.recommendation-preview input,
+.recommendation-preview select {
+  width: 100%;
+  min-width: 0;
+  background: var(--ui-bg);
+  color: var(--ui-ink);
+  border: 1px solid var(--ui-line);
+  border-radius: 8px;
+  padding: 11px 12px;
+  font: inherit;
+}
+.recommendation-preview form > button {
+  justify-self: start;
+}
+.recommendation-result {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-bg);
+  border-radius: 10px;
+}
+.recommendation-result p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.recommendation-settings :is(input, select, button, summary):focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .recommendation-settings {
+    padding: 20px;
+  }
+  .recommendation-head {
+    flex-direction: column;
+  }
+  .recommendation-preview form {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recommendation-switch span {
+    transition: none;
+  }
+}

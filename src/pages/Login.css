@@ -1,0 +1,159 @@
+.login-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: radial-gradient(ellipse at 50% 8%, #d4f4770d, transparent 55%), var(--ui-bg);
+  color: var(--ui-ink);
+}
+.login-card {
+  width: min(100%, 430px);
+  padding: 38px;
+  border: 1px solid var(--ui-line);
+  border-radius: 20px;
+  background: linear-gradient(140deg, var(--ui-panel-raised), var(--ui-panel) 60%);
+  box-shadow:
+    0 24px 80px #0004,
+    inset 0 1px #ffffff06;
+}
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 36px;
+}
+.login-brand > span {
+  display: grid;
+  place-items: center;
+  height: 46px;
+  width: 46px;
+  border-radius: 13px;
+  color: var(--ui-bg);
+  background: linear-gradient(135deg, var(--ui-accent), var(--ui-accent-deep));
+}
+.login-brand b {
+  font-size: 20px;
+  letter-spacing: -0.04em;
+}
+.login-brand small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ui-muted);
+  letter-spacing: 0.12em;
+  font-size: 9px;
+  font-weight: 500;
+}
+.login-heading .eyebrow {
+  color: var(--ui-accent);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.login-heading h1 {
+  margin: 10px 0;
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: -0.045em;
+}
+.login-heading p,
+.login-status {
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0 0 28px;
+}
+.login-card form {
+  display: grid;
+  gap: 10px;
+}
+.login-card label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.login-card input {
+  min-width: 0;
+  width: 100%;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-line);
+  border-radius: 9px;
+  padding: 13px 14px;
+  color: var(--ui-ink);
+  font: inherit;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.login-password {
+  position: relative;
+}
+.login-password input {
+  margin: 0;
+  padding-right: 48px;
+}
+.login-password button {
+  position: absolute;
+  inset: 0 2px 0 auto;
+  display: grid;
+  place-items: center;
+  width: 43px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  cursor: pointer;
+  border-radius: 8px;
+}
+.login-card .button.primary {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  margin-top: 14px;
+  background: linear-gradient(120deg, var(--ui-accent), var(--ui-accent-deep));
+  border-color: var(--ui-accent-deep);
+  color: var(--ui-bg);
+  font-weight: 700;
+}
+.login-card .button.primary:hover {
+  filter: brightness(1.04);
+}
+.login-card :is(input, button):focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 3px;
+}
+.login-error {
+  border: 1px solid #f28c7c38;
+  color: var(--error-ink);
+  background: var(--error-bg);
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  border-radius: 9px;
+  margin-bottom: 22px;
+}
+.login-retry {
+  background: none;
+  border: 0;
+  color: var(--ui-accent);
+  padding: 14px 0 0;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.login-footnote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 28px 0 0;
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+.login-card button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+@media (max-width: 480px) {
+  .login-card {
+    padding: 28px 24px;
+  }
+}

@@ -32,13 +32,18 @@ import { integrationConfig } from './config.mjs';
 import * as repository from './repository.mjs';
 import { hashCode } from './service.mjs';
 import { startOnboarding, continueOnboarding, onboardingQuestion } from '../onboarding/service.mjs';
+import { isRegistrationGreeting, isSimpleGreeting } from '../agent/opening.mjs';
+import { applyIntentRules, needsGuardianText } from '../agent/intents.mjs';
+import { pendingGuardianNeed } from '../agent/repository.mjs';
+import { getPolicy } from '../agent/policy.mjs';
 
-async function analyze(text, participantId) {
+async function analyze(text, participantId, { invitationPending = false } = {}) {
   if (!agentEnabled()) return { analysis: null, error: null };
   try {
     const workspace = await getWorkspace();
     const participant = workspace.leads.find((item) => item.id === participantId);
     const history = await getRecentHistory(await pool(), participantId);
+    const policy = await getPolicy();
     return {
       analysis: await analyzeMessage(text, workspace.tariffs, {
         context: {
@@ -49,6 +54,13 @@ async function analyze(text, participantId) {
           availability: participant?.availability,
           budget: participant?.budget,
           history,
+          invitationPending,
+          allowedOperations: {
+            profileQuestions: policy.profileQuestions,
+            proposals: policy.proposalLinks,
+            trials: policy.trialLinks,
+            guardianInvitations: policy.guardianInvitations,
+          },
           requestedPlan: participant
             ? await getRequestedPlan(await pool(), participant.idContacto)
             : null,
@@ -176,28 +188,33 @@ async function handleCallback(item, callback, client) {
 // Tras vincular, el agente saluda por su nombre y empieza a conocer a la persona con preguntas
 // cortas con botones. Si el enlace nació de un formulario donde se pidió Telegram, abrirlo y pulsar
 // Iniciar ya es la autorización de ese canal: no se vuelve a pedir.
-async function welcome(db, contact, replyTo, withConsent) {
+async function welcome(db, contact, replyTo, withConsent, participationId = null) {
   const onboarding = await onboardingQuestion(contact);
   if (onboarding) return { text: onboarding };
   const open = (await repository.listContactParticipations(db, contact)).filter(
     (participant) => participant.idEstadoCaso === 1,
   );
-  if (open.length !== 1)
+  const target = participationId
+    ? open.find((participant) => participant.id === participationId)
+    : open.length === 1
+      ? open[0]
+      : null;
+  if (!target)
     return {
       text: '¡Listo, ya estás conectado! Cuéntame, ¿sobre qué estudiante quieres conversar?',
     };
   if (withConsent)
-    await saveConsent(open[0].id, { channel: 3, granted: true, version: 'landing-telegram-v1' });
+    await saveConsent(target.id, { channel: 3, granted: true, version: 'landing-telegram-v1' });
   const name = (
     await query(db, 'SELECT nombreCompleto name FROM dbo.Contacto WHERE idContacto = @contact', {
       contact,
     })
   ).recordset[0]?.name;
-  const profile = await getProfile(db, open[0].id);
+  const profile = await getProfile(db, target.id);
   const known = ['career', 'availability', 'budget'].some(
     (key) => profile[key] != null && String(profile[key]).trim() !== '',
   );
-  const participation = await getParticipation(db, open[0].id);
+  const participation = await getParticipation(db, target.id);
   await queueNextStep(db, participation, replyTo, {
     intro: known ? welcomeBack(name) : greeting(name, audience(profile.role, profile.beneficiary)),
   });
@@ -317,11 +334,34 @@ export async function processMessage(context, target, text) {
   if (await answerFromKeyboard(context, target, text)) return;
   const attachment = text === ATTACHMENT;
   const social = attachment || isSocialMessage(text);
-  const result = attachment
+  const participation = await getParticipation(await pool(), target.id);
+  const invitation =
+    !social &&
+    participation.idEstadoCaso === 1 &&
+    (needsGuardianText(text) || (await pendingGuardianNeed(await pool(), participation.idCaso)));
+  let result = attachment
     ? { analysis: ATTACHMENT_ANALYSIS, error: null }
     : social
       ? { analysis: SOCIAL_ANALYSIS, error: null }
-      : await analyze(text, target.id);
+      : await analyze(text, target.id, { invitationPending: !!invitation });
+  let ruleFallback = false;
+  if (invitation && (!result.analysis || result.analysis.understood === false)) {
+    const fallback = applyIntentRules(
+      { ...SOCIAL_ANALYSIS, social: false, fields: [], needsGuardian: needsGuardianText(text) },
+      text,
+      [],
+    );
+    result = {
+      analysis: {
+        ...fallback,
+        provider: 'rules',
+        model: 'reglas-respaldo',
+        fallbackReason: result.error || 'Sin interpretación del proveedor',
+      },
+      error: null,
+    };
+    ruleFallback = true;
+  }
   if (result.analysis?.understood === false) {
     result.error = 'Mensaje no interpretable';
     result.analysis = null;
@@ -336,7 +376,7 @@ export async function processMessage(context, target, text) {
         level: result.analysis?.level ?? 1,
         retraction: result.analysis?.retraction ?? false,
       },
-      { source: result.analysis && !social ? 1 : 2 },
+      { source: result.analysis && !social && !ruleFallback ? 1 : 2 },
     );
     if (result.analysis && !social)
       await repository.saveAnalysis(
@@ -400,6 +440,22 @@ export async function processUpdate(item, client) {
   const selection = await repository.getSelection(await pool(), chat.idContacto);
   const { candidates, target } = selectParticipation(participants, selection);
   if (!target) return askBeneficiary(item, chat, message.text, candidates, client);
+  if (
+    target.idEstadoCaso === 1 &&
+    (isRegistrationGreeting(message.text) || isSimpleGreeting(message.text))
+  ) {
+    await transaction(async (db) => {
+      if ((await repository.getUpdate(db, item.updateId))?.processedAt) return;
+      const incoming = await recordIncoming(
+        target.id,
+        { text: message.text, channel: 3, level: 1 },
+        { source: 2 },
+      );
+      await welcome(db, chat.idContacto, incoming.id, false, target.id);
+      await repository.finishUpdate(db, item.updateId, incoming.id);
+    });
+    return;
+  }
   return processMessage(telegramContext(item), target, message.text);
 }
 export async function pollTelegram(client) {

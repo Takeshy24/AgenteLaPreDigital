@@ -373,15 +373,33 @@ test('un evento antiguo sin remitente se registra como inválido y no bloquea al
   }
 });
 
-test('un número no registrado recibe el enlace de registro y no se crea ningún mensaje', async () => {
+test('un número no registrado guarda una captación con teléfono y pregunta el nombre en el chat', async () => {
   try {
     await rollbackTest(async (db) => {
       const scenario = await setup();
       scenario.waId = '51999999990';
       await receive(db, scenario, typed('Hola'));
       assert.equal(scenario.client.calls.length, 1);
-      assert.match(scenario.client.calls[0].text.body, /Aún no te tengo registrado/);
+      assert.match(scenario.client.calls[0].text.body, /nombre completo/);
+      assert.doesNotMatch(scenario.client.calls[0].text.body, /Regístrate aquí/);
       assert.equal((await incomingRows(db, scenario)).length, 0);
+      const contact = (
+        await query(
+          db,
+          'SELECT idContacto id,nombreCompleto name,correo email FROM dbo.Contacto WHERE telefono=@phone',
+          { phone: '+' + scenario.waId },
+        )
+      ).recordset[0];
+      assert.equal(contact.name, null);
+      assert.equal(contact.email, null);
+      assert.equal(
+        (
+          await query(db, 'SELECT COUNT(*) n FROM dbo.SolicitudProvisional WHERE idContacto=@id', {
+            id: contact.id,
+          })
+        ).recordset[0].n,
+        1,
+      );
     });
   } finally {
     await close();
@@ -622,7 +640,11 @@ test('WhatsApp: el primer «Hola quiero enviarle el link de invitación a mi esp
       assert.match(reply.text, /esposa/);
       assert.match(reply.text, /su nombre completo y su número de celular/);
       assert.doesNotMatch(reply.text, /cuánto tiempo|horas|presupuesto/);
-      assert.equal(model.mock.calls.length, 1);
+      assert.equal(
+        model.mock.calls.length,
+        1,
+        'El modelo interpreta el mensaje antes de validar y ejecutar la invitación',
+      );
     });
   } finally {
     await close();

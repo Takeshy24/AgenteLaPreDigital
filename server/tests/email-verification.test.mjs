@@ -114,11 +114,15 @@ test('landing: un correo ya registrado recibe el enlace de Telegram por correo, 
           telegram: true,
         };
         const first = await registerLanding(again, { send });
-        assert.deepEqual(first, { registered: true });
+        assert.equal(first.recorded, true);
+        assert.equal(first.telegramEmail, 'sent');
+        assert.equal(first.telegramUrl, 'https://t.me/bot_de_prueba');
         assert.equal(sent.length, 1);
         assert.equal(sent[0].to, email);
         assert.match(sent[0].text, /https:\/\/t\.me\/bot_de_prueba\?start=[A-Za-z0-9_-]{20,}/);
-        assert.deepEqual(await registerLanding(again, { send }), { registered: true });
+        const repeated = await registerLanding(again, { send });
+        assert.equal(repeated.recorded, true);
+        assert.equal(repeated.telegramEmail, 'pending');
         assert.equal(sent.length, 1);
         assert.equal(
           await count(
@@ -153,7 +157,7 @@ test('landing: un correo ya registrado recibe el enlace de Telegram por correo, 
   }
 });
 
-test('landing: si el envío del correo falla, el formulario responde igual y no se pierde la solicitud', async () => {
+test('landing: si el envío del correo falla, informa el fallo y conserva el botón del bot y la solicitud', async () => {
   const email = uniqueEmail('landing-correo-falla');
   try {
     await withEnv({ TELEGRAM_BOT_USERNAME: 'bot_de_prueba' }, () =>
@@ -173,7 +177,10 @@ test('landing: si el envío del correo falla, el formulario responde igual y no 
           { ...form, name: 'Otra Persona', telegram: true },
           { send: failing },
         );
-        assert.deepEqual(result, { registered: true });
+        assert.equal(result.recorded, true);
+        assert.equal(result.telegramEmail, 'failed');
+        assert.equal(result.telegramUrl, 'https://t.me/bot_de_prueba');
+        assert.equal(result.registered, true);
         assert.equal(
           await count(
             db,
@@ -340,7 +347,7 @@ test('A1: solo correo recibe confirmación, cumple el primer intento y no duplic
       };
       const sent = [];
       const send = async (message) => sent.push(message);
-      assert.deepEqual(await registerLanding(form, { send }), { registered: true });
+      assert.equal((await registerLanding(form, { send })).recorded, true);
       assert.equal(sent.length, 1);
       assert.equal(sent[0].to, form.email);
       assert.match(sent[0].subject, /registro/);
@@ -422,7 +429,8 @@ test('A1: SMTP fallido conserva el registro y los siete intentos pendientes', as
           },
         },
       );
-      assert.deepEqual(result, { registered: true });
+      assert.equal(result.recorded, true);
+      assert.equal(result.registered, true);
       assert.equal(
         await count(
           db,

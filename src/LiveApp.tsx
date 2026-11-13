@@ -8,10 +8,14 @@ import { Catalog } from './pages/Catalog';
 import { Followup } from './pages/Followup';
 import { Integrations } from './pages/Integrations';
 import { Kpis } from './pages/Kpis';
+import { Knowledge } from './pages/Knowledge';
+import { AgentRules } from './pages/AgentRules';
 import { Overview } from './pages/Overview';
 import { Pending } from './pages/Pending';
 import { Profile } from './pages/Profile';
 import { WorkspaceProvider, useWorkspace } from './state/Workspace';
+import { AuthProvider, useAuth } from './state/Auth';
+import { Login } from './pages/Login';
 function WorkspaceView() {
   const { data, selected, page, error } = useWorkspace();
   const [creating, setCreating] = useState(false);
@@ -27,14 +31,25 @@ function WorkspaceView() {
       {data && !selected && page === 'followup' && <Followup />}
       {data && !selected && page === 'kpis' && <Kpis />}
       {data && !selected && page === 'integrations' && <Integrations />}
+      {data && !selected && page === 'knowledge' && <Knowledge />}
+      {data && !selected && page === 'agent-rules' && <AgentRules />}
       {creating && <LeadForm onClose={closeForm} />}
     </Layout>
   );
 }
-export default function LiveApp() {
+function AuthenticatedApp() {
+  const { user, checking } = useAuth();
+  if (checking || !user) return <Login />;
   return (
     <WorkspaceProvider>
       <WorkspaceView />
     </WorkspaceProvider>
+  );
+}
+export default function LiveApp() {
+  return (
+    <AuthProvider>
+      <AuthenticatedApp />
+    </AuthProvider>
   );
 }

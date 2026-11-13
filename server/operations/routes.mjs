@@ -7,7 +7,34 @@ import { analyze, createTelegramLink, getIntegrationStatus } from '../integratio
 import { acceptGuardian, inviteGuardian } from '../links/service.mjs';
 import { confirmExternalDelivery } from '../messages/delivery.mjs';
 import { activateTrial, offerTrial } from '../trials/service.mjs';
+import {
+  getRecommendationSettings,
+  setRecommendationSettings,
+  previewRecommendation,
+} from '../agent/recommendations.mjs';
 export function registerRoutes(app) {
+  app.get('/api/agent/recommendations/settings', route(null, getRecommendationSettings));
+  app.patch(
+    '/api/agent/recommendations/settings',
+    route(
+      z.object({ enabled: z.boolean(), version: z.number().int().positive() }).strict(),
+      setRecommendationSettings,
+    ),
+  );
+  app.post(
+    '/api/agent/recommendations/preview',
+    route(
+      z
+        .object({
+          career: z.string().trim().min(2).max(100),
+          availability: z.string().trim().max(200).default('2 horas al día'),
+          budget: z.number().min(0).max(9999999.99),
+          simulation: z.boolean().default(false),
+        })
+        .strict(),
+      previewRecommendation,
+    ),
+  );
   app.post(
     '/api/participations/:id/trial-link',
     route(z.object({}).strict(), (_, id) => offerTrial(id)),

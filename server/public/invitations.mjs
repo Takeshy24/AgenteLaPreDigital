@@ -6,6 +6,7 @@ import { getParticipation } from '../shared/repository.mjs';
 import { BusinessError } from '../shared/errors.mjs';
 import { telegramLink } from './intake.mjs';
 import { directInvitee } from '../links/direct.mjs';
+import { publicChatLinks } from './channel-links.mjs';
 export async function viewInvitation(code) {
   return transaction(async (db) => {
     const invitation = await getInvitation(db, code);
@@ -15,6 +16,7 @@ export async function viewInvitation(code) {
       name: invitation.nombreInvitado,
       accepted: !!invitation.fechaVinculacion,
       known: !!(await directInvitee(db, code)),
+      ...publicChatLinks(),
     };
   });
 }
@@ -34,9 +36,10 @@ export async function acceptPublicInvitation(code, data) {
       const participant = await getParticipation(db, result.id);
       return {
         accepted: true,
+        ...publicChatLinks(),
         telegramUrl: (data.channels ?? [known.channel]).includes(3)
           ? await telegramLink(db, participant.idContacto)
-          : null,
+          : publicChatLinks().telegramUrl,
       };
     }
     if (!data.email || !data.phone)
@@ -51,7 +54,10 @@ export async function acceptPublicInvitation(code, data) {
     const participant = await getParticipation(db, result.id);
     return {
       accepted: true,
-      telegramUrl: channels.includes(3) ? await telegramLink(db, participant.idContacto) : null,
+      ...publicChatLinks(),
+      telegramUrl: channels.includes(3)
+        ? await telegramLink(db, participant.idContacto)
+        : publicChatLinks().telegramUrl,
     };
   });
 }

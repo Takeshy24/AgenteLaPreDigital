@@ -3,6 +3,7 @@ import { once } from 'node:events';
 import http from 'node:http';
 import test from 'node:test';
 import { app } from '../app.mjs';
+import { loginAdmin } from '../test-support/login.mjs';
 import { close } from '../db.mjs';
 import {
   conversionRows,
@@ -328,6 +329,7 @@ test('API: /api/kpis responde los seis indicadores y el reporte es un PDF válid
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
+    const fetch = await loginAdmin(base);
     const response = await fetch(`${base}/api/kpis?grain=month&channel=2`);
     assert.equal(response.status, 200);
     const body = await response.json();

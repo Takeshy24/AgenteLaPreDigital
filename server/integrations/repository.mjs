@@ -88,6 +88,7 @@ FROM
 WHERE
   idContacto = @contact
   AND usedAt IS NULL
+  AND consentimiento = 1
   AND expiresAt > ${now}`,
         { contact },
       )

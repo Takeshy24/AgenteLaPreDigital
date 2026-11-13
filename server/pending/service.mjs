@@ -79,7 +79,17 @@ const SOURCES = [
     sql: `SELECT p.idSolicitud id, N'Revisar identidad' title, p.createdAt since, p.nombre person,
       p.correo email, p.beneficiario beneficiary,
       CONCAT(p.correo, N' · beneficiario: ', p.beneficiario) detail, NULL participationId
-    FROM dbo.App_PublicInquiry p WHERE p.estado=N'Revisar identidad'`,
+    FROM dbo.App_PublicInquiry p WHERE p.estado=N'Revisar identidad'
+    UNION ALL
+    SELECT -s.idSolicitud id, N'Revisar identidad' title, s.fechaSolicitud since,
+      COALESCE(JSON_VALUE(o.payload,'$.name'), c.nombreCompleto, c.telefono, N'Contacto en chat') person,
+      JSON_VALUE(o.payload,'$.email') email, JSON_VALUE(o.payload,'$.beneficiary') beneficiary,
+      CONCAT(N'Correo declarado en chat: ', JSON_VALUE(o.payload,'$.email'), N' · teléfono: ', COALESCE(c.telefono,JSON_VALUE(o.payload,'$.phone'))) detail,
+      NULL participationId
+    FROM dbo.SolicitudProvisional s JOIN dbo.App_Onboarding o ON o.idSolicitud=s.idSolicitud
+    JOIN dbo.Contacto c ON c.idContacto=s.idContacto
+    WHERE o.step=N'review' AND s.idEstadoSolicitud=1
+      AND NOT EXISTS(SELECT 1 FROM dbo.App_PublicInquiry p WHERE p.idSolicitudProvisional=s.idSolicitud)`,
   },
   {
     type: 'delivery',

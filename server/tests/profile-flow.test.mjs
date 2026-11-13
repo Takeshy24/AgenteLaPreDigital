@@ -79,7 +79,7 @@ test('la recomendación elige el plan mensual más completo que cabe y no invent
   assert.equal(recommend(profile(40), tariffs).tariff.plan, 'Ruta UNT');
   const meta = recommend(profile(80), tariffs);
   assert.equal(meta.tariff.plan, 'Meta UNT');
-  assert.match(meta.text, /S\/ 79\.90 al mes o S\/ 399\.90 el semestre/);
+  assert.doesNotMatch(meta.text, /79\.90|399\.90/);
   assert.equal(recommend(profile(100), tariffs).tariff.plan, 'Meta UNT Plus');
   const none = recommend(profile(30), tariffs);
   assert.equal(none.tariff, null);
@@ -322,10 +322,7 @@ test('las respuestas con botones llenan el perfil una a una y terminan en una re
       });
       messages = await outgoing(db, scenario);
       assert.match(messages.at(-1).text, /lo que mejor te va es Meta UNT/);
-      assert.match(
-        messages.at(-1).text,
-        /Para reforzar física, los planes pagados incluyen videoclases/,
-      );
+      assert.match(messages.at(-1).text, /Para reforzar física, revisemos sus características/);
       const buttons = JSON.parse(messages.at(-1).markup).inline_keyboard.flat();
       assert.deepEqual(
         buttons.map((button) => button.text),
@@ -868,7 +865,7 @@ test('el agente habla según el rol: a la madre le pregunta por su hijo y lo nom
           .inline_keyboard.flat()
           .map((button) => button.text)
           .slice(0, 3),
-        ['Es su primera vez', 'Ya postuló una vez', 'Ya postuló dos veces o más'],
+        ['Es su primera vez', 'Ya postuló una vez', 'Postuló dos veces o más'],
       );
       await send(db, scenario, press(scenario, `pf:${id}:e:1`));
       messages = await outgoing(db, scenario);

@@ -46,6 +46,7 @@ export interface PublicInquiry {
   beneficiary: string;
   plan: string;
   consent: boolean;
+  communicationChannel?: 1 | 2 | 3;
   createdAt: string;
   phone: string | null;
   role: number | null;
@@ -190,12 +191,29 @@ export async function request<T>(path: string, method = 'GET', body?: unknown): 
   if (apiBase) headers['ngrok-skip-browser-warning'] = '1';
   const res = await fetch(apiBase + '/api' + path, {
     method,
+    credentials: 'same-origin',
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
-  const payload = await res
-    .json()
-    .catch(() => ({ error: 'La API no está disponible. Inicia npm run server.' }));
-  if (!res.ok) throw new Error(payload.error || 'Error en la API');
+  let payload: unknown;
+  try {
+    payload = await res.json();
+  } catch {
+    throw new Error(
+      'El servidor no devolvió una respuesta válida. La operación no está confirmada. Revisa la API y vuelve a intentarlo.',
+    );
+  }
+  if (!res.ok) {
+    if (res.status === 401 && !path.startsWith('/public/') && !path.startsWith('/auth/'))
+      window.dispatchEvent(new Event('lapredigital:auth-required'));
+    const message =
+      payload &&
+      typeof payload === 'object' &&
+      'error' in payload &&
+      typeof payload.error === 'string'
+        ? payload.error
+        : 'Error en la API';
+    throw new Error(message);
+  }
   return payload as T;
 }

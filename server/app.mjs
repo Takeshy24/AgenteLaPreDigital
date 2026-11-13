@@ -21,6 +21,8 @@ import { registerRoutes as proposalsRoutes } from './proposals/routes.mjs';
 import { registerRoutes as pendingRoutes } from './pending/routes.mjs';
 import { BusinessError } from './shared/errors.mjs';
 import { registerRoutes as workspaceRoutes } from './workspace/routes.mjs';
+import { registerRoutes as knowledgeRoutes } from './knowledge/routes.mjs';
+import { registerRoutes as authRoutes, requireSession } from './auth/routes.mjs';
 const app = express();
 app.disable('x-powered-by');
 app.post(
@@ -68,7 +70,6 @@ app.post(
   },
 );
 app.set('trust proxy', 'loopback');
-app.use(express.json({ limit: '32kb' }));
 function landingOrigins() {
   return (process.env.LANDING_ORIGINS || '')
     .split(',')
@@ -109,7 +110,13 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+app.use('/api/auth', express.json({ limit: '32kb' }));
+authRoutes(app);
+app.use('/api', requireSession);
+app.use('/api/knowledge', express.json({ limit: '4mb' }));
+app.use(express.json({ limit: '32kb' }));
 workspaceRoutes(app);
+knowledgeRoutes(app);
 leadsRoutes(app);
 kpisRoutes(app);
 profilesRoutes(app);

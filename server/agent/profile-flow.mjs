@@ -26,7 +26,7 @@ export const NO_COURSES = 'Ninguno en especial';
 const APPLICATIONS = [
   ['Es mi primera vez', 'Es su primera vez', 'Primera postulación (no postuló antes)'],
   ['Ya postulé una vez', 'Ya postuló una vez', 'Postuló una vez'],
-  ['Ya postulé dos veces o más', 'Ya postuló dos veces o más', 'Postuló dos veces o más'],
+  ['Postulé dos veces o más', 'Postuló dos veces o más', 'Postuló dos veces o más'],
 ];
 
 // A quién se habla (tabla 3: rol del contacto). El estudiante recibe un trato directo; la madre,
@@ -166,9 +166,10 @@ export function parseCallback(data) {
 }
 
 const missing = (profile, key) => profile[key] == null || String(profile[key]).trim() === '';
-export function nextKey(profile) {
-  const core = ORDER.find((key) => missing(profile, key));
+export function nextKey(profile, { questionOrder = ORDER, optionalQuestions = true } = {}) {
+  const core = questionOrder.find((key) => missing(profile, key));
   if (core) return core;
+  if (!optionalQuestions) return null;
   const asked = String(profile.asked ?? '').split(',');
   return (
     OPTIONAL.find(
@@ -201,22 +202,14 @@ export function recommend(profile, tariffs, aud = STUDENT) {
   const fits = monthly(tariffs).filter((tariff) => Number(tariff.precio) <= budget);
   const chosen = fits.at(-1);
   const summary = `${profile.career}, ${String(profile.availability).toLowerCase()}, hasta S/ ${budget} al mes`;
-  // Tabla 4: los planes pagados incluyen videoclases y ejercicios por curso y tema.
   const courses = profile.courses
-    ? ` Para reforzar ${String(profile.courses).toLowerCase()}, los planes pagados incluyen videoclases y ejercicios por curso y tema.`
+    ? ` Para reforzar ${String(profile.courses).toLowerCase()}, revisemos sus características.`
     : '';
-  if (!chosen)
-    return {
-      text: `¡Gracias por contarme! Con lo que me compartiste (${summary}), lo mejor para empezar es Explora UNT: 14 días gratis, una vez por estudiante. Después vemos juntos qué plan ${aud.student ? 'te conviene' : `le conviene a ${aud.name}`}.${courses}`,
-      tariff: null,
-    };
-  const semester = tariffs.find(
-    (tariff) => tariff.plan === chosen.plan && tariff.modalidad === 'Semestral',
-  );
-  const prices = `S/ ${Number(chosen.precio).toFixed(2)} al mes${semester ? ` o S/ ${Number(semester.precio).toFixed(2)} el semestre` : ''}`;
   return {
-    text: `¡Listo, gracias por contarme! Con lo que me compartiste (${summary}), creo que lo que mejor ${aud.student ? 'te va' : `le va a ${aud.name}`} es ${chosen.plan}: ${prices}. Si quieres, también ${aud.student ? 'puedes' : 'puede'} empezar probando Explora UNT gratis por 14 días (una vez por estudiante).${courses}`,
-    tariff: chosen,
+    text: chosen
+      ? `Con lo que me compartiste (${summary}), lo que mejor ${aud.student ? 'te va' : `le va a ${aud.name}`} es ${chosen.plan}.${courses}`
+      : `Con lo que me compartiste (${summary}), podemos revisar Explora UNT.${courses}`,
+    tariff: chosen ?? null,
   };
 }
 

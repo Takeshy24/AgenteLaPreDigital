@@ -8,13 +8,25 @@ import { getParticipation } from '../shared/repository.mjs';
 import * as flow from './profile-flow.mjs';
 import * as repository from './repository.mjs';
 import { actOnAnalysis } from './service.mjs';
+import { getPolicy } from './policy.mjs';
+import { answerFromKnowledge } from './knowledge.mjs';
+import { knowledgeFragments, NO_INFORMATION } from '../knowledge/service.mjs';
+import { buildDataRecommendation } from './recommendations.mjs';
 
 // Deja en cola el siguiente paso: la pregunta de perfil que falta o, con el perfil completo, la
 // recomendación. El despacho lo envía con sus botones y queda registrado como mensaje saliente.
-export async function queueNextStep(db, participation, replyTo, { intro = '' } = {}) {
+export async function queueNextStep(
+  db,
+  participation,
+  replyTo,
+  { intro = '', recommendationOnly = false } = {},
+) {
   const profile = await repository.getProfile(db, participation.idLeadCaso);
+  const policy = await getPolicy(db);
+  if (!policy.profileQuestions && !recommendationOnly)
+    return createReply(db, participation, '¡Hola! ¿En qué puedo ayudarte?', replyTo);
   const tariffs = await publicTariffs(db);
-  const key = flow.nextKey(profile);
+  const key = recommendationOnly ? null : flow.nextKey(profile, policy);
   const aud = flow.audience(profile.role, profile.beneficiary);
   if (key) {
     const { field } = flow.QUESTIONS[key];
@@ -30,10 +42,64 @@ export async function queueNextStep(db, participation, replyTo, { intro = '' } =
     });
     return messageId;
   }
-  const recommendation = flow.recommend(profile, tariffs, aud);
-  const messageId = await createReply(db, participation, intro + recommendation.text, replyTo);
+  if (!policy.recommendAfterProfile)
+    return createReply(
+      db,
+      participation,
+      'Gracias por compartir tus datos. ¿Qué te gustaría consultar?',
+      replyTo,
+    );
+  const dataRecommendation = policy.useLeadData
+    ? await buildDataRecommendation(db, profile, tariffs, aud, {
+        excludeBeneficiary: participation.idBeneficiario,
+      })
+    : null;
+  const recommendation = dataRecommendation ?? flow.recommend(profile, tariffs, aud);
+  const answer = answerFromKnowledge(
+    `Qué incluye ${recommendation.tariff?.plan ?? 'Explora UNT'}`,
+    [],
+    await knowledgeFragments(),
+  );
+  const messageId = await createReply(
+    db,
+    participation,
+    dataRecommendation
+      ? `${intro}${dataRecommendation.text}`
+      : answer
+        ? `${intro}${recommendation.text}\n\n${answer.text}`
+        : NO_INFORMATION,
+    replyTo,
+  );
+  if (dataRecommendation ? !dataRecommendation.hasInformation : !answer) return messageId;
+  const menu = dataRecommendation?.alternatives.length
+    ? [
+        ...dataRecommendation.alternatives.map((tariff) => [
+          {
+            text: `Elegir ${tariff.plan}`,
+            callback_data: `pf:${participation.idLeadCaso}:p:${tariff.id}`,
+          },
+          {
+            text: `Ver ${tariff.plan}`,
+            callback_data: `pf:${participation.idLeadCaso}:i:${tariff.id}`,
+          },
+        ]),
+        [{ text: 'Probar Explora gratis', callback_data: `pf:${participation.idLeadCaso}:t` }],
+      ]
+    : flow.recommendationKeyboard(participation.idLeadCaso, recommendation.tariff);
+  const buttons = menu
+    .filter((row) =>
+      row.every((button) => {
+        const letter = flow.parseCallback(button.callback_data)?.letter;
+        return letter !== 'p' || policy.proposalLinks;
+      }),
+    )
+    .filter((row) =>
+      row.every(
+        (button) => flow.parseCallback(button.callback_data)?.letter !== 't' || policy.trialLinks,
+      ),
+    );
   await repository.attachMarkup(db, messageId, {
-    inline_keyboard: flow.recommendationKeyboard(participation.idLeadCaso, recommendation.tariff),
+    inline_keyboard: buttons,
   });
   return messageId;
 }

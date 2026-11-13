@@ -57,7 +57,7 @@ export function Landing() {
               conversemos sobre el plan que va contigo.
             </p>
             <div className="landing-actions">
-              <a className="landing-primary-link" href="#contacto">
+              <a className="landing-primary-link" href="https://la-pre-digital.onrender.com/">
                 Empezar mi preparación <ArrowUpRight size={19} aria-hidden="true" />
               </a>
               <a className="landing-video-link" href="#presentacion">

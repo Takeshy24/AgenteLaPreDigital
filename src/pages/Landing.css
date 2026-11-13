@@ -567,18 +567,6 @@ body:has(.landing) {
   font-size: 11px;
   line-height: 1.65;
 }
-.landing-form input.landing-trap {
-  position: absolute;
-  width: 1px;
-  min-height: 0;
-  height: 1px;
-  padding: 0;
-  border: 0;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  overflow: hidden;
-  opacity: 0;
-}
 .landing-failure {
   margin: 0;
   padding: 12px;

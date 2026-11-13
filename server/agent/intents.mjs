@@ -50,8 +50,43 @@ const OBJECTION_TYPES = [
 ];
 const ACCEPTANCE =
   / (acepto|aceptamos|la acepto|lo acepto|acepto la propuesta|de acuerdo con la propuesta|me quedo con la propuesta) /;
-const RELATIVE =
-  '(mama|madre|papa|padre|padres|apoderado|apoderada|tutor|tutora|abuelo|abuela|tio|tia|hermano|hermana|esposo|esposa|pareja|conyuge)';
+const RELATIONS = [
+  ['madre', 'mamá', 3, ['mama', 'mami', 'madre']],
+  ['padre', 'papá', 2, ['papa', 'papi', 'padre', 'padres']],
+  ['apoderado', 'apoderado', 4, ['apoderado', 'tutor']],
+  ['apoderada', 'apoderada', 4, ['apoderada', 'tutora']],
+  ...[
+    'abuelo',
+    'abuela',
+    'hermano',
+    'hermana',
+    'esposo',
+    'esposa',
+    'pareja',
+    'padrino',
+    'madrina',
+    'familiar',
+    'responsable',
+  ].map((key) => [key, key, 4, [key]]),
+  ['tio', 'tío', 4, ['tio']],
+  ['tia', 'tía', 4, ['tia']],
+  ['primo', 'primo', 4, ['primo']],
+  ['prima', 'prima', 4, ['prima']],
+  ['conyuge', 'cónyuge', 4, ['conyuge']],
+];
+const RELATION_BY_WORD = new Map(
+  RELATIONS.flatMap(([key, label, role, aliases]) =>
+    aliases.map((alias) => [alias, { key, label, role }]),
+  ),
+);
+const RELATIVE = `(${[...RELATION_BY_WORD.keys()].join('|')})`;
+export function guardianRelation(text) {
+  const found = [...words(text).matchAll(new RegExp(`\\b${RELATIVE}\\b`, 'g'))].map((match) =>
+    RELATION_BY_WORD.get(match[0]),
+  );
+  const specific = found.filter((relation) => !['familiar', 'responsable'].includes(relation.key));
+  return (specific.length ? specific : found).at(-1) ?? null;
+}
 const GUARDIAN = new RegExp(
   ` (${RELATIVE} ([a-z ]* )?(paga|pagan|pagara|decide|deciden|decidira)|(paga|pagan|decide|deciden) ([a-z ]* )?${RELATIVE}|no puedo decidir|no decido yo|depende de mis padres|tengo que consultarlo|consultarlo con) `,
 );
@@ -59,6 +94,15 @@ const INVITATION =
   / (invitacion|invitaciones|invitar|invitarle|invitarla|invitarlo|invitarles|invita|invitale|inviten) /;
 const INVITATION_REQUEST =
   / (quiero|quisiera|deseo|necesito|puedes|pueden|podrias|podrian|me gustaria|prepara|preparen|preparame|generame|pasame|mandame|enviame|enviale|dame|me das|invita|invitale|inviten) /;
+const CONTACT_DENIAL =
+  / (no|ya no) (quiero|quisiera|necesito|deseo|puedes|pueden|hables|hablen|contactes|contacten|escribas|escriban|envies|envien|mandes|manden|le escribas|le envies|le mandes|lo contactes|la contactes) /;
+export function declinesFamilyContact(text) {
+  const value = words(text);
+  return (
+    CONTACT_DENIAL.test(value) &&
+    (new RegExp(` ${RELATIVE} `).test(value) || INVITATION.test(value))
+  );
+}
 function requestsInvitation(text) {
   return String(text)
     .split(/[.,;!?¿\n]+/)
@@ -72,6 +116,43 @@ function requestsInvitation(text) {
         )
       );
     });
+}
+export function requestsFamilyContact(text) {
+  const value = words(text);
+  const family = new RegExp(` ${RELATIVE} `).test(value);
+  const action =
+    / (hablar|habla|hables|hablen|contactar|contacta|contactalo|contactala|contactes|contacten|escribir|escribe|escribele|escribeles|escribas|escriban|enviar|envia|enviale|enviales|envies|envien|mandar|manda|mandale|mandales|mandes|manden) /;
+  const request =
+    / (quiero|quisiera|necesito|deseo|puedes|pueden|podrias|podrian|me gustaria|por favor|habla|hablen|contacta|contactalo|contactala|contacten|escribe|escribele|escribeles|escriban|envia|enviale|enviales|envien|manda|mandale|mandales|manden) /;
+  return family && action.test(value) && request.test(value) && !CONTACT_DENIAL.test(value);
+}
+function familyPaymentInformation(text) {
+  return / (pregunta|pregunto|quiere saber|quiere conocer|como se paga|puede pagar|podria pagar) /.test(
+    words(text),
+  );
+}
+function deniesFamilyPayment(text) {
+  return / (no|nunca|tampoco) (se )?(va a )?(paga|pagara|pagaran|pagaria|pague|paguen|hara cargo|hace cargo|encargara|encarga|cubrira|cubre|asumira|asume|manejara|maneja|gestionara|gestiona) /.test(
+    words(text),
+  );
+}
+export function hasGuardianPaymentContext(text) {
+  const value = words(text);
+  const payment =
+    / (pago|pagos|pagar|pague|paguen|cuota|cuotas|costo|costos|gasto|gastos|mensualidad|financiamiento) /;
+  return (
+    !!guardianRelation(text) &&
+    payment.test(value) &&
+    !declinesFamilyContact(text) &&
+    !familyPaymentInformation(text) &&
+    !deniesFamilyPayment(text)
+  );
+}
+function assignsFamilyPayment(text) {
+  const value = words(text);
+  const responsibility =
+    / (maneja|maneje|manejara|gestiona|gestione|gestionara|se encarga|se encargue|se encargara|encargarse|se ocupa|se ocupe|se ocupara|hacerse cargo|se hace cargo|se haga cargo|se hara cargo|asume|asuma|asumira|cubre|cubra|cubrira|cubrir|hara|haga|debe hacer|debe de hacer|va a hacer|realiza|realice|realizara|pague|paguen|responsable) /;
+  return hasGuardianPaymentContext(text) && responsibility.test(value);
 }
 const QUESTION_START =
   /^ (q|k|ke|que|cuanto|cuantos|cuantas|como|tienen|hay|incluye|incluyen|puedo|se puede|cual|cuales|donde) /;
@@ -213,19 +294,17 @@ export function unavailableOption(text, tariffs) {
 }
 export const isPaymentQuestion = (text) => PAYMENT_ASK.test(words(text));
 export const isRetraction = (text) => RETRACTION.test(words(text));
-export const needsGuardianText = (text) => GUARDIAN.test(words(text)) || requestsInvitation(text);
-const isQuestion = (text) => /[?¿]/.test(text) || QUESTION_START.test(words(text));
+export const needsGuardianText = (text) =>
+  !declinesFamilyContact(text) &&
+  (requestsInvitation(text) ||
+    requestsFamilyContact(text) ||
+    (!familyPaymentInformation(text) &&
+      !deniesFamilyPayment(text) &&
+      (GUARDIAN.test(words(text)) || assignsFamilyPayment(text))));
+export const isQuestion = (text) => /[?¿]/.test(text) || QUESTION_START.test(words(text));
 
 // Datos del responsable económico (F4) en texto libre: relación, nombre y celular. Cada mensaje puede
 // traer solo una parte; guardianFrom une las partes de varios mensajes.
-const RELATION_ROLE = [
-  [3, /\b(mama|mami|madre)\b/],
-  [2, /\b(papa|papi|padre)\b/],
-  [
-    4,
-    /\b(apoderado|apoderada|tutor|tutora|tio|tia|abuelo|abuela|hermano|hermana|padrino|madrina|primo|prima|esposo|esposa|pareja|conyuge)\b/,
-  ],
-];
 // Cónyuge o pareja del contacto no implica ser madre o padre del beneficiario: se invita como otro responsable.
 const RELATION_WORD =
   '(?:mam[aá]|mami|madre|pap[aá]|papi|padre|apoderad[oa]|tutora?|t[ií][oa]|abuel[oa]|herman[oa]|padrino|madrina|prim[oa]|espos[oa]|pareja|c[oó]nyuge)';
@@ -258,6 +337,16 @@ const NAME_STOP = new Set([
   'tel',
   'fono',
   'correo',
+  'quiero',
+  'quisiera',
+  'necesito',
+  'para',
+  'por',
+  'sobre',
+  'habla',
+  'hablar',
+  'contacta',
+  'contactar',
   'ella',
   'él',
   'el',
@@ -283,9 +372,9 @@ function nameAfter(text, index) {
     ? titleCase(name.join(' '))
     : null;
 }
-export function guardianParts(text) {
-  const plain = words(text);
-  const role = RELATION_ROLE.find(([, pattern]) => pattern.test(plain))?.[0] ?? null;
+export function guardianParts(text, { nameExpected = false } = {}) {
+  if (declinesFamilyContact(text)) return { name: null, phone: null, role: null };
+  const role = guardianRelation(text)?.role ?? null;
   const phoneMatch = /(?:\+\s?\d{1,3}[\s-]*)?(?:\d[\s-]*){8,11}\d/.exec(text);
   let phone = null;
   if (phoneMatch) {
@@ -301,12 +390,20 @@ export function guardianParts(text) {
     const relation = new RegExp(`\\b${RELATION_WORD}\\s+(?=[A-ZÁÉÍÓÚÑ])`, 'u').exec(text);
     if (relation) name = nameAfter(text, relation.index + relation[0].length);
   }
+  if (!name && nameExpected && !needsGuardianText(text)) name = nameAfter(text, 0);
   return { name, phone, role };
 }
-export function guardianFrom(texts) {
+export function guardianFrom(texts, options = {}) {
   const merged = { name: null, phone: null, role: null };
+  let relation = null;
   for (const text of texts) {
-    const parts = guardianParts(text);
+    const current = guardianRelation(text);
+    if (current && relation && current.key !== relation.key) {
+      merged.name = null;
+      merged.phone = null;
+    }
+    if (current) relation = current;
+    const parts = guardianParts(text, options);
     for (const key of Object.keys(merged)) if (parts[key]) merged[key] = parts[key];
   }
   return merged;
@@ -419,6 +516,14 @@ export function applyIntentRules(analysis, text, tariffs, context = {}) {
   for (const field of extractFields(text, context))
     if (!analysis.fields.some((item) => item.field === field.field)) analysis.fields.push(field);
   if (analysis.fields.length) analysis.understood = true;
+  if (declinesFamilyContact(text)) {
+    analysis.needsGuardian = false;
+    analysis.guardian = null;
+    analysis.action = 'ask';
+    analysis.tariffId = null;
+    analysis.understood = true;
+    return analysis;
+  }
 
   const value = words(text);
   const selectsPlan =
@@ -459,7 +564,7 @@ export function applyIntentRules(analysis, text, tariffs, context = {}) {
     analysis.understood = true;
   } else if (
     (isQuestion(text) || (mentionedPlans(text).length && PLAN_INFORMATION.test(value))) &&
-    (retrieve(text, tariffs).length || mentionedPlans(text).length) &&
+    (retrieve(text, tariffs, 3, context.documents).length || mentionedPlans(text).length) &&
     ['ask', 'trial'].includes(analysis.action)
   ) {
     analysis.action = 'catalog';
@@ -468,9 +573,17 @@ export function applyIntentRules(analysis, text, tariffs, context = {}) {
   }
   if (analysis.action === 'trial' && !TRIAL_WORDS.test(value)) analysis.action = 'catalog';
   if (!analysis.retraction && !analysis.accepts) analysis.objection = objectionType(text);
-  if (needsGuardianText(text)) {
+  if (familyPaymentInformation(text) || deniesFamilyPayment(text)) {
+    if (!requestsFamilyContact(text) && !requestsInvitation(text)) {
+      analysis.needsGuardian = false;
+      analysis.guardian = null;
+    }
+  }
+  if (needsGuardianText(text) || (analysis.needsGuardian && hasGuardianPaymentContext(text))) {
     analysis.needsGuardian = true;
     analysis.understood = true;
+    analysis.action = 'ask';
+    analysis.tariffId = null;
   }
   if (!analysis.guardian) {
     const guardian = extractGuardian(text);

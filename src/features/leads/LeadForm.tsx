@@ -8,9 +8,9 @@ export function LeadForm({ onClose, inquiry }: { onClose: () => void; inquiry?: 
     name: inquiry?.name || '',
     email: inquiry?.email || '',
     phone: inquiry?.phone || '',
-    role: inquiry?.role || (inquiry?.name !== inquiry?.beneficiary ? 2 : 1),
+    role: inquiry ? inquiry.role || '' : 1,
     channel: inquiry && inquiry.id < 0 ? 5 : 1,
-    communicationChannel: 2,
+    communicationChannel: Number(inquiry?.communicationChannel || 2),
     consent: inquiry?.consent || false,
     beneficiaryName: inquiry?.beneficiary || '',
     beneficiaryId: '',
@@ -39,15 +39,16 @@ export function LeadForm({ onClose, inquiry }: { onClose: () => void; inquiry?: 
                     name: form.name,
                     email: form.email,
                     phone: form.phone,
-                    role: form.role,
-                    beneficiary: form.role === 1 ? form.name : form.beneficiaryName,
+                    role: Number(form.role),
+                    beneficiary: Number(form.role) === 1 ? form.name : form.beneficiaryName,
                     beneficiaryId: form.beneficiaryId ? Number(form.beneficiaryId) : undefined,
-                    isStudent: form.role === 1,
+                    isStudent: Number(form.role) === 1,
                     consent: form.consent,
                     plan: inquiry.plan,
                   }
                 : {
                     ...form,
+                    role: Number(form.role),
                     beneficiaryId: form.beneficiaryId ? Number(form.beneficiaryId) : undefined,
                   },
               'LEAD registrado.',
@@ -95,9 +96,11 @@ export function LeadForm({ onClose, inquiry }: { onClose: () => void; inquiry?: 
           <label>
             Rol
             <select
+              required
               value={form.role}
-              onChange={(event) => setForm({ ...form, role: Number(event.target.value) })}
+              onChange={(event) => setForm({ ...form, role: Number(event.target.value) || '' })}
             >
+              <option value="">Selecciona el rol confirmado</option>
               {data?.roles.map((role) => (
                 <option key={role.id} value={role.id}>
                   {role.nombre}
@@ -129,7 +132,7 @@ export function LeadForm({ onClose, inquiry }: { onClose: () => void; inquiry?: 
             onChange={(event) => setForm({ ...form, beneficiaryId: event.target.value })}
           />
         </label>
-        {form.role !== 1 && !form.beneficiaryId && (
+        {form.role && Number(form.role) !== 1 && !form.beneficiaryId && (
           <label>
             Nombre completo del beneficiario
             <input
@@ -150,6 +153,7 @@ export function LeadForm({ onClose, inquiry }: { onClose: () => void; inquiry?: 
           >
             <option value={2}>Correo</option>
             <option value={1}>WhatsApp</option>
+            {inquiry?.communicationChannel === 3 && <option value={3}>Telegram</option>}
           </select>
         </label>
         <label className="authorization-toggle">

@@ -4,26 +4,60 @@ import {
   CalendarDays,
   ClipboardList,
   Database,
+  Files,
+  GitBranch,
   LayoutDashboard,
+  LogOut,
   Plus,
   Settings,
   Users,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useAuth } from '../state/Auth';
 import { useWorkspace, type Page } from '../state/Workspace';
 import { Button } from './ui';
 const navigation = [
   { id: 'overview', name: 'Inicio', icon: LayoutDashboard },
-  { id: 'pending', name: 'Pendientes', icon: ClipboardList },
   { id: 'leads', name: 'LEADS y casos', icon: Users },
+  { id: 'pending', name: 'Pendientes', icon: ClipboardList },
   { id: 'catalog', name: 'Catálogo', icon: BookOpen },
   { id: 'followup', name: 'Seguimiento', icon: CalendarDays },
   { id: 'kpis', name: 'Indicadores', icon: BarChart3 },
-  { id: 'integrations', name: 'Telegram e IA', icon: Settings },
+  { id: 'integrations', name: 'Agente e integraciones', icon: Settings },
+  { id: 'knowledge', name: 'Conocimiento', icon: Files },
+  { id: 'agent-rules', name: 'Reglas del agente', icon: GitBranch },
 ] satisfies { id: Page; name: string; icon: typeof Users }[];
 export function Layout({ children, onCreate }: { children: ReactNode; onCreate: () => void }) {
-  const { data, page, selected, error, notice, reload, setError, setNotice, navigate } =
-    useWorkspace();
+  const {
+    data,
+    page,
+    selected,
+    error,
+    notice,
+    reload,
+    setError,
+    setNotice,
+    navigate,
+    unsavedChanges,
+  } = useWorkspace();
+  const { signOut } = useAuth();
+  const [leaving, setLeaving] = useState(false);
+  async function logout() {
+    if (
+      leaving ||
+      (unsavedChanges &&
+        !window.confirm('Tienes cambios sin guardar. ¿Cerrar sesión y descartarlos?'))
+    )
+      return;
+    setLeaving(true);
+    try {
+      await signOut();
+    } catch (failure) {
+      setError((failure as Error).message);
+    } finally {
+      setLeaving(false);
+    }
+  }
   return (
     <div className={`app-shell live-app page-${page}`}>
       <aside className="sidebar">
@@ -66,7 +100,13 @@ export function Layout({ children, onCreate }: { children: ReactNode; onCreate: 
       <main className="main">
         <header className="topbar">
           <div className="crumb">LaPreDigital · Gestión comercial</div>
-          <span className="pill green">{data ? 'OLTP conectado' : 'Conectando…'}</span>
+          <div className="session-actions">
+            <span className="pill green">{data ? 'OLTP conectado' : 'Conectando…'}</span>
+            <Button variant="secondary" onClick={() => void logout()} disabled={leaving}>
+              <LogOut size={15} />
+              {leaving ? 'Saliendo…' : 'Cerrar sesión'}
+            </Button>
+          </div>
         </header>
         <div className="content">
           {(selected || page !== 'catalog') && (
@@ -89,14 +129,20 @@ export function Layout({ children, onCreate }: { children: ReactNode; onCreate: 
                         catalog: 'Planes y modalidades del catálogo autorizado.',
                         followup: 'Agenda de intentos y condiciones del seguimiento autorizado.',
                         kpis: 'Los seis indicadores de la fase LEADS, con sus causas y desgloses por dimensión.',
-                        integrations: 'Configuración y disponibilidad de los servicios locales.',
+                        integrations:
+                          'Recomendaciones del agente, canales y disponibilidad de los servicios.',
+                        knowledge:
+                          'Documentos que el agente consulta para responder. Organiza, revisa y actualiza su contenido.',
+                        'agent-rules': 'Configura las preguntas y acciones automáticas del agente.',
                       }[page]}
                 </p>
               </div>
-              <Button onClick={onCreate}>
-                <Plus size={15} />
-                Nuevo LEAD
-              </Button>
+              {!['knowledge', 'agent-rules'].includes(page) && (
+                <Button onClick={onCreate}>
+                  <Plus size={15} />
+                  Nuevo LEAD
+                </Button>
+              )}
             </div>
           )}
           {error && (

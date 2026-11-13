@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { app } from '../app.mjs';
 import { close } from '../db.mjs';
+import { loginAdmin } from '../test-support/login.mjs';
 test('HTTP: lectura real, entradas inválidas y bloqueo de origen externo', async () => {
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const url = `http://127.0.0.1:${server.address().port}`;
   try {
+    const fetch = await loginAdmin(url);
     const health = await fetch(url + '/api/health');
     assert.equal(health.status, 200);
     assert.equal((await health.json()).status, 'ok');

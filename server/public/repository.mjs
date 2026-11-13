@@ -18,15 +18,16 @@ export async function listInquiries(db) {
       `SELECT TOP 100 idSolicitud id, nombre name, correo email,
     beneficiario beneficiary, esEstudiante isStudent, planSolicitado [plan],
     autorizaCorreo consent, createdAt, telefono phone, idRolContacto role,
-    idLeadCaso participationId, estado status
+    idLeadCaso participationId, estado status, 2 communicationChannel
     FROM dbo.App_PublicInquiry
     UNION ALL
-    SELECT -s.idSolicitud id, COALESCE(c.nombreCompleto,JSON_VALUE(o.payload,'$.name'),N'Contacto Telegram') name,
+    SELECT -s.idSolicitud id, COALESCE(c.nombreCompleto,JSON_VALUE(o.payload,'$.name'),N'') name,
     COALESCE(c.correo,JSON_VALUE(o.payload,'$.email')) email, JSON_VALUE(o.payload,'$.beneficiary') beneficiary,
     CAST(CASE WHEN JSON_VALUE(o.payload,'$.role')='1' THEN 1 ELSE 0 END AS BIT) isStudent,
-    N'Consulta Telegram' [plan], CAST(0 AS BIT) consent, s.fechaSolicitud createdAt,
+    CASE WHEN JSON_VALUE(o.payload,'$.channel')='1' THEN N'Captación WhatsApp' ELSE N'Captación Telegram' END [plan], CAST(0 AS BIT) consent, s.fechaSolicitud createdAt,
     COALESCE(c.telefono,JSON_VALUE(o.payload,'$.phone')) phone, TRY_CAST(JSON_VALUE(o.payload,'$.role') AS TINYINT) role,
-    NULL participationId, CASE WHEN o.step='review' THEN N'Revisar identidad' ELSE N'Completar datos en chat' END status
+    NULL participationId, CASE WHEN o.step='review' THEN N'Revisar identidad' ELSE N'Completar datos en chat' END status,
+    CASE WHEN JSON_VALUE(o.payload,'$.channel')='1' THEN 1 ELSE 3 END communicationChannel
     FROM dbo.SolicitudProvisional s JOIN dbo.Contacto c ON c.idContacto=s.idContacto
     JOIN dbo.App_Onboarding o ON o.idSolicitud=s.idSolicitud
     WHERE s.idEstadoSolicitud=1 AND NOT EXISTS(SELECT 1 FROM dbo.App_PublicInquiry p WHERE p.idSolicitudProvisional=s.idSolicitud)

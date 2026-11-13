@@ -132,11 +132,13 @@ test('el agente usa OpenAI y pasa a Ollama si OpenAI falla', async () => {
     assert.deepEqual(providerOrder(), ['openai', 'ollama']);
     const primary = await analyzeMessage('¿Cuánto cuesta Meta UNT?', tariffs, {
       fetcher: fetcher(true),
+      context: { documents: [] },
     });
     assert.equal(primary.provider, 'openai');
     assert.equal(calls.length, 1);
     const fallback = await analyzeMessage('¿Cuánto cuesta Meta UNT?', tariffs, {
       fetcher: fetcher(false),
+      context: { documents: [] },
     });
     assert.equal(fallback.provider, 'ollama');
     assert.match(fallback.fallbackReason, /openai: OpenAI respondió 500/);

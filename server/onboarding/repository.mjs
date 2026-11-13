@@ -13,6 +13,18 @@ export async function createChatContact(db, chat) {
   });
   return contact;
 }
+export async function createPhoneContact(db, phone) {
+  return insert(db, 'INSERT dbo.Contacto(telefono) VALUES(@phone)', { phone });
+}
+export async function saveKnownContact(db, contact, data) {
+  await query(
+    db,
+    `UPDATE dbo.Contacto
+SET nombreCompleto=COALESCE(@name,nombreCompleto), correo=COALESCE(@email,correo), telefono=COALESCE(@phone,telefono)
+WHERE idContacto=@contact`,
+    { contact, name: data.name ?? null, email: data.email ?? null, phone: data.phone ?? null },
+  );
+}
 export async function createRequest(db, { contact, role = null, channel = 5, text }) {
   return insert(
     db,
@@ -54,30 +66,32 @@ export async function saveContact(db, contact, data) {
     { ...data, contact },
   );
 }
-export async function recordReply(db, contact, incoming, text, participant = null) {
+export async function recordReply(db, contact, incoming, text, channel = 3) {
   const id = await insert(
     db,
-    'INSERT dbo.Mensaje(idContacto,idLead,idLeadCaso,idDireccion,idCanal,idOrigenMensaje,idMensajeRespondido,textoMensaje,idEstadoEntrega,esAutomatico) VALUES(@contact,@lead,@participation,2,3,2,@incoming,@text,1,0)',
+    'INSERT dbo.Mensaje(idContacto,idDireccion,idCanal,idOrigenMensaje,idMensajeRespondido,textoMensaje,idEstadoEntrega,esAutomatico) VALUES(@contact,2,@channel,2,@incoming,@text,1,0)',
     {
       contact,
       incoming,
       text,
-      lead: participant?.idLead ?? null,
-      participation: participant?.idLeadCaso ?? null,
+      channel,
     },
   );
-  await query(
-    db,
-    `INSERT dbo.App_Dispatch(idMensaje,state,claimedAt) VALUES(@id,N'sending',${now})`,
-    { id },
-  );
+  await query(db, `INSERT dbo.App_Dispatch(idMensaje,state,claimedAt) VALUES(@id,@state,${now})`, {
+    id,
+    state: channel === 1 ? 'pending' : 'sending',
+  });
   return id;
 }
-export async function markChatConsent(db, contact) {
+export async function markChatConsent(db, contact, channel = 3) {
   await query(
     db,
-    "UPDATE dbo.AutorizacionContacto SET idOrigenAutorizacion=3,versionTexto=N'telegram-captacion-v1' WHERE idContacto=@contact AND idCanal=3 AND idEstadoAutorizacion=1",
-    { contact },
+    'UPDATE dbo.AutorizacionContacto SET idOrigenAutorizacion=3,versionTexto=@version WHERE idContacto=@contact AND idCanal=@channel AND idEstadoAutorizacion=1',
+    {
+      contact,
+      channel,
+      version: channel === 1 ? 'whatsapp-captacion-v1' : 'telegram-captacion-v1',
+    },
   );
 }
 export async function linkRequest(db, { id, contact, lead }) {
@@ -106,7 +120,8 @@ export async function mergeChat(db, contact, old) {
     UPDATE dbo.Mensaje SET idContacto=@contact WHERE idContacto=@old AND idLead IS NULL;
     UPDATE dbo.SolicitudProvisional SET idContacto=@contact WHERE idContacto=@old;
     UPDATE dbo.App_PublicInquiry SET idContacto=@contact WHERE idContacto=@old;
-    UPDATE dbo.Contacto SET inicioBotTelegram=1,usuarioTelegram=COALESCE(usuarioTelegram,(SELECT usuarioTelegram FROM dbo.Contacto WHERE idContacto=@old)) WHERE idContacto=@contact`,
+    UPDATE dbo.Contacto SET inicioBotTelegram=CASE WHEN EXISTS(SELECT 1 FROM dbo.App_TelegramChat WHERE idContacto=@contact) THEN 1 ELSE inicioBotTelegram END,usuarioTelegram=COALESCE(usuarioTelegram,(SELECT usuarioTelegram FROM dbo.Contacto WHERE idContacto=@old)) WHERE idContacto=@contact;
+    UPDATE dbo.App_WhatsAppContact SET idContacto=@contact WHERE idContacto=@old;`,
     { contact, old },
   );
 }

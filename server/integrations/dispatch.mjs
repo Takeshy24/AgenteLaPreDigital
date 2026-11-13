@@ -8,6 +8,11 @@ import { whatsappPayload } from './whatsapp-payload.mjs';
 import { getPayload } from '../access/repository.mjs';
 import { openMessage } from '../access/crypto.mjs';
 import { getWhatsAppRecipient } from './whatsapp-repository.mjs';
+import {
+  INVITATION_IMPEDIMENTS,
+  invitationDeliveryImpediment,
+  notifyInvitationFailure,
+} from '../links/direct.mjs';
 // Solo los mensajes con opciones (o que quitan las opciones) llevan marcado en Telegram.
 function telegramMarkup(stored) {
   if (!stored) return null;
@@ -29,21 +34,22 @@ export async function dispatchMessage(id, client, { whatsapp = null, mail = null
         integrationConfig().whatsapp.phoneNumberId,
         row.idContacto,
       );
-    let reason = '';
+    let reason = await invitationDeliveryImpediment(db, row);
     const handoff = await getOpenHandoff(db, row.idContacto);
     const destination = { 1: row.whatsappUserId || row.telefono, 2: row.correo, 3: row.chatId }[
       channel
     ];
-    if (!destination)
+    if (!reason && !destination)
       reason =
         {
           1: 'El contacto no tiene teléfono.',
           2: 'El contacto no tiene correo.',
           3: 'El contacto no vinculó Telegram.',
         }[channel] || 'Canal de entrega no compatible.';
-    else if (credentials && !(await repository.hasConsent(db, row.idContacto, channel)))
+    else if (!reason && credentials && !(await repository.hasConsent(db, row.idContacto, channel)))
       reason = 'El canal de entrega de las credenciales ya no tiene autorización vigente.';
     else if (
+      !reason &&
       handoff &&
       !handoff.fechaRetomaAgente &&
       row.idOrigenMensaje !== 3 &&
@@ -51,6 +57,7 @@ export async function dispatchMessage(id, client, { whatsapp = null, mail = null
     )
       reason = 'Conversación derivada al personal.';
     else if (
+      !reason &&
       row.idOrigenMensaje === 1 &&
       (row.idEstadoCaso !== 1 ||
         row.idEstadoParticipacion !== 1 ||
@@ -61,6 +68,7 @@ export async function dispatchMessage(id, client, { whatsapp = null, mail = null
       reason = 'El seguimiento proactivo no está permitido.';
     if (reason) {
       await repository.markFailed(db, id, reason);
+      await notifyInvitationFailure(db, id, reason);
       return null;
     }
     return row;
@@ -100,16 +108,21 @@ export async function dispatchMessage(id, client, { whatsapp = null, mail = null
     }
   } catch (error) {
     const uncertain = error.uncertain ?? !['EAUTH', 'EENVELOPE', 'EMESSAGE'].includes(error.code);
-    await transaction((db) =>
-      repository.markFailed(
+    await transaction(async (db) => {
+      await repository.markFailed(
         db,
         id,
         credentials
           ? 'No se pudo confirmar la entrega de las credenciales. Revisa el canal antes de reintentar.'
           : error.message,
         uncertain,
-      ),
-    );
+      );
+      await notifyInvitationFailure(
+        db,
+        id,
+        INVITATION_IMPEDIMENTS[uncertain ? 'uncertain' : 'delivery'],
+      );
+    });
     return { sent: false, uncertain };
   }
   try {
@@ -128,17 +141,23 @@ async function sendWhatsApp(id, message, whatsapp) {
     const payload = await whatsappPayload(message, integrationConfig().whatsapp);
     accepted = { externalId: await whatsapp.send(payload), template: payload.type === 'template' };
   } catch (error) {
-    await transaction((db) =>
-      repository.markFailed(
+    const uncertain = error.uncertain ?? true;
+    await transaction(async (db) => {
+      await repository.markFailed(
         db,
         id,
         message.credentials
           ? 'No se pudo confirmar la entrega de las credenciales por WhatsApp.'
           : error.message,
-        error.uncertain ?? true,
-      ),
-    );
-    return { sent: false, uncertain: error.uncertain ?? true };
+        uncertain,
+      );
+      await notifyInvitationFailure(
+        db,
+        id,
+        INVITATION_IMPEDIMENTS[uncertain ? 'uncertain' : 'delivery'],
+      );
+    });
+    return { sent: false, uncertain };
   }
   await transaction((db) =>
     repository.markAccepted(db, id, accepted.externalId, accepted.template),

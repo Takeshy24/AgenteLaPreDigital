@@ -147,3 +147,106 @@ test('mencionar a la esposa o rechazar la invitación no declara una necesidad d
     assert.equal(needsGuardianText(text), false, text);
   }
 });
+
+test('contactar a un familiar prioriza la invitación aunque la IA lo confunda con pagar', () => {
+  for (const text of [
+    'Quiero que le envies un mensaje a mi padre para que el se haga cargo del pago',
+    'quiero que hables mi padre sobre eso',
+    '¿Puedes hablar con mi apoderada?',
+    'Escríbele a mi mamá por WhatsApp',
+    'Contacta a mi tío, él pagará',
+    'Quiero que contactes a otro familiar',
+  ]) {
+    const analysis = validateAnalysis({ ...base(), action: 'proposal' }, text, tariffs);
+    assert.equal(analysis.needsGuardian, true, text);
+    assert.equal(analysis.action, 'ask', text);
+    assert.equal(analysis.tariffId, null, text);
+    assert.equal(analysis.understood, true, text);
+  }
+  for (const text of [
+    'No quiero que le escribas a mi padre',
+    'No le escribas a mi madre',
+    'No quiero que le escribas a mi padre Carlos Ruiz 987654321 aunque él paga',
+    'Mi padre quiere hablar contigo',
+    'Mi madre estudia Medicina',
+  ])
+    assert.equal(needsGuardianText(text), false, text);
+  const denied = validateAnalysis(
+    { ...base(), needsGuardian: true },
+    'No quiero que le escribas a mi padre Carlos Ruiz 987654321 aunque él paga',
+    tariffs,
+  );
+  assert.equal(denied.needsGuardian, false);
+  assert.equal(denied.guardian, null);
+});
+
+test('el nombre sin prefijo se interpreta solo cuando se están recogiendo datos del familiar', () => {
+  assert.equal(extractGuardian('Carlos Ruiz'), null);
+  assert.deepEqual(
+    guardianFrom(['Quiero que hables con mi padre', 'Carlos Ruiz', '987654321'], {
+      nameExpected: true,
+    }),
+    { name: 'Carlos Ruiz', phone: '+51987654321', role: 2 },
+  );
+});
+
+test('delegar la gestión del pago a un familiar inicia la vinculación y no consulta el catálogo', () => {
+  for (const text of [
+    'Quiero que mi abuelo maneje el tema del pago porfavor',
+    'pero mi padre debe hacer el pago',
+    'Mi mamá se encargará de pagar',
+    'El pago lo hará mi apoderada',
+    'Mi tío va a cubrir los gastos',
+    'Mi hermana asumirá el costo',
+    'Mi padre es quien se ocupa de los pagos',
+  ]) {
+    const analysis = validateAnalysis({ ...base(), action: 'catalog' }, text, tariffs);
+    assert.equal(analysis.needsGuardian, true, text);
+    assert.equal(analysis.action, 'ask', text);
+    assert.equal(analysis.tariffId, null, text);
+  }
+});
+
+test('cambiar abuelo por padre descarta los datos del familiar anterior', () => {
+  assert.deepEqual(
+    guardianFrom(
+      [
+        'Quiero que mi abuelo maneje el tema del pago',
+        'Se llama José Pérez',
+        'Su número es 987654321',
+        'pero mi padre debe hacer el pago',
+      ],
+      { nameExpected: true },
+    ),
+    { name: null, phone: null, role: 2 },
+  );
+  assert.deepEqual(
+    guardianFrom([
+      'Mi abuelo paga',
+      'Se llama José Pérez',
+      'Mejor que mi tío se encargue del pago',
+    ]),
+    { name: null, phone: null, role: 4 },
+  );
+});
+
+test('conserva la delegación interpretada por IA aunque use otro verbo, sin confundir consultas ni negaciones', () => {
+  const analysis = validateAnalysis(
+    { ...base(), action: 'catalog', needsGuardian: true },
+    'Mi abuelo tramitará el pago por mí',
+    tariffs,
+  );
+  assert.equal(analysis.needsGuardian, true);
+  assert.equal(analysis.action, 'ask');
+  for (const text of [
+    'Mi abuelo pregunta qué métodos de pago hay',
+    'Mi padre quiere saber cómo se paga',
+    '¿Mi padre puede pagar con Yape?',
+    'Mi abuelo no se hará cargo del pago',
+    'Mi padre no pagará',
+  ]) {
+    const result = validateAnalysis({ ...base(), needsGuardian: true }, text, tariffs);
+    assert.equal(result.needsGuardian, false, text);
+    assert.equal(result.guardian, null, text);
+  }
+});

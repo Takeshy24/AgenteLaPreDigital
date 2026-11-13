@@ -4,15 +4,22 @@ Aplicación React/TypeScript con API Express y SQL Server `LaPreDigital_OLTP`. E
 
 ## Ejecutar
 
-Requiere Windows, Node.js 20 o superior, Windows PowerShell/.NET, `sqlcmd` y la base creada con `script/LaPreDigital_OLTP.sql`, un único archivo con el esquema original, las extensiones `App_*` y el usuario de la landing. La conexión predeterminada usa la identidad Windows del proceso.
+Requiere Windows, Node.js 22.3 o superior, Windows PowerShell/.NET, `sqlcmd` y la base creada con `script/LaPreDigital_OLTP.sql`, un único archivo con el esquema original, las extensiones `App_*` y el usuario de la landing. La conexión predeterminada usa la identidad Windows del proceso.
 
 1. Ejecutar `npm install`.
 2. Copiar `.env.example` a `.env` solo si aún no existe y revisar servidor/base.
 3. Ejecutar `npm run migrate` para crear o actualizar la base con el script único (es repetible y no borra datos). El servidor no modifica el esquema al arrancar. Con `npm run migrate -- --check` solo muestra qué aplicaría.
-4. Ejecutar `npm run build` y `npm start`.
-5. Abrir [la aplicación local](http://127.0.0.1:3067).
+4. Ejecutar `npm run knowledge:init` para importar los documentos iniciales de conocimiento. Es repetible: conserva las versiones existentes.
+5. Ejecutar `npm run build` y `npm start`.
+6. Abrir [la aplicación local](http://127.0.0.1:3067).
 
 Para desarrollo: `npm run server` y `npm run dev` en terminales separadas. Vite reenvía `/api` al backend.
+
+## Acceso a la consola
+
+El único usuario es `admin` y su contraseña es `password`. `npm run migrate` crea la tabla `dbo.App_AdminUser` e inserta su hash scrypt; repetir la migración conserva la cuenta. Las restricciones permiten una sola fila y el nombre `admin`. `db:clean` conserva este acceso.
+
+La consola requiere iniciar sesión; incluye mostrar/ocultar contraseña y cerrar sesión. La API privada comprueba una cookie HttpOnly con SameSite Strict y una sesión de hasta ocho horas. Las sesiones residen en memoria del servidor y se cierran al reiniciarlo. Un acceso vencido vuelve a mostrar el login. La landing, los enlaces públicos, la salud del servidor y los webhooks mantienen sus propios flujos. La consola continúa limitada a localhost.
 
 ## Funcionamiento
 
@@ -38,6 +45,32 @@ La base vacía se muestra sin registros ficticios. Los recuentos operativos prov
 - `script/LaPreDigital_OLTP.sql`: esquema único (original, extensiones `App_*` y usuario de la landing).
 - [Skill frontend](.agents/skills/lapredigital-frontend/SKILL.md) y [skill backend](.agents/skills/lapredigital-backend/SKILL.md): criterios utilizados en el refactor.
 
+## Conocimiento y reglas del agente
+
+**Conocimiento** permite crear, subir, editar, leer, descargar y eliminar documentos. Admite TXT/Markdown UTF-8, DOCX y PDF con texto seleccionable, hasta 2 MB y 200 000 caracteres extraídos (PDF hasta 200 páginas). Los archivos subidos quedan como borradores: revisar el texto y marcar «Disponible para el agente» antes de guardar. Se edita el texto extraído; el archivo original se conserva por separado. Un PDF escaneado necesita OCR externo.
+
+La misma base SQL Server `LaPreDigital_OLTP` conserva documentos y originales en `App_KnowledgeDocument`, y sus fragmentos en `App_KnowledgeFragment`. El Data Mart no interviene. Guardar reindexa en una transacción; eliminar retira también los fragmentos; las versiones detectan ediciones simultáneas. `db:clean` conserva documentos y reglas.
+
+Las respuestas informativas del agente, incluso en el registro sin consentimiento y las fichas de recomendación, salen exclusivamente de los documentos activos. Si no encuentra información, lo indica. Los JSON del informe y las tarifas solo sirven como fuente de la importación inicial explícita; no se consultan como respaldo para responder. La importación incluye condiciones, precios, cuatro planes, características y procesos de atención. Repetirla agrega únicamente fuentes iniciales ausentes: no sobrescribe las ediciones, pero puede volver a crear un documento inicial eliminado. No se ejecuta al arrancar.
+
+La búsqueda actual recorre los fragmentos de todos los documentos activos, compara palabras del título, texto y palabras clave opcionales, y entrega al modelo los fragmentos más relacionados, con documento y versión. Las palabras clave ayudan con sinónimos; no son obligatorias. No lee todos los documentos completos en cada mensaje ni usa embeddings. «Probar consulta» permite comprobar la recuperación. SQL Server evita otra dependencia para esta biblioteca; Qdrant tendría sentido como índice vectorial futuro si se incorporan embeddings y búsqueda semántica. No se instaló Qdrant.
+
+**Reglas del agente** guarda su configuración en `App_AgentPolicy`: preguntas básicas y su orden, preguntas opcionales, recomendación al completar el perfil y preparación automática de propuestas, pruebas e invitaciones. Desactivar un tipo de enlace deriva esa solicitud al equipo; no envía mensajes al guardar. Las decisiones de intención están en `server/agent/intents.mjs`; su ejecución, en `server/agent/service.mjs`; el cuestionario, en `profile-flow.mjs` y `profile-service.mjs`; configuración, en `policy.mjs`. Las comprobaciones de identidad, autorización, aceptación y pago siguen siendo obligatorias.
+
+Los precios de los documentos son informativos y editables. Las propuestas y cobros se validan con `PlanTarifa` y los registros transaccionales: editar un documento no cambia una tarifa. Al modificar precios, mantener coherencia entre el documento publicado y el catálogo. Los hechos del caso (pago confirmado, estado, enlace personal) proceden de sus registros operativos, no del contenido documental.
+
+## Recomendaciones con datos
+
+En **Agente e integraciones** (antes Telegram e IA), el interruptor «Usar el historial de LEADs para recomendar» guarda `useLeadData` en `App_AgentPolicy`. Solo se puede activar con al menos 50 filas reales registradas en la tabla `Lead`; no cuenta solicitudes provisionales ni participaciones como LEADs adicionales. El servidor comprueba el mínimo al activar y al recomendar. Si baja el recuento, el uso del historial se pausa aunque la preferencia estuviera guardada.
+
+Con el modo desactivado, sigue la recomendación por perfil y presupuesto. Con el modo activado, compara hasta tres modalidades mensuales vigentes que caben en el presupuesto. Ordena por elecciones de estudiantes con la misma carrera; utiliza también la disponibilidad si hay al menos cinco perfiles coincidentes. Solo atribuye preferencias con cinco estudiantes comparables distintos, tomando la última contratación pagada y validada de cada estudiante y excluyendo devoluciones. Excluye al propio estudiante del historial. Sin suficiente historial comparable, prioriza el presupuesto y lo indica. La recomendación aparece al completar el perfil y al pedir una recomendación con los datos básicos disponibles.
+
+Los beneficios y precios explicativos siguen viniendo de los documentos activos de Conocimiento. Los botones permiten consultar o elegir cada alternativa, respetando las reglas de propuestas, pruebas y autorizaciones. Las compras registradas son evidencia de elecciones comerciales, no de ingreso a la UNT ni de resultados académicos.
+
+«Probar cómo respondería el agente» permite una vista previa con historial registrado cuando está habilitado, o un ejemplo con ocho elecciones ficticias marcado **EJEMPLO SIMULADO**. La simulación funciona con menos de 50 LEADs, no se envía a contactos y no crea ni modifica registros operativos.
+
+El botón **Empezar mi preparación** de la landing abre la página oficial indicada: https://la-pre-digital.onrender.com/.
+
 ## Cuentas al habilitar el servicio
 
 Solo **Registrar habilitación** de una contratación pagada y validada crea o reutiliza la cuenta del estudiante en `UsuarioPlataforma`. `HabilitacionAcceso` vincula la contratación, la cuenta y el mensaje de entrega. Una cuenta existente conserva su contraseña; repetir el botón no duplica usuarios ni envíos. Las becas conservan su flujo separado.
@@ -52,7 +85,9 @@ Este registro no añade una plataforma educativa ni un inicio de sesión. `requi
 
 Página con video y formulario en `/landing` (`src/pages/Landing.tsx`, `src/features/leads/LandingForm.tsx`; el video está en `public/landing/video.mp4`). El formulario llama a `POST /api/public/landing`, que registra contacto, beneficiario, LEAD, caso, participación, autorizaciones por canal (WhatsApp y correo) y la agenda de intentos con las mismas reglas que la consola. Si el nombre del estudiante ya pertenece a otro contacto, no se vincula: queda una solicitud provisional en `SolicitudProvisional` y la respuesta no revela identificadores.
 
-Telegram en la landing: la casilla «Prefiero conversar por Telegram» no guarda consentimiento, porque el bot no puede escribir primero. Si el correo es nuevo, la respuesta incluye un enlace `https://t.me/<bot>?start=<código>` de un solo uso que vence en 10 minutos; la persona pulsa Iniciar y eso completa la autorización del canal, porque el enlace nació de un formulario donde pidió Telegram: no se le vuelve a pedir ni se le recuerda cómo revocar. `/revocar` y frases como «no me escribas» siguen funcionando. Un correo ya registrado nunca se vincula desde el formulario público: no recibe autorizaciones nuevas, LEAD ni código, y la solicitud queda en «Revisar identidad» para el personal (se muestra en Negociaciones registradas). La respuesta es igual en ambos casos, salvo que a un correo ya registrado se le da el enlace del bot sin código. Requiere `TELEGRAM_BOT_USERNAME` en `.env`; sin él no se devuelve enlace.
+El comprobante exige `registered: true` y `recorded: true`, emitidos después de confirmar la transacción SQL. Una respuesta HTML, un JSON incompleto o un fallo de registro no muestra éxito. Siempre presenta WhatsApp y Telegram; si falta la configuración de un canal, su botón queda deshabilitado con una explicación. La consola refresca solicitudes y LEADs cada diez segundos mientras está visible y al recuperar el foco.
+
+Telegram en la landing: un registro nuevo recibe un enlace personal de un uso y diez minutos aunque no marque Telegram. Marcar «Prefiero conversar por Telegram» deja indicado en ese enlace que abrirlo y pulsar Iniciar completa la autorización; sin marcarlo, el bot debe pedir autorización. Ver el botón no autoriza seguimiento. Para correos existentes se conserva la revisión de identidad: el botón abre el bot sin código y el enlace personal solo se envía al correo, cuando corresponde. El comprobante distingue correo enviado, envío fallido y enlace pendiente; no afirma que se envió un correo sin confirmación del adaptador. Requiere `TELEGRAM_BOT_USERNAME`; WhatsApp usa `WHATSAPP_PUBLIC_NUMBER`.
 
 Conversación del bot tras vincular: saluda por su nombre y hace preguntas de perfil cortas, una por mensaje y con botones: carrera, disponibilidad y presupuesto mensual. Cada clic se registra como mensaje entrante, guarda el dato con esa evidencia y deja en cola la siguiente pregunta; cada pregunta cuenta como pregunta de perfil del indicador L-2.1. Con las tres respuestas, el agente recomienda el plan mensual más completo que cabe en el presupuesto, tomando precios y topes de las tarifas vigentes, con los botones «Quiero la propuesta», «Probar Explora gratis» y «Ver qué incluye», que pasan por las mismas reglas que un mensaje escrito. Siempre se puede responder escribiendo, y «Otra respuesta» invita a hacerlo. Las opciones de carrera y disponibilidad son atajos editables en `server/agent/profile-flow.mjs`. Las preguntas que el agente hace al leer un mensaje libre también muestran sus botones. Los botones se guardan en `App_Dispatch.markup` y el consentimiento del enlace en `App_TelegramLink.consentimiento`; ambas columnas están en el script SQL único (aplicar con `npm run migrate`).
 
@@ -85,7 +120,7 @@ vercel build --prod
 vercel deploy --prebuilt --prod
 ```
 
-`vercel build` puede modificar `package-lock.json` (marcas `peer`); restaurarlo con git si no se pretende cambiarlo. Si cambia el dominio de ngrok, actualizar `VITE_API_URL` en Vercel y `PUBLIC_ORIGIN` en `.env`, y volver a desplegar. La API debe estar en ejecución en el equipo con el túnel abierto; si no, el formulario muestra un error de conexión. El envío está limitado a 8 intentos por minuto y por IP, y el formulario incluye un campo trampa. Siguen pendientes la verificación del correo o teléfono y un servicio antiabuso formal.
+`vercel build` puede modificar `package-lock.json` (marcas `peer`); restaurarlo con git si no se pretende cambiarlo. Si cambia el dominio de ngrok, actualizar `VITE_API_URL` en Vercel y `PUBLIC_ORIGIN` en `.env`, y volver a desplegar. La API debe estar en ejecución en el equipo con el túnel abierto; si no, el formulario muestra un error de conexión. El envío está limitado a 8 intentos por minuto y por IP, y el formulario no incluye campos ocultos que puedan autocompletarse accidentalmente. La API conserva la compatibilidad con el filtro `website` para clientes antiguos; la landing actual no lo envía. Siguen pendientes la verificación del correo o teléfono y un servicio antiabuso formal.
 
 ## Comprobaciones
 

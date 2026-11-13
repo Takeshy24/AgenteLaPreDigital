@@ -34,8 +34,8 @@ export async function addInvitation(db, data) {
   const existing = (
     await query(
       db,
-      'SELECT TOP 1 idInvitacion id,codigoEnlace code FROM dbo.InvitacionVinculacion WITH(UPDLOCK,HOLDLOCK) WHERE idNecesidad=@need AND nombreInvitado=@name AND idRolInvitado=@role AND fechaVinculacion IS NULL',
-      { need: data.need, name: data.name, role: data.role },
+      'SELECT TOP 1 idInvitacion id,codigoEnlace code FROM dbo.InvitacionVinculacion WITH(UPDLOCK,HOLDLOCK) WHERE idNecesidad=@need AND nombreInvitado=@name AND idRolInvitado=@role AND (telefonoInvitado=@phone OR (telefonoInvitado IS NULL AND @phone IS NULL)) AND fechaVinculacion IS NULL',
+      { need: data.need, name: data.name, role: data.role, phone: data.phone },
     )
   ).recordset[0];
   if (existing) return existing;

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { applyIntentRules, resolveTariff } from '../agent/intents.mjs';
 import { validateAnalysis } from '../agent/ollama.mjs';
-import { describePlans } from '../agent/catalog.mjs';
+import { answerFromKnowledge } from '../agent/knowledge.mjs';
+import { initialDocuments } from '../knowledge/initial.mjs';
 
 const tariffs = [
   { idPlanTarifa: 1, plan: 'Ruta UNT', modalidad: 'Mensual', precio: 39.9 },
@@ -107,7 +108,13 @@ test('la consulta de beneficios omite el plan negado y conserva el plan solicita
   const text = 'Quiero saber qué incluye Ruta UNT, no Meta UNT Plus';
   const result = validateAnalysis(base(), text, tariffs, previousPlus);
   assert.equal(result.action, 'catalog');
-  const answer = describePlans(text, tariffs);
-  assert.match(answer, /^Ruta UNT — Mensual: S\/ 39\.90/);
-  assert.doesNotMatch(answer, /Meta UNT/);
+  const documents = initialDocuments(tariffs).map((item, index) => ({
+    ...item,
+    documentId: index + 1,
+    position: 1,
+    version: 1,
+  }));
+  const answer = answerFromKnowledge(text, tariffs, documents);
+  assert.match(answer.text, /^Ruta UNT\nMensual: S\/ 39\.90/);
+  assert.doesNotMatch(answer.text, /Meta UNT/);
 });

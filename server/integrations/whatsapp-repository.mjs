@@ -6,7 +6,7 @@ export async function findWhatsAppContact(db, phoneNumberId, userId) {
     await query(
       db,
       `SELECT idContacto
-FROM dbo.App_WhatsAppContact
+FROM dbo.App_WhatsAppContact WITH (UPDLOCK,HOLDLOCK)
 WHERE phoneNumberId = @phoneNumberId AND userId = @userId`,
       { phoneNumberId, userId },
     )

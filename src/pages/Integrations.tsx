@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { request } from '../api';
 import { Button, Card, Empty } from '../components/ui';
+import { RecommendationSettings } from '../features/integrations/RecommendationSettings';
 interface Status {
   telegram: { configured: boolean; enabled: boolean };
   openai: { configured: boolean; model: string; available: boolean };
@@ -27,6 +28,7 @@ export function Integrations() {
   }, []);
   return (
     <div className="integrations-page">
+      <RecommendationSettings />
       <div className="section-heading">
         <div>
           <span className="eyebrow">ENTORNO LOCAL</span>
@@ -119,15 +121,16 @@ export function Integrations() {
           </Card>
         </div>
       )}
-      <Card title="Alcance de esta consola" label="IMPLEMENTACIÓN ACTUAL">
+      <Card title="Fuentes de las recomendaciones" label="INFORMACIÓN Y DECISIONES">
         <p>
-          WhatsApp y correo admiten constancias manuales; no tienen envío integrado. Los pagos se
-          documentan desde una confirmación externa. La plataforma educativa y el DataMart todavía
-          no están conectados.
+          Los precios y beneficios que explica el agente se consultan en los documentos de
+          Conocimiento. Las tarifas vigentes se comprueban al preparar propuestas. El historial,
+          cuando está activado y tiene datos suficientes, ayuda a ordenar las alternativas según el
+          perfil y el presupuesto.
         </p>
         <p>
-          Las funciones descritas por el informe son requisitos del proyecto; no acreditan que todas
-          las integraciones estén operativas.
+          Los ejemplos simulados se identifican como tales y se muestran únicamente en la vista
+          previa de esta consola.
         </p>
       </Card>
     </div>

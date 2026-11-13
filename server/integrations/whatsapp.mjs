@@ -23,9 +23,9 @@ import {
   whatsappSender,
 } from './whatsapp-identity.mjs';
 import { findWhatsAppContact, saveWhatsAppContact } from './whatsapp-repository.mjs';
-
-const GREETING =
-  /^(hola|buenas|buen dia|buenos dias|buenas tardes|buenas noches|hi|hello|inicio|empezar|start)$/;
+import { createPhoneOnboarding, continueOnboarding } from '../onboarding/service.mjs';
+import { INVITATION_IMPEDIMENTS, notifyInvitationFailure } from '../links/direct.mjs';
+import { isRegistrationGreeting, isSimpleGreeting } from '../agent/opening.mjs';
 
 export function verifyWhatsAppSignature(rawBody, header, secret) {
   if (!secret || !header?.startsWith('sha256=')) return false;
@@ -114,8 +114,10 @@ async function handleStatus(item) {
   await transaction(async (tx) => {
     if (['delivered', 'read'].includes(status.status))
       await repository.markDelivered(tx, messageId);
-    if (status.status === 'failed')
+    if (status.status === 'failed') {
       await repository.markRejected(tx, messageId, status.errors?.[0]?.title || 'Entrega fallida');
+      await notifyInvitationFailure(tx, messageId, INVITATION_IMPEDIMENTS.delivery);
+    }
     await repository.finishWhatsAppEvent(tx, item.eventKey);
   });
 }
@@ -142,16 +144,10 @@ function readMessage(payload) {
   return { text: caption || (payload.type === 'sticker' ? '😊' : ATTACHMENT) };
 }
 
-function emailsIn(text) {
-  return (text.match(/[^ @<>,;:]+@[^ @<>,;:]+[.][^ @<>,;:]+/g) ?? []).map((value) =>
-    value.toLowerCase(),
-  );
-}
-
 async function resolveContact(item, text, client, payload) {
   const db = await pool();
   const phoneNumberId = integrationConfig().whatsapp.phoneNumberId;
-  const userId = isWhatsAppUserId(payload.from_user_id) ? payload.from_user_id : null;
+  const userId = isWhatsAppUserId(payload.from_user_id) ? payload.from_user_id : item.waId;
   const remember = async (contact) => {
     if (userId) await transaction((tx) => saveWhatsAppContact(tx, phoneNumberId, userId, contact));
     return contact;
@@ -174,28 +170,13 @@ async function resolveContact(item, text, client, payload) {
   }
   const candidates = await repository.contactsByPhone(db, item.waId);
   if (candidates.length === 1) return remember(candidates[0].id);
-  if (candidates.length > 1) {
-    // Un teléfono puede repetirse entre contactos: se identifica por el correo escrito en el mensaje.
-    const written = emailsIn(text);
-    const match = candidates.find((candidate) =>
-      written.includes(String(candidate.correo).toLowerCase()),
-    );
-    if (match) return remember(match.id);
-    await client.sendText(
-      item.waId,
-      'Tu número está asociado a más de un registro. ¿Me escribes el correo con el que te registraste para identificarte? 😊',
-    );
-    return null;
-  }
-  const landing =
-    process.env.LANDING_URL ||
-    (process.env.LANDING_ORIGINS || '').split(',')[0].trim() ||
-    (process.env.PUBLIC_ORIGIN ? `${process.env.PUBLIC_ORIGIN}/landing` : '');
-  await client.sendText(
-    item.waId,
-    `¡Hola! 😊 Aún no te tengo registrado. ${landing ? `Regístrate aquí y seguimos por este chat: ${landing}` : 'Regístrate en nuestra página y seguimos por este chat.'}`,
-  );
-  return null;
+  return transaction(async (tx) => {
+    const prior = await findWhatsAppContact(tx, phoneNumberId, userId);
+    if (prior) return prior;
+    const contact = await createPhoneOnboarding(tx, '+' + item.waId, text);
+    await saveWhatsAppContact(tx, phoneNumberId, userId, contact);
+    return contact;
+  });
 }
 
 async function askBeneficiary(item, contact, text, candidates, client) {
@@ -270,7 +251,8 @@ async function welcome(item, target, text, context) {
   });
 }
 
-async function processWhatsAppMessage(item, client) {
+export async function processWhatsAppMessage(item, client) {
+  if ((await repository.getWhatsAppEvent(await pool(), item.eventKey))?.processedAt) return;
   const payload = JSON.parse(item.payload);
   const finish = (error) =>
     transaction((db) => repository.finishWhatsAppEvent(db, item.eventKey, null, error));
@@ -281,6 +263,7 @@ async function processWhatsAppMessage(item, client) {
   if (!read) return finish('Reacción retirada');
   const contact = await resolveContact(item, read.text, client, payload);
   if (!contact) return finish('Contacto sin identificar');
+  if (await continueOnboarding(item, contact, read.text, client, { channel: 1 })) return;
   const db = await pool();
   const participants = await repository.listContactParticipations(db, contact);
   if (isNoContactRequest(read.text))
@@ -325,17 +308,11 @@ async function processWhatsAppMessage(item, client) {
   const first = (await repository.countIncoming(db, contact, 1)) === 0;
   // Un saludo seguido de una solicitud debe analizarse completo, también en el primer mensaje.
   if (
-    first &&
-    open.length === 1 &&
+    target.idEstadoCaso === 1 &&
     !read.data &&
-    (sharedOwnNumber(payload) ||
-      GREETING.test(
-        read.text
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[^a-z ]/g, '')
-          .trim(),
-      ))
+    (isRegistrationGreeting(read.text) ||
+      isSimpleGreeting(read.text) ||
+      (first && sharedOwnNumber(payload)))
   )
     return welcome(item, target, read.text, context);
   if (await answerFromKeyboard(context, target, read.text, { data: read.data })) return;

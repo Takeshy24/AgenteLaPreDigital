@@ -8,6 +8,7 @@ export function PublicGuardian() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
   const [telegram, setTelegram] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [known, setKnown] = useState(false);
   const [channels, setChannels] = useState<number[]>([1]);
   const [form, setForm] = useState({
@@ -18,11 +19,19 @@ export function PublicGuardian() {
     linkConsent: false,
   });
   useEffect(() => {
-    request<{ name: string; accepted: boolean; known?: boolean }>(`/public/invitations/${code}`)
+    request<{
+      name: string;
+      accepted: boolean;
+      known?: boolean;
+      telegramUrl?: string | null;
+      whatsappUrl?: string | null;
+    }>(`/public/invitations/${code}`)
       .then((result) => {
         setForm((form) => ({ ...form, name: result.name }));
         setKnown(!!result.known);
         setDone(result.accepted);
+        setWhatsapp(result.whatsappUrl || '');
+        setTelegram(result.telegramUrl || '');
         setLoaded(true);
       })
       .catch((error) => setError(error.message));
@@ -44,16 +53,30 @@ export function PublicGuardian() {
         {done ? (
           <div role="status">
             <p>Vinculación registrada. Puedes continuar la conversación con el agente.</p>
-            {telegram && (
-              <a
-                href={telegram}
-                className="plans-public-link"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Continuar en Telegram
-              </a>
-            )}
+            <div className="public-chat-actions">
+              {whatsapp ? (
+                <a
+                  href={whatsapp}
+                  className="plans-public-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Continuar en WhatsApp
+                </a>
+              ) : (
+                <span className="public-loading">WhatsApp no está configurado.</span>
+              )}
+              {telegram && (
+                <a
+                  href={telegram}
+                  className="plans-public-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Continuar en Telegram
+                </a>
+              )}
+            </div>
           </div>
         ) : loaded ? (
           <form
@@ -62,7 +85,10 @@ export function PublicGuardian() {
               setBusy(true);
               setError('');
               try {
-                const result = await request<{ telegramUrl?: string }>(
+                const result = await request<{
+                  telegramUrl?: string | null;
+                  whatsappUrl?: string | null;
+                }>(
                   `/public/invitations/${code}`,
                   'POST',
                   known
@@ -75,6 +101,7 @@ export function PublicGuardian() {
                     : { ...form, channels },
                 );
                 setTelegram(result.telegramUrl || '');
+                setWhatsapp(result.whatsappUrl || '');
                 setDone(true);
               } catch (error) {
                 setError((error as Error).message);

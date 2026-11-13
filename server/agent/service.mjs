@@ -1,4 +1,6 @@
 import { transaction } from '../db.mjs';
+import { knowledgeFragments, NO_INFORMATION } from '../knowledge/service.mjs';
+import { getPolicy } from './policy.mjs';
 import { getOpenHandoff } from '../handoffs/repository.mjs';
 import { openHandoff } from '../handoffs/service.mjs';
 import { channelOf, createReply } from '../integrations/repository.mjs';
@@ -12,17 +14,18 @@ import { BusinessError } from '../shared/errors.mjs';
 import { getNeed, addNeed } from '../links/repository.mjs';
 import { inviteGuardian } from '../links/service.mjs';
 import { CHANNEL_NAMES, deliverDirectInvitation, findDirectTarget } from '../links/direct.mjs';
-import { describePlans } from './catalog.mjs';
 import {
+  declinesFamilyContact,
   guardianComplete,
   guardianFrom,
   guardianParts,
+  guardianRelation,
+  isQuestion,
   unavailableOption,
   words,
 } from './intents.mjs';
 import { recordProposalResponse } from '../proposals/service.mjs';
-import { answerFromKnowledge, mentionedPlans } from './knowledge.mjs';
-import { PAYMENT_QUESTION } from './ollama.mjs';
+import { answerFromKnowledge } from './knowledge.mjs';
 import {
   findPendingProposal,
   latestOpenProposal,
@@ -122,23 +125,60 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
       return;
     }
     if (handoff && !handoff.fechaRetomaAgente) return;
+    if (declinesFamilyContact(text)) {
+      await createReply(
+        db,
+        participation,
+        'De acuerdo, no enviaré una invitación a esa persona.',
+        messageId,
+      );
+      return;
+    }
+    const policy = await getPolicy(db);
+    if (
+      ((!policy.proposalLinks && (analysis.action === 'proposal' || analysis.accepts)) ||
+        (!policy.trialLinks && analysis.action === 'trial') ||
+        (!policy.guardianInvitations && (analysis.needsGuardian || analysis.guardian))) &&
+      participation.idEstadoCaso === 1
+    ) {
+      await handOff(db, participationId, 7, messageId);
+      return;
+    }
     // Responsable económico (F4): los datos pueden llegar en varios mensajes. Mientras la necesidad
     // no tenga invitación, se unen las partes recibidas desde que se declaró y se pide solo lo que falta.
     const need =
       participation.idEstadoCaso === 1 ? await pendingGuardianNeed(db, participation.idCaso) : null;
+    if (need && !policy.guardianInvitations) {
+      await handOff(db, participationId, 7, messageId);
+      return;
+    }
     let guardian = analysis.guardian;
     let partial = null;
-    if (!guardian && participation.idEstadoCaso === 1 && (need || analysis.needsGuardian)) {
+    let relative = null;
+    let correctedRelative = false;
+    if (
+      !guardian &&
+      participation.idEstadoCaso === 1 &&
+      (analysis.needsGuardian || (need && analysis.action === 'ask' && !isQuestion(text)))
+    ) {
       const texts = need ? await incomingSince(db, participationId, need.messageId) : [];
       if (!texts.includes(text)) texts.push(text);
-      const parts = guardianFrom(texts);
-      const current = guardianParts(text);
+      const previousRelative = texts.slice(0, -1).map(guardianRelation).filter(Boolean).at(-1);
+      const currentRelative = guardianRelation(text);
+      relative = currentRelative || previousRelative;
+      correctedRelative = !!(
+        currentRelative &&
+        previousRelative &&
+        currentRelative.key !== previousRelative.key
+      );
+      const parts = guardianFrom(texts, { nameExpected: !!need });
+      const current = guardianParts(text, { nameExpected: !!need });
       if (guardianComplete(parts)) guardian = { ...parts, quote: text.slice(0, 500) };
       else if (analysis.needsGuardian || current.name || current.phone) partial = parts;
     }
-    if (guardian && participation.idEstadoCaso === 1) {
+    if (guardian && participation.idEstadoCaso === 1 && policy.guardianInvitations) {
       const invitation = await inviteGuardian(participationId, { ...guardian, messageId });
-      const url = `${process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3001}`}/invitacion/${invitation.code}`;
+      const url = `${process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3067}`}/invitacion/${invitation.code}`;
       const first = guardian.name.split(' ')[0];
       const relation = { 2: 'papá', 3: 'mamá', 4: 'responsable' }[guardian.role] ?? 'responsable';
       const target = await findDirectTarget(db, guardian.phone, participation.idContacto);
@@ -146,61 +186,59 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
         ? `${contact.name} indicó que eres su ${relation}`
         : `${contact.name} indicó que eres ${{ papá: 'el papá', mamá: 'la mamá' }[relation] ?? 'responsable'} de ${contact.beneficiary}`;
       const invitationText =
-        `Hola ${first}, ${proposer} y que acompañas su preparación para la UNT. ` +
+        `Hola ${first}, ${proposer}. Te invita a conversar sobre la preparación para la UNT y las opciones de pago. ` +
         `Si estás de acuerdo, revisa y acepta la invitación aquí: ${url}
 ` +
         'Si no reconoces esta solicitud, puedes ignorar este mensaje.';
-      const direct = target
-        ? await deliverDirectInvitation(db, {
-            target,
-            text: invitationText,
-            replyTo: messageId,
-            email: {
-              subject: `${contact.name} te invita a acompañar su preparación en LaPreDigital`,
-              text: invitationText,
-              html: `<p>Hola ${first},</p><p>${proposer} y que acompañas su preparación para la UNT.</p><p><a href="${url}">Revisar y aceptar la invitación</a></p><p>Si no reconoces esta solicitud, puedes ignorar este correo.</p>`,
-            },
-          })
-        : null;
-      if (direct) {
-        await createReply(
-          db,
-          participation,
-          `¡Listo! ${guardian.name} ya tiene una cuenta con nosotros, así que le envié la invitación directamente por ${CHANNEL_NAMES[direct.channel]}. Cuando la acepte, se unirá a tu caso.`,
-          messageId,
-        );
-        return;
-      }
       const preparation = aud.student
         ? 'mi preparación'
         : `la preparación de ${contact.beneficiary}`;
       const share = `https://wa.me/${guardian.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
         `Hola ${first}, te comparto la invitación de LaPreDigital para acompañar ${preparation} para la UNT: ${url}`,
       )}`;
-      await createReply(
-        db,
-        participation,
-        `¡Listo! Preparé la invitación para ${guardian.name}.
-` +
-          `Envíasela por WhatsApp con un toque (el mensaje ya va escrito): ${share}
-` +
-          `O reenvíale este enlace: ${url}
-` +
-          'Desde allí podrá aceptar la vinculación y autorizar el contacto. No le escribiremos antes de que acepte.',
-        messageId,
-      );
+      const shareText =
+        `Preparé la invitación para ${guardian.name}.\n` +
+        `Envíasela por WhatsApp con un toque (el mensaje ya va escrito): ${share}\n` +
+        `O reenvíale este enlace: ${url}\n` +
+        'Desde allí podrá aceptar la vinculación y autorizar el contacto.';
+      const direct = await deliverDirectInvitation(db, {
+        target,
+        text: invitationText,
+        replyTo: messageId,
+        fallback: { code: invitation.code, participationId, replyTo: messageId, shareText },
+        email: {
+          subject: `${contact.name} te invita a acompañar su preparación en LaPreDigital`,
+          text: invitationText,
+          html: `<p>Hola ${first},</p><p>${proposer}. Te invita a conversar sobre la preparación para la UNT y las opciones de pago.</p><p><a href="${url}">Revisar y aceptar la invitación</a></p><p>Si no reconoces esta solicitud, puedes ignorar este correo.</p>`,
+        },
+      });
+      if (direct.channel) {
+        await createReply(
+          db,
+          participation,
+          (direct.queued
+            ? `Preparé el envío de la invitación directamente por ${CHANNEL_NAMES[direct.channel]}; está pendiente de confirmación del canal.`
+            : `El canal confirmó el envío de la invitación directamente por ${CHANNEL_NAMES[direct.channel]}.`) +
+            ` Cuando la acepte, se unirá al caso. También puedes compartirla tú:\n${shareText}`,
+          messageId,
+        );
+        return;
+      }
+      await createReply(db, participation, `${direct.reason}\n${shareText}`, messageId);
       return;
     }
-    if (partial) {
+    if (partial && policy.guardianInvitations) {
       if (!need) await addNeed(db, participation.idCaso, participationId, messageId);
       const own = aud.student ? 'tu' : 'su';
       const spouse = words(text).match(/ (esposa|esposo|pareja|conyuge) /)?.[1];
       const who =
         partial.name ||
-        (spouse
-          ? `${own} ${spouse}`
-          : ({ 2: `${own} papá`, 3: `${own} mamá`, 4: 'esa persona' }[partial.role] ??
-            'esa persona'));
+        (relative
+          ? `${own} ${relative.label}`
+          : spouse
+            ? `${own} ${spouse}`
+            : ({ 2: `${own} papá`, 3: `${own} mamá`, 4: 'esa persona' }[partial.role] ??
+              'esa persona'));
       const preparation = aud.student ? 'tu preparación' : `la preparación de ${aud.name}`;
       const missing = [
         !partial.name && 'su nombre completo',
@@ -215,9 +253,11 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
       await createReply(
         db,
         participation,
-        analysis.needsGuardian && !partial.name && !partial.phone
-          ? `¡Claro! Podemos incluir a ${who} en ${preparation}. Para enviarle una invitación, cuéntame ${list}. No le escribiremos hasta que acepte.`
-          : `¡Gracias! Para preparar la invitación de ${who} solo me falta ${list}.`,
+        correctedRelative
+          ? `Entendido, continuamos con ${who}. Cuéntame ${list} para preparar su invitación.`
+          : analysis.needsGuardian && !partial.name && !partial.phone
+            ? `¡Claro! Podemos incluir a ${who} en ${preparation}. Cuéntame ${list}. Comprobaré si tiene un canal autorizado para escribirle; si no, te daré el enlace de invitación para que se lo envíes tú.`
+            : `¡Gracias! Para preparar la invitación de ${who} solo me falta ${list}.`,
         messageId,
       );
       return;
@@ -308,28 +348,58 @@ La aceptación no confirma el pago.`,
       ...contact,
       ...Object.fromEntries(analysis.fields.map((item) => [item.field, item.value])),
     };
-    const careerQuestion = questionText('career', aud).replace('?', ' en la UNT?');
-    const nextQuestion = !known.career
-      ? careerQuestion
-      : !known.availability
-        ? questionText('availability', aud)
-        : known.budget == null
-          ? questionText('budget', aud)
-          : '¿Quieres que te cuente qué incluye cada plan o prefieres que te prepare una propuesta?';
+    if (
+      policy.useLeadData &&
+      policy.recommendAfterProfile &&
+      participation.idEstadoCaso === 1 &&
+      ['ask', 'catalog'].includes(analysis.action) &&
+      known.career &&
+      known.availability &&
+      known.budget != null &&
+      /recomiend|recomendacion|(?:que|cual) plan.*(?:conviene|mejor)|mejor plan/.test(words(text))
+    ) {
+      await queueNextStep(db, participation, messageId, { recommendationOnly: true });
+      return;
+    }
+    // Una consulta documental no debe iniciar otra pregunta de perfil ni registrarse como tal.
+    if (
+      analysis.action === 'ask' &&
+      !analysis.social &&
+      !analysis.fields.length &&
+      !need &&
+      !analysis.needsGuardian
+    ) {
+      const answer = answerFromKnowledge(text, workspace.tariffs, await knowledgeFragments());
+      if (answer?.sources.some((source) => source.id.startsWith('documento:'))) {
+        await createReply(db, participation, answer.text, messageId);
+        return;
+      }
+      if (isQuestion(text)) {
+        await createReply(db, participation, NO_INFORMATION, messageId);
+        return;
+      }
+    }
+    const profileKey = policy.profileQuestions
+      ? policy.questionOrder.find((key) => known[key] == null || String(known[key]).trim() === '')
+      : null;
+    const nextQuestion = profileKey
+      ? profileKey === 'career'
+        ? questionText(profileKey, aud).replace('?', ' en la UNT?')
+        : questionText(profileKey, aud)
+      : '¿Qué te gustaría consultar?';
     // Con las tres preguntas básicas respondidas, el agente hace una sola vez las opcionales (cursos
     // difíciles y postulaciones) y, al terminar, recomienda el plan.
     if (
       analysis.action === 'ask' &&
       !analysis.social &&
+      policy.profileQuestions &&
       participation.idEstadoCaso === 1 &&
       known.career &&
       known.availability &&
       known.budget != null
     ) {
-      const pending = nextKey(await getProfile(db, participationId));
-      const answered = analysis.fields.some((item) =>
-        ['courses', 'applications', 'score'].includes(item.field),
-      );
+      const pending = nextKey(await getProfile(db, participationId), policy);
+      const answered = analysis.fields.length > 0;
       if ((pending && !isCoreKey(pending)) || (!pending && answered)) {
         await queueNextStep(db, participation, messageId, { intro: answered ? '¡Anotado! ' : '' });
         return;
@@ -337,47 +407,28 @@ La aceptación no confirma el pago.`,
     }
     let response = analysis.social
       ? `¡Qué amable! 😊 Sigo aquí para ayudarte a elegir ${aud.student ? 'tu plan' : `el plan de ${aud.name}`}. ${nextQuestion}`
-      : !known.career
-        ? `¡Gracias por escribirme! Para ayudarte mejor, cuéntame: ${careerQuestion.replace('¿Q', '¿q')}`
-        : !known.availability
-          ? aud.student
-            ? `¡Qué bien! Para prepararte para ${known.career}, ¿cuánto tiempo puedes dedicar a estudiar?`
-            : `¡Qué bien! Para preparar a ${aud.name} para ${known.career}, ¿cuánto tiempo puede dedicar a estudiar?`
-          : known.budget == null
-            ? `¡Gracias! Una última pregunta: ${questionText('budget', aud).replace('¿C', '¿c')}`
-            : '¿Qué plan o modalidad te interesa? Con gusto te aclaro los precios y te ayudo a preparar una propuesta.';
+      : profileKey === 'career'
+        ? `¡Gracias por escribirme! Para ayudarte mejor, cuéntame: ${nextQuestion.replace('¿Q', '¿q')}`
+        : `¡Gracias por escribirme! ${nextQuestion}`;
     if (analysis.action === 'proposal' && !analysis.tariffId) {
       const invalid = unavailableOption(text, workspace.tariffs);
       response = invalid
-        ? `${invalid} Meta UNT y Meta UNT Plus pueden ser mensuales o semestrales. ¿Cuál prefieres?`
-        : '¿Qué plan y modalidad quieres contratar? Ruta UNT tiene modalidad mensual; Meta UNT y Meta UNT Plus, mensual o semestral.';
+        ? 'Esa combinación no está disponible para preparar una propuesta. ¿Qué plan y modalidad prefieres?'
+        : '¿Qué plan y modalidad quieres contratar?';
     }
     if (analysis.action === 'catalog') {
-      // Respuesta extractiva desde la base de conocimiento; si no hay fragmentos, el catálogo completo.
-      // «¿Qué incluye Meta UNT?» pide la ficha completa del plan (beneficios y precios).
-      const planSheet =
-        mentionedPlans(text).length &&
-        / (incluye|incluyen|trae|ofrece|beneficios|contiene) /.test(words(text));
-      const answer = planSheet ? null : answerFromKnowledge(text, workspace.tariffs);
-      response = answer?.text ?? describePlans(text, workspace.tariffs);
-      const invalid = unavailableOption(text, workspace.tariffs);
-      if (invalid) response = `${invalid} ${response}`;
-      // Objeciones sin fragmento propio: tiempo se convierte en la pregunta de disponibilidad;
-      // confianza y alternativas se atienden con la prueba gratuita.
-      if (analysis.objection === 3)
+      const answer = answerFromKnowledge(text, [], await knowledgeFragments());
+      response = answer?.text ?? NO_INFORMATION;
+      // Una objeción de tiempo permite preguntar por la disponibilidad si está habilitado.
+      if (analysis.objection === 3 && policy.profileQuestions)
         response = aud.student
           ? 'Entiendo, el tiempo importa. Cuéntame cuánto tiempo podrías dedicar a estudiar y te recomiendo el plan que mejor encaje contigo.'
           : `Entiendo, el tiempo importa. Cuéntame cuánto tiempo podría dedicar ${aud.name} a estudiar y les recomiendo el plan que mejor le encaje.`;
-      if ([2, 5].includes(analysis.objection))
-        response =
-          'Es normal querer comparar antes de decidir. LaPreDigital es una preparación 100 % virtual para la admisión a la UNT, y con Explora UNT puedes probarla gratis 14 días antes de pagar. Si quieres probarla, escríbeme «quiero probar Explora».';
-      if (!answer && PAYMENT_QUESTION.test(text))
-        response = `El pago se hace de forma segura desde el enlace de tu propuesta, donde verás los medios disponibles. Para generarlo solo dime qué plan quieres. 😊 ${response}`;
     }
     if (analysis.action === 'trial') {
       try {
         const trial = await offerTrial(participationId);
-        response = `Explora UNT ofrece 14 días gratuitos, una vez por beneficiario. Puedes solicitar su activación aquí: ${process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3001}`}/prueba/${trial.token}`;
+        response = `Preparé tu enlace para solicitar la prueba: ${process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${process.env.PORT || 3001}`}/prueba/${trial.token}`;
       } catch (error) {
         if (!(error instanceof BusinessError)) throw error;
         response = error.message;
@@ -385,7 +436,7 @@ La aceptación no confirma el pago.`,
     }
     const reply = await createReply(db, participation, response, messageId);
     if (analysis.action === 'ask') {
-      const field = !known.career ? 2 : !known.availability ? 6 : known.budget == null ? 7 : null;
+      const field = profileKey ? { career: 2, availability: 6, budget: 7 }[profileKey] : null;
       if (field) {
         await recordQuestion(db, participation, reply, field);
         await attachMarkup(db, reply, {
