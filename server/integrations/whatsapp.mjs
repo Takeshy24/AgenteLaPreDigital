@@ -5,8 +5,12 @@ import { queueNextStep } from '../agent/profile-service.mjs';
 import {
   answerConsent,
   askChannelConsent,
+  channelList,
   isNoContactRequest,
+  isResumeContactRequest,
+  noContactChannels,
   parseConsent,
+  RESUME_HINT,
 } from '../agent/consent-prompt.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, transaction } from '../db.mjs';
@@ -218,16 +222,35 @@ async function handleNoContact(item, contact, text, participants, client) {
     );
     return;
   }
+  const channels = noContactChannels(text);
   await transaction(async (db) => {
     const message = await recordUnassigned(contact, text, 1);
-    for (const channel of [1, 2, 3])
+    for (const channel of channels)
       await saveConsent(participants[0].id, { channel, granted: false, version: 'whatsapp-v1' });
     await repository.finishWhatsAppEvent(db, item.eventKey, message.id);
   });
   await client.sendText(
     item.waId,
-    'Listo, no te escribiremos más. Si cambias de opinión, solo avísame. 🙌',
+    channels.length === 3
+      ? `Listo, no te escribiremos más. ${RESUME_HINT} 🙌`
+      : `Listo, ya no te escribiremos por ${channelList(channels)}. ${RESUME_HINT} 🙌`,
   );
+}
+
+// «Quiero volver a recibir mensajes»: el propio contacto vuelve a autorizar WhatsApp.
+async function handleResumeContact(item, contact, text, participants, client) {
+  if (!participants.length) {
+    await transaction((db) =>
+      repository.finishWhatsAppEvent(db, item.eventKey, null, 'Sin negociación asociada'),
+    );
+    return;
+  }
+  await transaction(async (db) => {
+    const message = await recordUnassigned(contact, text, 1);
+    await saveConsent(participants[0].id, { channel: 1, granted: true, version: 'whatsapp-v1' });
+    await repository.finishWhatsAppEvent(db, item.eventKey, message.id);
+  });
+  await client.sendText(item.waId, '¡Listo! Te volveremos a escribir por WhatsApp. 😊');
 }
 
 // Primer mensaje de alguien registrado: saluda por su nombre y empieza el cuestionario con opciones.
@@ -270,6 +293,8 @@ export async function processWhatsAppMessage(item, client) {
   const participants = await repository.listContactParticipations(db, contact);
   if (isNoContactRequest(read.text))
     return handleNoContact(item, contact, read.text, participants, client);
+  if (isResumeContactRequest(read.text))
+    return handleResumeContact(item, contact, read.text, participants, client);
   if (read.data?.startsWith('ok:')) {
     const parsed = parseConsent(read.data);
     if (!parsed || !participants.some((participant) => participant.id === parsed.participationId))

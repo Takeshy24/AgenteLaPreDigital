@@ -9,6 +9,7 @@ import {
   parseCallback,
   recommend,
   recommendationKeyboard,
+  toggleCourse,
 } from '../agent/profile-flow.mjs';
 import { acceptUpdate, pendingUpdates, saveLink } from '../integrations/repository.mjs';
 import { dispatchMessage } from '../integrations/dispatch.mjs';
@@ -57,8 +58,20 @@ test('parseCallback acepta solo el formato propio', () => {
   assert.deepEqual(parseCallback('pf:57:c:2'), { participationId: 57, letter: 'c', index: '2' });
   assert.deepEqual(parseCallback('pf:57:t'), { participationId: 57, letter: 't', index: null });
   assert.deepEqual(parseCallback('pf:57:c:x'), { participationId: 57, letter: 'c', index: 'x' });
-  for (const bad of ['case:5', 'pf:x:c:1', 'pf:5:z:1', 'pf:5:c:-1', '', undefined])
+  assert.deepEqual(parseCallback('pf:57:d:ok'), { participationId: 57, letter: 'd', index: 'ok' });
+  for (const bad of ['case:5', 'pf:x:c:1', 'pf:5:z:1', 'pf:5:c:-1', 'pf:5:c:ok', '', undefined])
     assert.equal(parseCallback(bad), null);
+});
+
+test('el selector de cursos muestra varias marcas y permite confirmar sin cortar los nombres', () => {
+  const selected = toggleCourse(toggleCourse([], 'Física'), 'Química');
+  const buttons = keyboard(9, 'courses', [], undefined, selected).flat();
+  assert.ok(buttons.some((button) => button.text === '✓ Física'));
+  assert.ok(buttons.some((button) => button.text === '✓ Química'));
+  assert.ok(buttons.some((button) => button.callback_data === 'pf:9:d:ok'));
+  assert.ok(buttons.every((button) => button.text.length <= 24));
+  assert.ok(buttons.length <= 10);
+  assert.deepEqual(toggleCourse(selected, 'Física'), ['Química']);
 });
 
 test('la siguiente pregunta sigue el orden y se detiene cuando el perfil está completo', () => {
@@ -166,6 +179,63 @@ const outgoing = async (db, scenario) =>
       { contact: scenario.lead.contact },
     )
   ).recordset;
+
+test('cursos: el teclado de Telegram permite marcar y las respuestas libres añaden otros cursos', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup(db, { consent: true });
+      const id = scenario.lead.id;
+      await send(db, scenario, text(scenario, `/start ${scenario.code}`));
+      for (const data of [`pf:${id}:c:0`, `pf:${id}:a:1`, `pf:${id}:b:0`])
+        await send(db, scenario, press(scenario, data));
+      await flush(db, scenario);
+      // Una pregunta enviada antes del cambio todavía no tiene el borrador de selección.
+      await query(
+        db,
+        `UPDATE dbo.App_Dispatch SET markup=JSON_MODIFY(markup, '$.course_selection', NULL)
+        WHERE idMensaje=(SELECT MAX(idMensaje) FROM dbo.Mensaje WHERE idLeadCaso=@id AND idDireccion=2)`,
+        { id },
+      );
+      await send(db, scenario, text(scenario, 'Física'));
+      const sent = (await flush(db, scenario)).at(-1);
+      assert.ok(
+        sent.data.reply_markup.keyboard.flat().some((button) => button.text === '✓ Física'),
+      );
+      await send(db, scenario, text(scenario, 'Otra respuesta'));
+      const typed = 'También química y biología';
+      const incoming = await recordIncoming(id, { text: typed, channel: 3, level: 1 });
+      await actOnAnalysis(id, incoming.id, typed, {
+        action: 'ask',
+        fields: [{ field: 'courses', value: 'Química, Biología', quote: typed }],
+        level: 1,
+        retraction: false,
+        tariffId: null,
+        understood: true,
+        needsGuardian: false,
+        guardian: null,
+      });
+      const stored = (
+        await query(
+          db,
+          `SELECT curso FROM dbo.BeneficiarioCursoDificil b
+        INNER JOIN dbo.Lead l ON l.idBeneficiario=b.idBeneficiario
+        INNER JOIN dbo.LeadCaso lc ON lc.idLead=l.idLead WHERE lc.idLeadCaso=@id ORDER BY curso`,
+          { id },
+        )
+      ).recordset;
+      assert.deepEqual(
+        stored.map((row) => row.curso),
+        ['Biología', 'Física', 'Química'],
+      );
+      assert.match((await outgoing(db, scenario)).at(-1).text, /¿Ya postulaste antes/);
+      const before = (await outgoing(db, scenario)).length;
+      await send(db, scenario, press(scenario, `pf:${id}:d:ok`));
+      assert.equal((await outgoing(db, scenario)).length, before);
+    });
+  } finally {
+    await close();
+  }
+});
 
 test('vincular con un enlace de formulario saluda, autoriza Telegram y hace la primera pregunta con botones', async () => {
   try {
@@ -304,25 +374,39 @@ test('las respuestas con botones llenan el perfil una a una y terminan en una re
           .some((button) => button.text === 'Ninguno en especial'),
       );
       await send(db, scenario, press(scenario, `pf:${id}:d:2`));
+      assert.match((await outgoing(db, scenario)).at(-1).text, /Seleccionados: Física/);
+      assert.equal(
+        (
+          await query(
+            db,
+            'SELECT COUNT(*) n FROM dbo.CambioPerfil WHERE idLeadCaso=@id AND idCampoPerfil=3',
+            { id },
+          )
+        ).recordset[0].n,
+        0,
+      );
+      await send(db, scenario, press(scenario, `pf:${id}:d:3`));
+      await send(db, scenario, press(scenario, `pf:${id}:d:ok`));
       messages = await outgoing(db, scenario);
       assert.match(messages.at(-1).text, /¿Ya postulaste antes a la UNT\?/);
       await send(db, scenario, press(scenario, `pf:${id}:e:0`));
       const needs = (
         await query(
           db,
-          `SELECT (SELECT STRING_AGG(curso, ',') FROM dbo.BeneficiarioCursoDificil WHERE idBeneficiario=l.idBeneficiario) courses,
+          `SELECT (SELECT STRING_AGG(curso, ',') WITHIN GROUP (ORDER BY curso) FROM dbo.BeneficiarioCursoDificil WHERE idBeneficiario=l.idBeneficiario) courses,
           (SELECT TOP 1 descripcion FROM dbo.BeneficiarioPostulacionAnterior WHERE idBeneficiario=l.idBeneficiario) applications
           FROM dbo.LeadCaso lc JOIN dbo.Lead l ON l.idLead=lc.idLead WHERE lc.idLeadCaso=@id`,
           { id },
         )
       ).recordset[0];
       assert.deepEqual(needs, {
-        courses: 'Física',
+        courses: 'Física,Química',
         applications: 'Primera postulación (no postuló antes)',
       });
       messages = await outgoing(db, scenario);
-      assert.match(messages.at(-1).text, /lo que mejor te va es Meta UNT/);
-      assert.match(messages.at(-1).text, /Para reforzar física, revisemos sus características/);
+      assert.match(messages.at(-1).text, /Para ti, recomiendo Meta UNT/);
+      assert.ok(messages.at(-1).text.length < 650);
+      assert.doesNotMatch(messages.at(-1).text, /No incluido|Primera respuesta de soporte/);
       const buttons = JSON.parse(messages.at(-1).markup).inline_keyboard.flat();
       assert.deepEqual(
         buttons.map((button) => button.text),
@@ -565,9 +649,11 @@ test('al volver a abrir el enlace no repregunta lo ya respondido y retoma donde 
       await send(db, scenario, text(scenario, '/start tercer-enlace'));
       last = (await outgoing(db, scenario)).at(-1);
       assert.match(last.text, /Sigamos donde nos quedamos/);
-      // La pregunta opcional de cursos ya se hizo una vez: no se repite y sigue la de postulaciones.
-      assert.match(last.text, /¿Ya postulaste antes a la UNT\?/);
+      // Retoma la selección pendiente sin contar cada actualización como otra pregunta.
+      assert.match(last.text, /Seleccionados: ninguno todavía/);
       assert.equal(await asked(3), 1);
+      await send(db, scenario, text(scenario, 'Ninguno en especial'));
+      assert.match((await outgoing(db, scenario)).at(-1).text, /¿Ya postulaste antes a la UNT\?/);
       assert.equal(await asked(4), 1);
       // La carrera, ya respondida, no se vuelve a preguntar. La disponibilidad se retomó una vez
       // porque estaba pendiente cuando se reabrió el enlace.
@@ -858,6 +944,7 @@ test('el agente habla según el rol: a la madre le pregunta por su hijo y lo nom
       );
       await send(db, scenario, press(scenario, `pf:${id}:b:1`));
       await send(db, scenario, press(scenario, `pf:${id}:d:2`));
+      await send(db, scenario, press(scenario, `pf:${id}:d:ok`));
       messages = await outgoing(db, scenario);
       assert.match(messages.at(-1).text, /¿Juan ya postuló antes a la UNT\?/);
       assert.deepEqual(
@@ -869,7 +956,7 @@ test('el agente habla según el rol: a la madre le pregunta por su hijo y lo nom
       );
       await send(db, scenario, press(scenario, `pf:${id}:e:1`));
       messages = await outgoing(db, scenario);
-      assert.match(messages.at(-1).text, /lo que mejor le va a Juan es Meta UNT/);
+      assert.match(messages.at(-1).text, /Para Juan, recomiendo Meta UNT/);
       const stored = (
         await query(
           db,

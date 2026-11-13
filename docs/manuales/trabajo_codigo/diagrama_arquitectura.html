@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Arquitectura LaPreDigital</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1672px;height:941px;background:#fff;font-family:"Segoe UI",Arial,sans-serif;color:#111;position:relative;overflow:hidden}
+h1{position:absolute;top:10px;width:100%;text-align:center;font-size:42px;font-weight:800;letter-spacing:-.5px}
+.group{position:absolute;border:3px dashed;border-radius:26px;padding:18px 22px}
+.gt{font-weight:800;font-size:30px;line-height:1.05;margin-bottom:14px;display:flex;align-items:center;gap:14px}
+.gt small{display:block;font-size:20px;font-weight:500;color:#222}
+.box{background:#fff;border:3px solid;border-radius:14px;padding:8px 14px;margin-bottom:10px;font-size:25px;font-weight:700;display:flex;align-items:center;gap:14px}
+.box span.s{font-weight:500;font-size:19px;color:#333;display:block}
+.ic{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px;flex:none}
+.tag{position:absolute;color:#fff;font-weight:700;font-size:20px;padding:4px 14px;border-radius:12px}
+svg.arrows{position:absolute;left:0;top:0}
+.fe{left:34px;top:92px;width:446px;height:390px;border-color:#2563eb;background:#eef4ff}
+.fe .gt{color:#1d4ed8}.fe .box{border-color:#2563eb}
+.ch{left:34px;top:500px;width:446px;height:380px;border-color:#16a34a;background:#effbf1}
+.ch .gt{color:#15803d}.ch .box{border-color:#16a34a}
+.be{left:611px;top:100px;width:405px;height:556px;border-color:#333;background:#f6f6f6}
+.be .box{border-color:#222}
+.ai{left:1150px;top:92px;width:488px;height:395px;border-color:#7c3aed;background:#f5f0ff}
+.ai .gt{color:#6d28d9}.ai .box{border-color:#7c3aed}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pair .box{margin:0;font-size:22px;padding:8px 10px;gap:10px}.pair .ic{width:40px;height:40px;font-size:18px}
+.ex{left:1150px;top:505px;width:488px;height:225px;border-color:#db2777;background:#fff0f6}
+.ex .gt{color:#be185d}
+.ex .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ex .card{background:#fff;border:3px solid #db2777;border-radius:12px;padding:8px 4px;text-align:center;font-size:16px;line-height:1.15}
+.ex .card b{display:block;font-size:22px;margin-bottom:4px}
+.db{left:540px;top:728px;width:590px;height:196px;border-color:#f97316;background:#fff5ec}
+.db .gt{color:#ea580c;justify-content:center}
+.db .row{display:flex;gap:10px;align-items:center}
+.db .box{border-color:#f97316;flex:1;margin:0;font-size:21px;padding:8px 12px}
+.db .box span.s{font-size:16px}
+</style></head><body>
+<h1>Arquitectura del Agente Negociador Inteligente · LaPreDigital</h1>
+
+<div class="group fe">
+  <div class="gt"><div class="ic" style="background:#2563eb;width:62px;height:52px">&lt;/&gt;</div><div>FRONTEND<small>React + Vite + TypeScript</small></div></div>
+  <div class="box"><div class="ic" style="background:#38bdf8">⚛</div><div>Landing y oferta <span class="s">pública · registro y planes</span></div></div>
+  <div class="box"><div class="ic" style="background:#2563eb">▤</div><div>Consola comercial <span class="s">🔒 con inicio de sesión</span></div></div>
+  <div class="box" style="font-size:20px;margin-bottom:0"><div class="ic" style="background:#7c3aed;width:40px;height:40px;font-size:18px">⚙</div><div>Conocimiento y Reglas <span class="s">configurables por el personal</span></div></div>
+</div>
+
+<div class="group ch">
+  <div class="gt"><div class="ic" style="background:#16a34a;width:62px;height:52px">💬</div><div>CANALES DE<br>MENSAJERÍA</div></div>
+  <div class="box"><div class="ic" style="background:#229ed9">✈</div>Telegram</div>
+  <div class="box"><div class="ic" style="background:#25d366">✆</div>WhatsApp</div>
+  <div class="box" style="margin-bottom:0"><div class="ic" style="background:#ea4335">✉</div>Correo SMTP</div>
+</div>
+
+<div class="group be">
+  <div class="gt" style="color:#111"><div class="ic" style="background:#333;width:62px;height:52px">☰</div><div>BACKEND<small>Node.js + Express 5</small></div></div>
+  <div class="box" style="height:104px"><div class="ic" style="background:#3c873a">JS</div><div>API REST <span class="s">sesión, validación y reglas</span></div></div>
+  <div class="box" style="height:104px;margin-top:150px"><div class="ic" style="background:#2563eb">📊</div><div>Indicadores <span class="s">6 KPI y reporte PDF</span></div></div>
+</div>
+
+<div class="group ai">
+  <div class="gt"><div class="ic" style="background:#7c3aed;width:62px;height:52px">🤖</div><div>AGENTE NEGOCIADOR (IA)</div></div>
+  <div class="pair"><div class="box"><div class="ic" style="background:#111">AI</div><div>OpenAI<span class="s">gpt-5.4-nano · principal</span></div></div><div class="box"><div class="ic" style="background:#555">🦙</div><div>Ollama<span class="s">llama3.2:3b · respaldo</span></div></div></div>
+  <div class="box" style="margin-top:16px;padding:8px 16px"><div class="ic" style="background:#7c3aed">≡</div><div>Base de conocimiento RAG <span class="s">documentos y tarifas vigentes</span></div></div>
+  <div class="box" style="margin-top:16px;margin-bottom:0"><div class="ic" style="background:#7c3aed">✓</div>Reglas deterministas</div>
+</div>
+
+<div class="group ex">
+  <div class="gt"><div class="ic" style="background:#db2777;width:62px;height:46px">☁</div>SERVICIOS EXTERNOS</div>
+  <div class="cards">
+    <div class="card"><b style="color:#635bff">stripe</b>Pasarela de pago</div>
+    <div class="card"><b>▲ Vercel</b>Publica la landing</div>
+    <div class="card"><b style="color:#1f1fd8">ngrok</b>Túnel para webhooks</div>
+  </div>
+</div>
+
+<div class="group db">
+  <div class="gt"><div class="ic" style="background:#f97316;width:52px;height:44px">🛢</div>DATOS · SQL Server</div>
+  <div class="row">
+    <div class="box"><div>LaPreDigital_OLTP <span class="s">casos, mensajes y propuestas</span></div></div>
+    <div class="box"><div>LaPreDigital_DataMart <span class="s">modelo dimensional</span></div></div>
+  </div>
+</div>
+
+<svg class="arrows" width="1672" height="941">
+  <defs>
+    <marker id="b" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto-start-reverse"><path d="M0,0L16,8L0,16z" fill="#2563eb"/></marker>
+    <marker id="g" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto-start-reverse"><path d="M0,0L16,8L0,16z" fill="#16a34a"/></marker>
+    <marker id="p" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto-start-reverse"><path d="M0,0L16,8L0,16z" fill="#7c3aed"/></marker>
+    <marker id="k" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto-start-reverse"><path d="M0,0L16,8L0,16z" fill="#db2777"/></marker>
+    <marker id="o" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto-start-reverse"><path d="M0,0L16,8L0,16z" fill="#f97316"/></marker>
+    <marker id="d" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" refX="13" refY="8" orient="auto-start-reverse"><path d="M0,0L16,8L0,16z" fill="#222"/></marker>
+  </defs>
+  <line x1="486" y1="285" x2="605" y2="285" stroke="#2563eb" stroke-width="4" marker-start="url(#b)" marker-end="url(#b)"/>
+  <line x1="486" y1="580" x2="605" y2="580" stroke="#16a34a" stroke-width="4" marker-start="url(#g)" marker-end="url(#g)"/>
+  <line x1="1022" y1="262" x2="1144" y2="262" stroke="#7c3aed" stroke-width="4" marker-end="url(#p)"/>
+  <line x1="1144" y1="318" x2="1022" y2="318" stroke="#7c3aed" stroke-width="4" marker-end="url(#p)"/>
+  <line x1="1022" y1="580" x2="1139" y2="580" stroke="#db2777" stroke-width="4" marker-start="url(#k)" marker-end="url(#k)"/>
+  <line x1="813" y1="662" x2="813" y2="724" stroke="#f97316" stroke-width="4" marker-start="url(#o)" marker-end="url(#o)"/>
+  
+  
+  
+  
+</svg>
+<div class="tag" style="left:505px;top:244px;background:#2563eb">uso web</div>
+<div class="tag" style="left:500px;top:538px;background:#16a34a">mensajes</div>
+<div class="tag" style="left:1030px;top:220px;background:#7c3aed">mensaje</div>
+<div class="tag" style="left:1043px;top:326px;background:#7c3aed">acción</div>
+<div class="tag" style="left:1052px;top:538px;background:#db2777">pago</div>
+<div class="tag" style="left:836px;top:676px;background:#f97316">registros</div>
+<script>
+const svg=document.querySelector('svg.arrows');
+function link(sel,color,marker,both){const b=[...document.querySelectorAll(sel+' > .box, '+sel+' > .pair')];
+ for(let i=0;i<b.length-1;i++){const a=b[i].getBoundingClientRect(),c=b[i+1].getBoundingClientRect();
+  const x=a.left+a.width/2;const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',x);l.setAttribute('x2',x);l.setAttribute('y1',a.bottom+2);l.setAttribute('y2',c.top-2);
+  l.setAttribute('stroke',color);l.setAttribute('stroke-width',3);l.setAttribute('marker-end',`url(#${marker})`);if(both)l.setAttribute('marker-start',`url(#${marker})`);svg.appendChild(l);}}
+link('.be','#222','d',true);link('.ai','#7c3aed','p',false);
+</script></body></html>

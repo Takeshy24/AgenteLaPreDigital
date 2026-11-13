@@ -1,0 +1,22 @@
+{
+  "editor.minimap.enabled": false,
+  "editor.wordWrap": "on",
+  "workbench.startupEditor": "none",
+  "window.restoreWindows": "none",
+  "workbench.colorTheme": "Dark Modern",
+  "workbench.activityBar.location": "hidden",
+  "window.title": "${activeEditorLong}${separator}Manual LaPreDigital",
+  "editor.stickyScroll.enabled": false,
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none",
+  "editor.lineNumbers": "on",
+  "workbench.tips.enabled": false,
+  "editor.fontSize": 18,View:server/auth/service.mjs:18View: Close Secondary Side BarView: Close All Editors Close All Editors
+  "editor.smoothScrolling": false,
+  "editor.unicodeHighlight.nonBasicASCII": false,
+  "editor.unicodeHighlight.ambiguousCharacters": false,
+  "workbench.secondarySideBar.defaultVisibility": "hidden",
+  "chat.commandCenter.enabled": false,
+  "workbench.welcomePage.walkthroughs.openOnInstall": false,
+  "editor.cursorBlinking": "solid"
+}

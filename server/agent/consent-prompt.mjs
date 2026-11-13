@@ -4,6 +4,7 @@
 // una sola vez, con botones, si quiere que le escriban por ahí para el seguimiento.
 import { transaction, query } from '../db.mjs';
 import { saveConsent } from '../consents/service.mjs';
+import { hasChannelRecord } from '../consents/repository.mjs';
 import { createReply } from '../integrations/repository.mjs';
 import { recordIncoming } from '../messages/service.mjs';
 import { BusinessError } from '../shared/errors.mjs';
@@ -16,7 +17,27 @@ export const CONSENT_YES = 'Sí, escríbanme';
 export const CONSENT_NO = 'No, gracias';
 
 // Se atiende antes del modelo y de elegir beneficiario: el permiso pertenece al contacto.
+// «¿Cómo me doy de baja?» o «¿Puedo pedir que no me escriban?» son consultas: el agente explica cómo
+// hacerlo y no revoca nada.
+const HOW_TO_QUESTION =
+  /^ (?:como|de que (?:manera|forma)|que (?:debo|tengo que|hay que) hacer|que hago|puedo|se puede|donde) /;
+
 export function isNoContactRequest(text) {
+  return !HOW_TO_QUESTION.test(words(text)) && asksToStopContact(text);
+}
+
+// Pregunta por cómo dejar de recibir mensajes; se responde con UNSUBSCRIBE_HELP.
+export function isUnsubscribeQuestion(text) {
+  const value = words(text);
+  return (
+    HOW_TO_QUESTION.test(value) &&
+    (asksToStopContact(text) || / (?:dejo|dejar|deje) de recibir /.test(value))
+  );
+}
+export const UNSUBSCRIBE_HELP =
+  'Puedes pedirlo cuando quieras: escribe «no me escriban más» y dejaremos de escribirte por todos los canales, o indica uno, por ejemplo «no me escriban por WhatsApp». Si cambias de opinión, escribe «quiero volver a recibir mensajes».';
+
+function asksToStopContact(text) {
   const value = words(text).replace(
     / no (?:quiero|deseo) (?:que (?:dejen|dejes|deje)|dejar) de (?:escrib|contact|llam)[a-z]* /g,
     ' ',
@@ -24,27 +45,57 @@ export function isNoContactRequest(text) {
   return [
     / no (?:(?:quiero|deseo|autorizo|permito) que )?(?:me|nos) (?:(?:vuelvan|vuelvas|vuelva) a |sigan |sigas |siga )?(?:escrib|contact|llam)[a-z]* /,
     / (?:dejen|deja|deje) de (?:escrib|contact|llam)[a-z]* /,
-    / no (?:quiero|deseo) recibir (?:mas )?(?:mensajes|correos|llamadas|notificaciones|publicidad|informacion) /,
-    / no (?:(?:quiero|deseo) que )?(?:me|nos) (?:manden|mandes|envien|envies) (?:mas )?(?:mensajes|correos|publicidad|informacion) /,
+    / no (?:quiero|deseo) (?:volver a )?recibir (?:mas )?(?:mensajes|correos|llamadas|notificaciones|publicidad|informacion|nada) /,
+    / no (?:(?:quiero|deseo) que )?(?:me|nos) (?:manden|mandes|envien|envies|escriban) (?:mas )?(?:mensajes|correos|publicidad|informacion|nada) /,
+    / (?:retiro|revoco|cancelo|anulo|quito) (?:mi |el |la )?(?:autorizacion|consentimiento|permiso) /,
+    / (?:darme|dar|me doy|doy|denme|den) de baja /,
+    / (?:desuscribirme|desuscribir|desuscribanme|desuscribeme|desuscribo) /,
     /^ (?:por favor )?stop $/,
   ].some((pattern) => pattern.test(value));
 }
 
+const CHANNEL_WORDS = [
+  [1, / (?:whatsapp|wsp|wasap|whats) /],
+  [2, / (?:correo|correos|email|mail|gmail) /],
+  [3, / telegram /],
+];
+const mentionedChannels = (value) =>
+  CHANNEL_WORDS.filter(([, pattern]) => pattern.test(value)).map(([channel]) => channel);
+
+// Canales que la persona pide dejar de usar. «Ya no me escriban por WhatsApp, solo por correo»
+// revoca WhatsApp y conserva el correo; si no nombra ningún canal, se revocan todos los que no
+// pide conservar.
+export function noContactChannels(text) {
+  const [refused, ...rest] = words(text).split(/ (?:solo|solamente|unicamente|pero|mejor) /);
+  const kept = mentionedChannels(` ${rest.join(' ')} `);
+  const named = mentionedChannels(` ${refused} `).filter((channel) => !kept.includes(channel));
+  if (named.length) return named;
+  return [1, 2, 3].filter((channel) => !kept.includes(channel));
+}
+
+// Pedido expreso de volver a recibir mensajes por el canal en que escribe. Se evalúa después de
+// isNoContactRequest, que atiende «no quiero volver a recibir mensajes».
+export function isResumeContactRequest(text) {
+  const value = words(text);
+  if (/ no (?:quiero|deseo|pueden|puedes) (?:volver|que) /.test(value)) return false;
+  return [
+    / (?:quiero|deseo|quisiera) volver a recibir /,
+    / (?:pueden|podrian|puedes|vuelvan a|vuelve a) (?:volver a )?(?:escribirme|contactarme|escribirnos) /,
+    / (?:si |ya )?(?:pueden|puedes) (?:volver a )?(?:escribirme|contactarme|mandarme mensajes) /,
+    / (?:autorizo|acepto) (?:que me escriban|que me contacten|recibir mensajes|el seguimiento) /,
+    / (?:sigan|siga) (?:escribiendome|contactandome) /,
+  ].some((pattern) => pattern.test(value));
+}
+
+export const channelList = (channels) => {
+  const names = channels.map((channel) => ({ 1: 'WhatsApp', 2: 'correo', 3: 'Telegram' })[channel]);
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} y ${names.at(-1)}` : names[0];
+};
+export const RESUME_HINT = 'Si cambias de opinión, escribe «quiero volver a recibir mensajes».';
+
 export function parseConsent(data) {
   const match = /^ok:(\d+):([01])$/.exec(data ?? '');
   return match ? { participationId: Number(match[1]), granted: match[2] === '1' } : null;
-}
-
-async function hasChannelRecord(db, contact, channel) {
-  return (
-    (
-      await query(
-        db,
-        'SELECT COUNT(*) n FROM dbo.AutorizacionContacto WHERE idContacto = @contact AND idCanal = @channel',
-        { contact, channel },
-      )
-    ).recordset[0].n > 0
-  );
 }
 
 async function wasAsked(db, contact, channel) {

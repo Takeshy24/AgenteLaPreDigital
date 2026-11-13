@@ -43,7 +43,7 @@ export async function acceptGuardian(code, data) {
         communicationChannel: channels[0],
         consent: true,
       },
-      { channels },
+      { channels, consentSource: { origin: 2, version: 'invitacion-v1' } },
     );
     const context = await getParticipation(db, participant.id);
     if (context.idCaso !== invitation.idCaso)

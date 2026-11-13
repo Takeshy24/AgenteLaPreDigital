@@ -311,3 +311,72 @@ test('beca habilitada pasa a CUSTOMER sin contratación pagada', async () => {
     await close();
   }
 });
+test('el bloqueo por disputa sigue con mensajes del contacto hasta registrar su resolución', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const flow = await contracted(db, 'dispute-' + Date.now());
+      await recordPayment(flow.caseId, {
+        amount: Number(flow.tariff.precio),
+        reference: 'gateway-dispute-' + Date.now(),
+      });
+      await validateContract(flow.caseId);
+      await paymentIncident(flow.caseId, { type: 'dispute', reference: 'Contracargo notificado.' });
+      const activeDispute = async () =>
+        (
+          await query(
+            db,
+            'SELECT COUNT(*) n FROM dbo.BloqueoPromocional b JOIN dbo.Caso c ON c.idBeneficiario=b.idBeneficiario WHERE c.idCaso=@id AND b.idMotivoBloqueo=2 AND b.fechaFin IS NULL',
+            { id: flow.caseId },
+          )
+        ).recordset[0].n;
+      await recordIncoming(flow.participant.id, { text: 'Gracias', channel: 2, level: 1 });
+      assert.equal(await activeDispute(), 1);
+      await paymentIncident(flow.caseId, { type: 'resolution', reference: 'Disputa resuelta.' });
+      assert.equal(await activeDispute(), 1);
+      await recordIncoming(flow.participant.id, { text: 'Hola de nuevo', channel: 2, level: 1 });
+      assert.equal(await activeDispute(), 0);
+    });
+  } finally {
+    await close();
+  }
+});
+test('«no le escriban a mi mamá» revoca a la mamá registrada y no al estudiante', async () => {
+  const { actOnAnalysis } = await import('../agent/service.mjs');
+  try {
+    await rollbackTest(async (db) => {
+      const suffix = 'familia-' + Date.now();
+      const student = await createLead(payload(suffix));
+      const context = await getParticipation(db, student.id);
+      const mother = await createLead(
+        {
+          ...payload('mama-' + suffix),
+          role: 3,
+          beneficiaryId: context.idBeneficiario,
+          channel: null,
+        },
+        { channels: [2] },
+      );
+      const motherContact = (await getParticipation(db, mother.id)).idContacto;
+      const active = async (contact) =>
+        (
+          await query(
+            db,
+            'SELECT COUNT(*) n FROM dbo.AutorizacionContacto WHERE idContacto=@contact AND idEstadoAutorizacion=1',
+            { contact },
+          )
+        ).recordset[0].n;
+      const text = 'No le escriban a mi mamá';
+      const message = await recordIncoming(student.id, { text, channel: 2, level: 1 });
+      await actOnAnalysis(student.id, message.id, text, {
+        level: 1,
+        action: 'ask',
+        fields: [],
+        understood: true,
+      });
+      assert.equal(await active(motherContact), 0);
+      assert.ok((await active(context.idContacto)) > 0);
+    });
+  } finally {
+    await close();
+  }
+});

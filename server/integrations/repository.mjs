@@ -476,6 +476,16 @@ export async function releasePendingMessage(db, id, error) {
     { id, error },
   );
 }
+export async function replaceConsentPrompt(db, id, text) {
+  const markup = JSON.stringify({ consent_notice: true });
+  await query(
+    db,
+    `UPDATE dbo.Mensaje SET textoMensaje=@text WHERE idMensaje=@id AND idEstadoEntrega=1;
+     UPDATE dbo.App_Dispatch SET markup=@markup WHERE idMensaje=@id AND state=N'sending'`,
+    { id, text, markup },
+  );
+  return markup;
+}
 export async function hasLandingWelcome(db, contact) {
   return (
     (

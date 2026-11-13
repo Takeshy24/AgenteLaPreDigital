@@ -31,8 +31,8 @@ for p in doc.paragraphs:
         modules[-1]['options'].append(option)
     elif option and (p._p.xpath('.//w:drawing') or p._p.xpath('.//w:instrText[contains(text(),"SEQ Figura")]') or p.style.name.lower()=='caption'):
         option['screen'].append(deepcopy(p._p))
-assert len(modules)==12
-assert sum(len(m['options']) for m in modules)==39
+assert len(modules)==14
+assert sum(len(m['options']) for m in modules)==44
 assert set(entries)=={o['key'] for m in modules for o in m['options']}
 
 body=doc.element.body
@@ -167,8 +167,8 @@ for mi,m in enumerate(modules,1):
             ('Análisis','server/datamart, server/kpis y sql separan ETL, hechos dimensionales y tasas.'),
         ],[3.0,12.5])
         sub('Requisitos y configuración')
-        para('El README requiere Windows, Node.js 20 o superior, PowerShell con .NET, sqlcmd y SQL Server. package.json define npm install, npm run build y npm start para preparar y ejecutar la aplicación. npm run server y npm run dev separan API y Vite durante el desarrollo. El esquema OLTP reside en script/LaPreDigital_OLTP.sql; la creación y actualización del Data Mart se coordinan con las herramientas de tools/datamart.mjs.')
-        para('La configuración de ejemplo está en .env.example. DB_SERVER y DB_DATABASE identifican el OLTP; DATAMART_DATABASE selecciona la base analítica. Los nombres de configuración de SMTP, Telegram, WhatsApp, Stripe y los modelos se consultan en sus adaptadores. Este manual no incluye valores de claves, contraseñas ni tokens operativos. No se requiere exponer el editor o las bases mediante un túnel para consultar el código.')
+        para('El README requiere Windows, Node.js 20 o superior, PowerShell con .NET, sqlcmd y SQL Server. package.json define npm install, npm run build y npm start para preparar y ejecutar la aplicación. npm run server y npm run dev separan API y Vite durante el desarrollo. npm run migrate aplica las migraciones del OLTP, incluido el acceso del administrador, las reglas del agente y los documentos de Conocimiento; npm run knowledge:init carga los documentos iniciales. npm run up inicia la API junto con el túnel público usado por los webhooks. El esquema OLTP reside en script/LaPreDigital_OLTP.sql; la creación y actualización del Data Mart se coordinan con las herramientas de tools/datamart.mjs.')
+        para('La configuración de ejemplo está en .env.example. DB_SERVER y DB_DATABASE identifican el OLTP; DATAMART_DATABASE selecciona la base analítica. OPENAI_API_KEY y OPENAI_MODEL configuran el modelo principal; OLLAMA_ENABLED, OLLAMA_URL y OLLAMA_MODEL, el respaldo local. Los nombres de configuración de SMTP, Telegram, WhatsApp y Stripe se consultan en sus adaptadores. Este manual no incluye valores de claves, contraseñas ni tokens operativos. No se requiere exponer el editor o las bases mediante un túnel para consultar el código.')
         code_figure('arquitectura-transaccion');para(extras['arquitectura-transaccion']['text'])
         code_figure('arquitectura-api');para(extras['arquitectura-api']['text'])
     for o in m['options']:
@@ -220,7 +220,7 @@ for mi,m in enumerate(modules,1):
             for extra in ['etl-dimensiones','etl-hechos']:
                 code_figure(extra);para(extras[extra]['text'])
             para('La carga de hechos usa vistas auxiliares definidas en el propio script y un patrón DELETE seguido de INSERT. No utiliza OUTER APPLY. Los instantes requeridos por los hechos se cargan antes en DimTiempo; después las uniones resuelven sus claves. El cargador omite los lotes USE y ejecuta cada lote en la base analítica configurada. Este manual documenta el proceso sin ejecutarlo sobre los datos operativos.')
-        if key=='12.2':
+        if key=='14.2':
             table(['Indicador','Fórmula','Unidad de análisis'],[
                 ('L 1.1','M2 / M1 × 100','Participación elegible'),
                 ('L 1.2','M3 / M2 × 100','Participación contactada'),
@@ -256,6 +256,6 @@ doc.core_properties.author='LaPreDigital'
 doc.core_properties.comments='Capturas reales del código y las mismas pantallas del manual de usuario.'
 doc.save(OUT/'Manual_de_codigo_LaPreDigital.docx')
 assert sha256(SOURCE.read_bytes()).hexdigest()==SOURCE_SHA
-inventory={'fase':'Word completo generado pendiente de render y revisión','modulos':12,'opciones':39,'titulos':51,'figuras':figures,'capturas_codigo':code_figures,'fuente_usuario_sha256':SOURCE_SHA,'fuentes_codigo':{e['file']:sha256((REPO/e['file']).read_bytes()).hexdigest() for e in ENTRIES+EXTRAS},'respaldos_periodicos':False}
+inventory={'fase':'Word completo generado pendiente de render y revisión','modulos':14,'opciones':44,'titulos':58,'figuras':figures,'capturas_codigo':code_figures,'fuente_usuario_sha256':SOURCE_SHA,'fuentes_codigo':{e['file']:sha256((REPO/e['file']).read_bytes()).hexdigest() for e in ENTRIES+EXTRAS},'respaldos_periodicos':False}
 (WORK/'estado.json').write_text(json.dumps(inventory,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps({k:v for k,v in inventory.items() if k!='fuentes_codigo'},ensure_ascii=False))

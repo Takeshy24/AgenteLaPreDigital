@@ -1,24 +1,24 @@
 [
   {
     "id": "2.1",
-    "file": "src/state/Workspace.tsx",
-    "start": 13,
-    "flow": "LiveApp → WorkspaceProvider → request → GET /api/bootstrap → workspace/repository.mjs",
-    "text": "Workspace mantiene los datos iniciales, la selección, el detalle y los estados de carga y error. reload vuelve a consultar bootstrap y solo reemplaza el detalle si la selección continúa vigente. La API obtiene el resumen del OLTP; esta consulta no ejecuta el ETL ni calcula los seis KPI. El tipo Bootstrap de src/api.ts define el contrato que recibe la interfaz. La consola local no implementa una pantalla de autenticación de operador.",
+    "file": "server/auth/service.mjs",
+    "start": 7,
+    "flow": "Login → POST /api/auth/login → authenticate → createSession → cookie de sesión → requireSession",
+    "text": "authenticate busca al administrador y compara la contraseña con su hash; si falta preparar el acceso indica ejecutar npm run migrate. createSession genera un token aleatorio de 32 bytes, guarda solo su hash SHA 256 en memoria con una vigencia de ocho horas y limita el número de sesiones simultáneas. La ruta de inicio admite diez intentos por minuto. app.mjs aplica requireSession a todas las rutas /api posteriores, de modo que la consola solo carga GET /api/bootstrap después de iniciar sesión. Workspace mantiene luego los datos iniciales, la selección y los estados de carga y error.",
     "shot": "op-2-1"
   },
   {
     "id": "2.2",
     "file": "src/components/Layout.tsx",
-    "start": 15,
+    "start": 19,
     "flow": "Layout → navigation.map → navigate → WorkspaceView",
-    "text": "La lista navigation define los identificadores y etiquetas de los siete módulos del menú. Layout utiliza el estado page para marcar aria-current y aplica navigate al seleccionar una opción. LiveApp compone la vista correspondiente y Profile organiza las pestañas del expediente. Las marcas de operación de las tarjetas son indicaciones de responsabilidad; no constituyen un sistema de roles de autenticación.",
+    "text": "La lista navigation define los identificadores, etiquetas e iconos de los nueve módulos del menú: Inicio, LEADS y casos, Pendientes, Catálogo, Seguimiento, Indicadores, Agente e integraciones, Conocimiento y Reglas del agente. Layout utiliza el estado page para marcar aria-current y aplica navigate al seleccionar una opción; si hay cambios sin guardar, pide confirmación antes de salir. LiveApp compone la vista correspondiente y Profile organiza las pestañas del expediente.",
     "shot": "op-2-2"
   },
   {
     "id": "3.1",
     "file": "server/public/landing.mjs",
-    "start": 150,
+    "start": 144,
     "flow": "LandingForm → POST /api/public/landing → registerLanding → leads/service.mjs",
     "text": "La ruta valida landingForm y limita a ocho solicitudes por minuto. registerLanding normaliza los datos, comprueba identidades existentes y conserva solicitudes que requieren revisión. Los canales autorizados se transmiten explícitamente al alta comercial; saveLead crea o reutiliza Contacto, Beneficiario, Lead, CasoNegociacion y LeadCaso. La recepción del formulario, la vinculación comercial y el correo de confirmación tienen resultados separados. Un fallo del conector de correo no debe interpretarse como una entrega realizada.",
     "shot": "op-3-1"
@@ -26,9 +26,9 @@
   {
     "id": "3.2",
     "file": "server/public/landing.mjs",
-    "start": 106,
+    "start": 104,
     "flow": "registerLanding → receipt → LandingForm y botones de continuación",
-    "text": "whatsappUrl obtiene el destinatario configurado y prepara un enlace wa.me; receipt devuelve las opciones de continuación al formulario. La vinculación Telegram usa un token aleatorio cuyo hash se guarda mediante saveLink. La respuesta permite presentar los botones del comprobante, pero no acredita el envío de un mensaje de WhatsApp ni que el contacto haya iniciado el bot. Los datos visibles del comprobante proceden de la respuesta de la API, no de una contratación.",
+    "text": "receipt devuelve las opciones de continuación al formulario: el enlace wa.me configurado y el enlace al bot de Telegram. Si el correo ya pertenece a un contacto, prepareEmailedLink no muestra el enlace personal en la página: lo envía por correo a su dueño, como máximo una vez cada diez minutos mientras siga vigente. La vinculación Telegram usa un token aleatorio cuyo hash se guarda con su vigencia. La respuesta permite presentar los botones del comprobante, pero no acredita que el contacto haya iniciado el bot ni que se haya entregado un mensaje.",
     "shot": "op-3-2"
   },
   {
@@ -42,9 +42,9 @@
   {
     "id": "3.4",
     "file": "server/public/invitations.mjs",
-    "start": 21,
+    "start": 23,
     "flow": "PublicGuardian → POST /api/public/invitations/:code → acceptPublicInvitation → acceptGuardian",
-    "text": "La invitación identifica al estudiante y el caso. El flujo público distingue un destinatario ya identificado por directInvitee de una persona que debe proporcionar correo y teléfono. Un correo existente requiere confirmación del operador. acceptGuardian exige los consentimientos de vinculación y contacto, crea o reutiliza la participación del responsable y comprueba que corresponde al caso de la invitación antes de guardarla. La persistencia conserva ambas autorizaciones.",
+    "text": "Si la invitación se envió directamente a un contacto ya registrado, directInvitee lo identifica y acceptGuardian lo vincula con sus datos conocidos, sin volver a pedirlos; los canales elegidos se usan para continuar la conversación y, si incluye Telegram, se prepara su enlace personal. En otro caso se exigen correo y teléfono. El flujo público rechaza invitaciones vencidas o usadas, comprueba coincidencias de identidad y registra los dos consentimientos antes de vincular al responsable económico con el caso.",
     "shot": "op-3-4"
   },
   {
@@ -58,7 +58,7 @@
   {
     "id": "4.1",
     "file": "server/pending/service.mjs",
-    "start": 121,
+    "start": 131,
     "flow": "Pending → GET /api/pending → listPending → consultas de tareas pendientes",
     "text": "listPending reúne los grupos de atención comercial a partir de condiciones de sus registros. La vista Pending actualiza la consulta mientras está visible y muestra las acciones que corresponden a cada grupo. Conversaciones, pagos, habilitaciones, credenciales e identidades conservan identidades y estados diferentes. La acción completada deja de cumplir la condición de su bandeja. Abrir el expediente consulta evidencia y no resuelve por sí mismo una tarea.",
     "shot": "op-4-1"
@@ -296,20 +296,60 @@
     "shot": "op-11-2"
   },
   {
+    "id": "11.3",
+    "file": "server/agent/recommendations.mjs",
+    "start": 45,
+    "flow": "Integrations → PUT /api/agent/recommendations/settings → buildDataRecommendation → rankPlans",
+    "text": "getRecommendationSettings indica si las recomendaciones con datos están activas. buildDataRecommendation solo actúa cuando lo están, salvo en la simulación de ejemplo, que usa un historial ficticio de ocho elecciones. Con datos reales, listPlanChoices reúne los planes elegidos por beneficiarios de la misma carrera; rankPlans ordena las tarifas según presupuesto, carrera y disponibilidad, y el texto se completa con fragmentos de Conocimiento. previewRecommendation rechaza la vista previa real mientras la opción no esté activa y recuerda que se requieren al menos 50 LEADs.",
+    "shot": "op-11-3"
+  },
+  {
     "id": "12.1",
-    "file": "server/app.mjs",
-    "start": 130,
-    "flow": "http/validation.mjs → BusinessError → middleware final de app.mjs",
-    "text": "Las rutas validan las entradas con esquemas Zod y pasan las excepciones al middleware de Express. Los errores de validación y de negocio devuelven un estado y un mensaje comprensibles; los inesperados se registran y devuelven un error general. transaction intenta rollback antes de propagar el error. Las pruebas en server/tests cubren reglas comerciales, captación y Data Mart con datos controlados; no se ha ejecutado una batería de pruebas operativas para redactar este manual.",
+    "file": "server/knowledge/service.mjs",
+    "start": 45,
+    "flow": "Knowledge → PATCH /api/knowledge/documents/:id → updateDocument → repository.update e index",
+    "text": "updateDocument bloquea el documento, comprueba que siga existiendo y que su versión coincida con la que se editó; si otra sesión lo cambió, pide recargar. El texto no puede quedar vacío. Al guardar, el repositorio actualiza el documento y vuelve a indexar sus fragmentos con splitContent, que son los que el agente consulta. deleteDocument aplica la misma comprobación de versión antes de eliminar.",
     "shot": "op-12-1"
   },
   {
     "id": "12.2",
+    "file": "server/knowledge/extract.mjs",
+    "start": 5,
+    "flow": "Knowledge → POST /api/knowledge/documents o /import → extractDocument → createDocument",
+    "text": "extractDocument limpia el nombre del archivo, admite solo TXT, MD, DOCX y PDF y valida la codificación base64, el tamaño máximo de 2 MB y la firma del contenido. La extracción se ejecuta en un proceso separado para que un PDF dañado no detenga la API. createDocument guarda el texto obtenido, el archivo original y sus fragmentos indexados. La ruta /api/knowledge acepta solicitudes de hasta 4 MB.",
+    "shot": "op-12-2"
+  },
+  {
+    "id": "12.3",
+    "file": "server/knowledge/search.mjs",
+    "start": 31,
+    "flow": "Knowledge → POST /api/knowledge/search → previewSearch → searchDocuments",
+    "text": "searchDocuments divide la consulta en palabras normalizadas y puntúa cada fragmento: una coincidencia en el texto suma 1, en el título 2 y en las palabras clave 3. Solo conserva fragmentos con al menos dos coincidencias o con una palabra clave, y devuelve los tres mejores. La prueba de consulta de la consola usa el mismo criterio que el agente al responder; si no hay fragmentos suficientes, el agente indica que no tiene esa información.",
+    "shot": "op-12-3"
+  },
+  {
+    "id": "13.1",
+    "file": "server/agent/policy.mjs",
+    "start": 8,
+    "flow": "AgentRules → GET y PUT /api/knowledge/policy → getPolicy y savePolicy → policySchema",
+    "text": "defaultPolicy define las reglas iniciales: preguntas de perfil y opcionales, recomendación al completar el perfil, envío de enlaces de propuesta y de prueba, invitaciones al responsable económico, uso de datos de LEADs y orden de las tres preguntas. policySchema valida cada opción y exige que carrera, disponibilidad y presupuesto aparezcan una sola vez. getPolicy lee la configuración vigente con su versión y savePolicy guarda los cambios; el agente consulta estas reglas antes de preguntar o enviar un enlace.",
+    "shot": "op-13-1"
+  },
+  {
+    "id": "14.1",
+    "file": "server/app.mjs",
+    "start": 137,
+    "flow": "http/validation.mjs → BusinessError → middleware final de app.mjs",
+    "text": "Las rutas validan las entradas con esquemas Zod y pasan las excepciones al middleware de Express. Los errores de validación y de negocio devuelven un estado y un mensaje comprensibles; los inesperados se registran y devuelven un error general. transaction intenta rollback antes de propagar el error. Las pruebas en server/tests cubren reglas comerciales, captación y Data Mart con datos controlados; no se ha ejecutado una batería de pruebas operativas para redactar este manual.",
+    "shot": "op-14-1"
+  },
+  {
+    "id": "14.2",
     "file": "server/kpis/rules.mjs",
     "start": 15,
     "flow": "KPI_DEFINITIONS → datamart-rows → computeKpi",
     "text": "Las seis definiciones conservan fórmula, unidad, umbrales, dimensiones y predicados de numerador y denominador. L 1.1 usa M2/M1; L 1.2 M3/M2; L 2.1 M5/M4; L 3.1 M7/M6; L 4.1 M9/M8; L 5.1 M11/M10, multiplicados por cien. Las filas dimensionales conservan las fechas necesarias para comprobar ventanas de 168 horas. L 5 parte de la primera Alta y excluye la beca completa dentro de su ventana; no reutiliza el indicador antiguo de evaluación.",
-    "shot": "op-12-2"
+    "shot": "op-14-2"
   },
   {
     "id": "arquitectura-transaccion",
@@ -322,9 +362,9 @@
   {
     "id": "arquitectura-api",
     "file": "server/app.mjs",
-    "start": 109,
+    "start": 110,
     "owner": "1",
-    "text": "La API monta las rutas por dominio después de los controles de origen, host y tipo de contenido. Los repositorios ejecutan SQL mediante server/sql-worker.ps1 y System.Data.SqlClient, con parámetros y una conexión transaccional.",
+    "text": "La API monta las rutas por dominio después de los controles de origen, host y tipo de contenido. /api/auth queda fuera de la sesión; requireSession protege el resto de /api y Conocimiento admite solicitudes mayores para subir archivos. Los repositorios ejecutan SQL mediante server/sql-worker.ps1 y System.Data.SqlClient, con parámetros y una conexión transaccional.",
     "shot": "arquitectura-api"
   },
   {
@@ -378,7 +418,7 @@
   {
     "id": "etl-hechos",
     "file": "sql/etl_hechos.sql",
-    "start": 492,
+    "start": 356,
     "owner": "10.4",
     "text": "El script prepara vistas auxiliares de eventos, elimina el contenido de cada hecho y vuelve a insertarlo mediante uniones con las dimensiones. Las claves se resuelven desde los identificadores del OLTP. Las medidas son indicadores de pertenencia y logro; las fechas conservan el contexto para la ventana.",
     "shot": "etl-hechos"

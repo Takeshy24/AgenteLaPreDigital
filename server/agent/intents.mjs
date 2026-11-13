@@ -95,7 +95,7 @@ const INVITATION =
 const INVITATION_REQUEST =
   / (quiero|quisiera|deseo|necesito|puedes|pueden|podrias|podrian|me gustaria|prepara|preparen|preparame|generame|pasame|mandame|enviame|enviale|dame|me das|invita|invitale|inviten) /;
 const CONTACT_DENIAL =
-  / (no|ya no) (quiero|quisiera|necesito|deseo|puedes|pueden|hables|hablen|contactes|contacten|escribas|escriban|envies|envien|mandes|manden|le escribas|le envies|le mandes|lo contactes|la contactes) /;
+  / (no|ya no) (le |les |la |lo )?(llamen|llames|molesten|molestes|quiero|quisiera|necesito|deseo|puedes|pueden|hables|hablen|contactes|contacten|escribas|escriban|envies|envien|mandes|manden|le escribas|le envies|le mandes|lo contactes|la contactes) /;
 export function declinesFamilyContact(text) {
   const value = words(text);
   return (

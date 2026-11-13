@@ -173,7 +173,7 @@ test('SQL: bloquea 49 LEADs en ambos accesos, permite 50 y conecta el modo con l
       assert.ok(buttons.some((item) => item.text === 'Elegir Meta UNT'));
       assert.ok(buttons.some((item) => item.text === 'Elegir Ruta UNT'));
       assert.ok(!buttons.some((item) => item.text.includes('Plus')));
-      assert.ok(reply.text.length <= 4000);
+      assert.ok(reply.text.length <= 1024);
       const accented = await recordIncoming(participant.id, {
         text: 'Recomiéndame un plan',
         channel: 2,
@@ -317,6 +317,8 @@ test('vista previa: identifica la simulación y no genera mensajes, invitaciones
     assert.equal(result.simulation, true);
     assert.match(result.text, /^EJEMPLO SIMULADO/);
     assert.match(result.text, /6 de 8/);
+    assert.ok(result.text.length <= 1024);
+    assert.doesNotMatch(result.text, /No incluido|Primera respuesta de soporte/);
     const after = (
       await query(
         db,

@@ -15,7 +15,7 @@ REPO = OUT.parents[1]
 source = OUT / 'Manual_de_usuario_LaPreDigital.docx'
 target = OUT / 'Manual_de_codigo_LaPreDigital.docx'
 pdf_path = target.with_suffix('.pdf')
-expected_sha = '2d3d78aea4fe7e3988990e7041ff5b5aaafd99dd687c33e187e593f51a5da1de'
+expected_sha = 'b930480c47f487df9c614cb3766e3024e0ec450e562924c116eddc4a13bd47a2'
 state = json.loads((WORK / 'estado.json').read_text(encoding='utf-8'))
 doc = Document(target)
 original = Document(source)
@@ -33,12 +33,12 @@ def headings(document):
             if p.style.name in ('Heading 1', 'Heading 2')]
 
 check('manual_usuario_inmutable', sha256(source.read_bytes()).hexdigest() == expected_sha)
-check('mismos_51_titulos_en_orden', headings(doc) == headings(original) and len(headings(doc)) == 51)
-check('12_modulos_y_39_opciones', Counter(style for style, text in headings(doc)) ==
-      {'Heading 1': 12, 'Heading 2': 39})
+check('mismos_58_titulos_en_orden', headings(doc) == headings(original) and len(headings(doc)) == 58)
+check('14_modulos_y_44_opciones', Counter(style for style, text in headings(doc)) ==
+      {'Heading 1': 14, 'Heading 2': 44})
 toc = [p for p in doc.paragraphs if p.style.name.lower() in ('toc 1', 'toc 2')]
 check('indice_automatico', any('TOC ' in (el.text or '') for el in doc.element.xpath('//w:instrText')))
-check('indice_51_entradas', len(toc) == 51)
+check('indice_58_entradas', len(toc) == 58)
 toc_errors = []
 for p, (_, title) in zip(toc, headings(doc)):
     label, number = p.text.rsplit('\t', 1)
@@ -47,17 +47,17 @@ for p, (_, title) in zip(toc, headings(doc)):
     if title not in label or label not in norm(pages[page - 1]):
         toc_errors.append({'titulo': title, 'pagina': page})
 check('paginas_del_indice_correctas', not toc_errors)
-check('enlaces_indice_word', len(doc.element.xpath('//w:hyperlink[@w:anchor]')) >= 51)
+check('enlaces_indice_word', len(doc.element.xpath('//w:hyperlink[@w:anchor]')) >= 58)
 pdf_links = sum(1 for p in pdf.pages for ref in p.get('/Annots', [])
                 if ref.get_object().get('/Subtype') == '/Link')
-check('enlaces_pdf', pdf_links >= 51)
+check('enlaces_pdf', pdf_links >= 58)
 check('sin_paginas_vacias', all(len(norm(p)) >= 35 for p in pages))
 check('sin_campos_pendientes', not any(t in full for t in [
     'Índice pendiente de actualización', 'Error! Reference source not found',
     '¡Error! Marcador no definido', 'Error! Bookmark not defined']))
 figures = [int(s) for s in re.findall(r'Figura\s+(\d+)', full)]
-check('86_figuras_consecutivas', figures == list(range(1, 87)))
-check('86_campos_secuencia', len(doc.element.xpath('//w:instrText[contains(text(),"SEQ Figura")]')) == 86)
+check('99_figuras_consecutivas', figures == list(range(1, 100)))
+check('99_campos_secuencia', len(doc.element.xpath('//w:instrText[contains(text(),"SEQ Figura")]')) == 99)
 
 def shapes(document, code=False):
     result = []
@@ -79,17 +79,17 @@ def shapes(document, code=False):
 
 ui = shapes(doc)
 code = shapes(doc, True)
-check('39_marcos_pantallas_iguales', ui == shapes(original) and len(ui) == 39)
-check('49_capturas_reales', len(code) == 49)
+check('47_marcos_pantallas_iguales', ui == shapes(original) and len(ui) == 47)
+check('54_capturas_reales', len(code) == 54)
 manifest = {s['id']: s for s in json.loads((WORK / 'capturas_codigo/manifest.json').read_text(encoding='utf-8'))}
 capture_hashes = Counter(sha256((WORK / 'capturas_codigo' / (key + '.png')).read_bytes()).hexdigest()
                          for key in manifest)
 check('imagenes_codigo_son_capturas_originales', Counter(s['sha256'] for s in code) == capture_hashes)
-check('88_imagenes_en_cuerpo', len(doc.inline_shapes) == 88)
+check('101_imagenes_en_cuerpo', len(doc.inline_shapes) == 101)
 check('codigo_conservado_desde_compilacion', all(
     sha256((REPO / name).read_bytes()).hexdigest() == value
     for name, value in state['fuentes_codigo'].items()))
-check('49_archivos_y_rutas_verificables', len(manifest) == 49 and
+check('54_archivos_y_rutas_verificables', len(manifest) == 54 and
       all((REPO / s['file']).is_file() for s in manifest.values()))
 
 render = WORK / sys.argv[1] if len(sys.argv) > 1 else WORK / 'render-final'

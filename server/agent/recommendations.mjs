@@ -11,6 +11,7 @@ import {
 import { knowledgeFragments, NO_INFORMATION } from '../knowledge/service.mjs';
 import { answerFromKnowledge } from './knowledge.mjs';
 import { publicTariffs } from '../public/repository.mjs';
+import { summarizePlan } from './plan-summary.mjs';
 
 export async function getRecommendationSettings(db = null) {
   db ??= await pool();
@@ -35,12 +36,6 @@ export async function setRecommendationSettings({ enabled, version }) {
     await savePolicy({ ...policy, useLeadData: enabled });
     return getRecommendationSettings(db);
   });
-}
-function shortDocument(text, limit) {
-  if (text.length <= limit) return text;
-  const end = text.lastIndexOf('\n', limit);
-  const space = text.lastIndexOf(' ', limit);
-  return text.slice(0, end > 0 ? end : space > 0 ? space : limit).trim() + '\n…';
 }
 export async function buildDataRecommendation(
   db,
@@ -70,16 +65,19 @@ export async function buildDataRecommendation(
     const answer = answerFromKnowledge(`Qué incluye ${plan}`, [], documents);
     if (!answer) continue;
     const index = sections.length;
-    sections.push(
-      `${index === 0 ? 'Mi primera opción' : 'Otra alternativa'}: ${plan}\n${shortDocument(answer.text, index === 0 ? 1100 : 550)}`,
-    );
+    const summary = summarizePlan(answer.text, plan, {
+      benefits: index === 0 ? 3 : 1,
+      limit: index === 0 ? 260 : 150,
+    });
+    if (!summary) continue;
+    sections.push(`${index === 0 ? 'Mi primera opción' : 'Otra alternativa'}: ${plan}\n${summary}`);
     if (option.tariff) {
       offered.push(option.tariff);
       displayedOptions.push(option);
     }
   }
   const text = sections.length
-    ? `${simulation ? 'EJEMPLO SIMULADO · las cifras de elección son ficticias.\n\n' : ''}${recommendationIntro(profile, { ...ranked, options: displayedOptions }, audience)}\n\n${sections.join('\n\n')}`
+    ? `${simulation ? 'EJEMPLO SIMULADO · las cifras de elección son ficticias.\n\n' : ''}${recommendationIntro(profile, { ...ranked, options: displayedOptions }, audience)}\n\n${sections.join('\n\n')}${offered.length ? '\n\nConsulta «Ver» para el detalle de cada plan.' : ''}`
     : NO_INFORMATION;
   return {
     text,

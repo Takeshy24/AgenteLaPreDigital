@@ -1,5 +1,16 @@
 import { query } from '../db.mjs';
 import { now } from '../shared/repository.mjs';
+export async function hasChannelRecord(db, contact, channel) {
+  return (
+    (
+      await query(
+        db,
+        'SELECT COUNT(*) n FROM dbo.AutorizacionContacto WHERE idContacto=@contact AND idCanal=@channel',
+        { contact, channel },
+      )
+    ).recordset[0].n > 0
+  );
+}
 export async function getContact(db, params = {}, options = {}) {
   return query(
     db,

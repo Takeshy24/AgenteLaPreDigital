@@ -17,6 +17,7 @@ import {
 import { createLead } from '../leads/service.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { saveProfile } from '../profiles/service.mjs';
+import { registerLanding } from '../public/landing.mjs';
 
 process.env.SMTP_PASSWORD = ''; // las pruebas nunca envían correo real
 process.env.WHATSAPP_ENABLED = 'true';
@@ -37,7 +38,7 @@ function fakeWhatsApp() {
   return client;
 }
 
-async function setup({ role = 1, beneficiaryName } = {}) {
+async function setup({ role = 1, beneficiaryName, communicationChannel = 1 } = {}) {
   const suffix = Date.now() + Math.floor(Math.random() * 1000);
   const phone = `+519${String(suffix).slice(-8)}`;
   const lead = await createLead({
@@ -47,7 +48,7 @@ async function setup({ role = 1, beneficiaryName } = {}) {
     role,
     beneficiaryName,
     channel: 1,
-    communicationChannel: 1,
+    communicationChannel,
     consent: true,
   });
   return { lead, waId: phone.slice(1), client: fakeWhatsApp(), sequence: suffix };
@@ -89,6 +90,194 @@ const incomingRows = async (db, scenario) =>
       { contact: scenario.lead.contact },
     )
   ).recordset;
+
+test('la autorización de WhatsApp de la landing basta para empezar el perfil sin pedirla otra vez', async () => {
+  const previousTemplate = process.env.WHATSAPP_WELCOME_TEMPLATE_NAME;
+  process.env.WHATSAPP_WELCOME_TEMPLATE_NAME = '';
+  try {
+    await rollbackTest(async (db) => {
+      const suffix = Date.now() + Math.floor(Math.random() * 1000);
+      const phone = `+519${String(suffix).slice(-8)}`;
+      const email = `landing-consent-${suffix}@example.test`;
+      await registerLanding(
+        {
+          name: `Alumno Autorizado ${suffix}`,
+          email,
+          phone,
+          role: 1,
+          channels: [1],
+          telegram: false,
+        },
+        { send: null },
+      );
+      const contact = (
+        await query(
+          db,
+          `SELECT l.idContacto contact, lc.idLeadCaso id
+        FROM dbo.Contacto c INNER JOIN dbo.Lead l ON l.idContacto=c.idContacto
+        INNER JOIN dbo.LeadCaso lc ON lc.idLead=l.idLead WHERE c.correo=@email`,
+          { email },
+        )
+      ).recordset[0];
+      const scenario = {
+        lead: contact,
+        waId: phone.slice(1),
+        client: fakeWhatsApp(),
+        sequence: suffix,
+      };
+      await receive(db, scenario, typed('Hola, ya me registré en LaPreDigital'));
+      await flush(db, scenario);
+      const messages = scenario.client.calls
+        .map((call) => call.text?.body ?? call.interactive?.body.text ?? '')
+        .join('\n');
+      assert.match(messages, /¿Qué carrera te gustaría estudiar\?/);
+      assert.doesNotMatch(messages, /¿Te parece bien|¿Autorizas|AUTORIZO o/);
+      const grants = (
+        await query(
+          db,
+          `SELECT idEstadoAutorizacion state, idOrigenAutorizacion origin, versionTexto version
+        FROM dbo.AutorizacionContacto WHERE idContacto=@contact AND idCanal=1`,
+          { contact: contact.contact },
+        )
+      ).recordset;
+      assert.deepEqual(grants, [{ state: 1, origin: 1, version: 'landing-v1' }]);
+    });
+  } finally {
+    if (previousTemplate === undefined) delete process.env.WHATSAPP_WELCOME_TEMPLATE_NAME;
+    else process.env.WHATSAPP_WELCOME_TEMPLATE_NAME = previousTemplate;
+    await close();
+  }
+});
+
+test('una pregunta de autorización en cola ya no vuelve a pedirla si se obtuvo antes del envío', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup({ communicationChannel: 2 });
+      await receive(db, scenario, typed('Hola'));
+      await saveConsent(scenario.lead.id, {
+        channel: 1,
+        granted: true,
+        version: 'test-confirmacion',
+      });
+      await flush(db, scenario);
+      const sent = scenario.client.calls
+        .map((call) => call.text?.body ?? call.interactive?.body.text ?? '')
+        .join('\n');
+      assert.doesNotMatch(sent, /¿Te parece bien que te escribamos/);
+      assert.match(sent, /autorización de WhatsApp ya está registrada/);
+      assert.ok(!scenario.client.calls.some((call) => call.interactive?.type === 'button'));
+      await receive(db, scenario, typed('Ingeniería de Sistemas'));
+      await flush(db, scenario);
+      assert.match(
+        scenario.client.calls.at(-1).interactive.body.text,
+        /¿Cuánto tiempo puedes dedicar/,
+      );
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('una autorización revocada antes del envío tampoco vuelve a preguntarse ni se reactiva', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup({ communicationChannel: 2 });
+      await receive(db, scenario, typed('Hola'));
+      await saveConsent(scenario.lead.id, { channel: 1, granted: true, version: 'test' });
+      await saveConsent(scenario.lead.id, { channel: 1, granted: false, version: 'test' });
+      await flush(db, scenario);
+      const sent = scenario.client.calls
+        .map((call) => call.text?.body ?? call.interactive?.body.text ?? '')
+        .join('\n');
+      assert.doesNotMatch(sent, /¿Te parece bien que te escribamos/);
+      assert.match(sent, /Se mantiene tu decisión de no recibir seguimiento por WhatsApp/);
+      const active = (
+        await query(
+          db,
+          'SELECT COUNT(*) n FROM dbo.AutorizacionContacto WHERE idContacto=@contact AND idCanal=1 AND idEstadoAutorizacion=1',
+          { contact: scenario.lead.contact },
+        )
+      ).recordset[0].n;
+      assert.equal(active, 0);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('WhatsApp permite marcar varios cursos, desmarcar y confirmar antes de avanzar', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup({ role: 2, beneficiaryName: 'David Prueba' });
+      await saveProfile(scenario.lead.id, {
+        fields: { career: 'Medicina Humana', availability: 'Solo fines de semana', budget: 40 },
+        channel: 1,
+      });
+      await receive(db, scenario, typed('Hola'));
+      await flush(db, scenario);
+      let payload = scenario.client.calls.at(-1);
+      assert.match(payload.interactive.body.text, /difíciles a David/);
+      assert.match(payload.interactive.body.text, /Puedes elegir varios/);
+      const choose = async (label) => {
+        const row = payload.interactive.action.sections[0].rows.find((row) => row.title === label);
+        assert.ok(row, label);
+        await receive(db, scenario, chosen(row.id, row.title));
+        await flush(db, scenario);
+        payload = scenario.client.calls.at(-1);
+      };
+      await choose('Listo');
+      assert.match(payload.interactive.body.text, /Marca al menos un curso/);
+      await choose('Física');
+      await choose('Química');
+      assert.match(payload.interactive.body.text, /Física, Química/);
+      assert.ok(payload.interactive.body.text.length <= 1024);
+      assert.ok(payload.interactive.action.sections[0].rows.every((row) => row.title.length <= 24));
+      assert.equal(
+        (
+          await query(
+            db,
+            'SELECT COUNT(*) n FROM dbo.CambioPerfil WHERE idLeadCaso=@id AND idCampoPerfil=3',
+            { id: scenario.lead.id },
+          )
+        ).recordset[0].n,
+        0,
+      );
+      await choose('✓ Física');
+      assert.match(payload.interactive.body.text, /Seleccionados: Química/);
+      await choose('Listo');
+      assert.match(payload.interactive.body.text, /¿David ya postuló antes a la UNT\?/);
+      const stored = (
+        await query(
+          db,
+          `SELECT curso FROM dbo.BeneficiarioCursoDificil b
+        INNER JOIN dbo.Lead l ON l.idBeneficiario=b.idBeneficiario
+        INNER JOIN dbo.LeadCaso lc ON lc.idLead=l.idLead WHERE lc.idLeadCaso=@id`,
+          { id: scenario.lead.id },
+        )
+      ).recordset;
+      assert.deepEqual(stored, [{ curso: 'Química' }]);
+      assert.equal(
+        (
+          await query(
+            db,
+            'SELECT COUNT(*) n FROM dbo.PreguntaPerfil WHERE idLeadCaso=@id AND idCampoPerfil=3',
+            { id: scenario.lead.id },
+          )
+        ).recordset[0].n,
+        1,
+      );
+      await choose('Es su primera vez');
+      assert.match(payload.interactive.body.text, /Para David, recomiendo Ruta UNT/);
+      assert.match(payload.interactive.body.text, /Mensual: S\/ 39\.90/);
+      assert.ok(payload.interactive.body.text.length < 650);
+      await choose('Ver qué incluye');
+      assert.match(payload.text.body, /Diagnóstico académico/);
+      assert.match(payload.text.body, /No incluido/);
+    });
+  } finally {
+    await close();
+  }
+});
 
 test('la firma del webhook se verifica con el secreto de la aplicación', () => {
   const body = Buffer.from('{"entry":[]}');

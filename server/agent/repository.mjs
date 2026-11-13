@@ -83,6 +83,37 @@ export async function attachMarkup(db, messageId, markup) {
     { id: messageId, markup: JSON.stringify(markup) },
   );
 }
+export async function getCourseSelection(db, participationId) {
+  const row = (
+    await query(
+      db,
+      `SELECT TOP 1 m.idMensaje messageId, d.markup
+       FROM dbo.Mensaje m INNER JOIN dbo.App_Dispatch d ON d.idMensaje=m.idMensaje
+       WHERE m.idLeadCaso=@id AND m.idDireccion=2
+         AND (JSON_QUERY(d.markup, '$.course_selection') IS NOT NULL
+           OR JSON_VALUE(d.markup, '$.inline_keyboard[0][0].callback_data') LIKE @prefix)
+       ORDER BY m.idMensaje DESC`,
+      { id: participationId, prefix: `pf:${participationId}:d:%` },
+    )
+  ).recordset[0];
+  if (!row) return null;
+  const markup = JSON.parse(row.markup);
+  return {
+    messageId: row.messageId,
+    markup,
+    selected: [],
+    completed: false,
+    ...markup.course_selection,
+  };
+}
+
+export async function completeCourseSelection(db, selection) {
+  if (!selection || selection.completed) return;
+  await attachMarkup(db, selection.messageId, {
+    ...selection.markup,
+    course_selection: { selected: selection.selected, completed: true },
+  });
+}
 // Botones vigentes de la conversación: los del último mensaje del agente, sin contar la pregunta de
 // autorización ni el aviso de derivación, que se envían aparte y tienen sus propios botones.
 async function recentMarkups(db, participationId) {
@@ -96,7 +127,8 @@ async function recentMarkups(db, participationId) {
     )
   ).recordset.map((row) => (row.markup ? JSON.parse(row.markup) : null));
 }
-const aside = (markup) => markup?.consent_prompt || markup?.handoff_notice;
+const aside = (markup) =>
+  markup?.consent_prompt || markup?.consent_notice || markup?.handoff_notice;
 export async function lastOutgoingMarkup(db, participationId) {
   return (await recentMarkups(db, participationId)).find((markup) => !aside(markup)) ?? null;
 }
@@ -162,4 +194,26 @@ export async function incomingSince(db, id, messageId) {
       { id, messageId },
     )
   ).recordset.map((row) => row.text);
+}
+// Familiares registrados del mismo beneficiario con el rol indicado, con su participación más
+// reciente (la autorización de contacto pertenece al familiar, no al estudiante).
+export async function listRelatives(db, { beneficiary, contact, roles }) {
+  return (
+    await query(
+      db,
+      `SELECT
+  l.idContacto contact,
+  MAX(lc.idLeadCaso) participationId
+FROM
+  dbo.Lead l
+  JOIN dbo.LeadCaso lc ON lc.idLead = l.idLead
+WHERE
+  l.idBeneficiario = @beneficiary
+  AND l.idContacto <> @contact
+  AND l.idRolContacto IN (SELECT CAST(value AS TINYINT) FROM STRING_SPLIT(@roles, ','))
+GROUP BY
+  l.idContacto`,
+      { beneficiary, contact, roles: roles.join(',') },
+    )
+  ).recordset;
 }

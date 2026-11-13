@@ -9,6 +9,7 @@ import { finishUpdate, getUpdate, markSent, markFailed } from '../integrations/r
 import { BusinessError } from '../shared/errors.mjs';
 import * as repository from './repository.mjs';
 import { revokeChannel } from '../consents/repository.mjs';
+import { isNoContactRequest, noContactChannels } from '../agent/consent-prompt.mjs';
 import { answerFromKnowledge } from '../agent/knowledge.mjs';
 import { knowledgeFragments, NO_INFORMATION } from '../knowledge/service.mjs';
 import { dispatchMessage } from '../integrations/dispatch.mjs';
@@ -148,11 +149,15 @@ export async function continueOnboarding(item, contact, text, client, { channel 
           text: `¡Hola! Soy el asistente de LaPreDigital. Ya guardé tu número para completar tu registro por este chat. ${questions.name}`,
         };
       }
-      const revoked =
-        /^(\/revocar|no autorizo)$/i.test(text.trim()) ||
-        /no me (escrib|contact)|no quiero recibir|dejen de escrib|deja de escrib/i.test(text);
+      const revoked = /^(\/revocar|no autorizo)$/i.test(text.trim()) || isNoContactRequest(text);
       if (revoked && !['consent', 'consentDenied'].includes(state.step)) {
-        for (const revokedChannel of text.trim() === '/revocar' ? [channel] : [1, 2, 3])
+        const channels =
+          text.trim() === '/revocar'
+            ? [channel]
+            : /^no autorizo$/i.test(text.trim())
+              ? [1, 2, 3]
+              : noContactChannels(text);
+        for (const revokedChannel of channels)
           await revokeChannel(db, { contact, channel: revokedChannel });
         payload.consent = false;
         await repository.saveState(db, contact, payload, state.step);

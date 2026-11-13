@@ -6,6 +6,8 @@ import { createLead } from '../leads/service.mjs';
 import { inviteGuardian } from '../links/service.mjs';
 import { recordIncoming } from '../messages/service.mjs';
 import { acceptPublicInvitation, viewInvitation } from '../public/invitations.mjs';
+import { askChannelConsent } from '../agent/consent-prompt.mjs';
+import { getParticipation } from '../shared/repository.mjs';
 
 process.env.SMTP_PASSWORD = '';
 process.env.WHATSAPP_PUBLIC_NUMBER = '987654321';
@@ -19,7 +21,7 @@ async function invitation() {
     phone: '+51912345678',
     role: 1,
     channel: 5,
-    communicationChannel: 2,
+    communicationChannel: 1,
     consent: true,
   });
   const message = await recordIncoming(lead.id, { text: 'Mi tío paga', channel: 1, level: 1 });
@@ -40,14 +42,27 @@ for (const channels of [[1, 3], [2]]) {
         assert.match(before.whatsappUrl, /^https:\/\/wa.me\/51987654321\?/);
         assert.equal(before.telegramUrl, 'https://t.me/bot_prueba');
         const email = `${randomUUID()}@example.test`;
-        const accepted = await acceptPublicInvitation(code, {
+        const data = {
           name: 'Carlos Ruiz',
           email,
           phone: '+51976543210',
           channels,
           contactConsent: true,
           linkConsent: true,
-        });
+        };
+        for (const denied of [{ contactConsent: false }, { linkConsent: false }]) {
+          await assert.rejects(
+            () => acceptPublicInvitation(code, { ...data, ...denied }),
+            /ambas autorizaciones/,
+          );
+          assert.equal((await viewInvitation(code)).accepted, false);
+          assert.equal(
+            (await query(db, 'SELECT COUNT(*) n FROM dbo.Contacto WHERE correo=@email', { email }))
+              .recordset[0].n,
+            0,
+          );
+        }
+        const accepted = await acceptPublicInvitation(code, data);
         assert.equal(accepted.accepted, true);
         assert.equal(accepted.whatsappUrl, before.whatsappUrl);
         assert.ok(accepted.telegramUrl.startsWith('https://t.me/bot_prueba'));
@@ -60,7 +75,7 @@ for (const channels of [[1, 3], [2]]) {
         const grants = (
           await query(
             db,
-            `SELECT a.idCanal FROM dbo.AutorizacionContacto a
+            `SELECT a.idCanal, a.idOrigenAutorizacion origin, a.versionTexto version FROM dbo.AutorizacionContacto a
 JOIN dbo.Contacto c ON c.idContacto=a.idContacto
 WHERE c.correo=@email AND a.idEstadoAutorizacion=1 ORDER BY a.idCanal`,
             { email },
@@ -70,6 +85,29 @@ WHERE c.correo=@email AND a.idEstadoAutorizacion=1 ORDER BY a.idCanal`,
           grants.map((row) => row.idCanal),
           channels,
         );
+        assert.ok(grants.every((grant) => grant.origin === 2 && grant.version === 'invitacion-v1'));
+        const participant = (
+          await query(
+            db,
+            `SELECT lc.idLeadCaso id FROM dbo.Contacto c
+          INNER JOIN dbo.Lead l ON l.idContacto=c.idContacto
+          INNER JOIN dbo.LeadCaso lc ON lc.idLead=l.idLead WHERE c.correo=@email`,
+            { email },
+          )
+        ).recordset[0];
+        const incoming = await recordIncoming(participant.id, {
+          text: 'Hola',
+          channel: 1,
+          level: 1,
+        });
+        const asked = await askChannelConsent(
+          db,
+          await getParticipation(db, participant.id),
+          1,
+          incoming.id,
+        );
+        // La autorización del invitante no se transfiere al familiar; basta la suya si la dio en el enlace.
+        assert.equal(asked, !channels.includes(1));
       });
     } finally {
       await close();

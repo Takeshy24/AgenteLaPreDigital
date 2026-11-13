@@ -263,10 +263,10 @@ VALUES
     @communicationChannel,
     1,
     ${now},
-    1,
-    N'captacion-local-v1'
+    @origin,
+    @version
   )`,
-    params,
+    { ...params, origin: options.origin ?? 1, version: options.version ?? 'captacion-local-v1' },
   );
 }
 export async function findConsent(db, params = {}, options = {}) {

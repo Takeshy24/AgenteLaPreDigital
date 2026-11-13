@@ -1,0 +1,292 @@
+[
+  {
+    "page": 4,
+    "text": "Presentación del sistema",
+    "number": "1"
+  },
+  {
+    "page": 5,
+    "text": "Acceso e Inicio",
+    "number": "2"
+  },
+  {
+    "page": 5,
+    "text": "Abrir la consola de negociación",
+    "number": "2.1"
+  },
+  {
+    "page": 7,
+    "text": "Usar el menú y reconocer los modos de operación",
+    "number": "2.2"
+  },
+  {
+    "page": 8,
+    "text": "Captación pública",
+    "number": "3"
+  },
+  {
+    "page": 8,
+    "text": "Enviar el formulario de contacto",
+    "number": "3.1"
+  },
+  {
+    "page": 10,
+    "text": "Continuar desde el comprobante de registro",
+    "number": "3.2"
+  },
+  {
+    "page": 11,
+    "text": "Solicitar información de un plan",
+    "number": "3.3"
+  },
+  {
+    "page": 12,
+    "text": "Aceptar la invitación del responsable económico",
+    "number": "3.4"
+  },
+  {
+    "page": 14,
+    "text": "Activar Explora UNT desde el enlace personal",
+    "number": "3.5"
+  },
+  {
+    "page": 15,
+    "text": "Pendientes del operador",
+    "number": "4"
+  },
+  {
+    "page": 15,
+    "text": "Consultar las gestiones pendientes",
+    "number": "4.1"
+  },
+  {
+    "page": 16,
+    "text": "Registrar la atención de una conversación derivada",
+    "number": "4.2"
+  },
+  {
+    "page": 17,
+    "text": "Validar una contratación con pago registrado",
+    "number": "4.3"
+  },
+  {
+    "page": 18,
+    "text": "Revisar la entrega de credenciales",
+    "number": "4.4"
+  },
+  {
+    "page": 19,
+    "text": "LEADS y casos",
+    "number": "5"
+  },
+  {
+    "page": 19,
+    "text": "Revisar una solicitud de captación",
+    "number": "5.1"
+  },
+  {
+    "page": 20,
+    "text": "Registrar un contacto y su participación",
+    "number": "5.2"
+  },
+  {
+    "page": 21,
+    "text": "Buscar y abrir una negociación",
+    "number": "5.3"
+  },
+  {
+    "page": 22,
+    "text": "Expediente de negociación",
+    "number": "6"
+  },
+  {
+    "page": 22,
+    "text": "Consultar y completar el perfil",
+    "number": "6.1"
+  },
+  {
+    "page": 23,
+    "text": "Consultar la conversación y registrar un mensaje recibido",
+    "number": "6.2"
+  },
+  {
+    "page": 24,
+    "text": "Revisar un mensaje con la inteligencia artificial",
+    "number": "6.3"
+  },
+  {
+    "page": 25,
+    "text": "Revisar interés y prioridad de seguimiento",
+    "number": "6.4"
+  },
+  {
+    "page": 26,
+    "text": "Registrar autorización o revocación de contacto",
+    "number": "6.5"
+  },
+  {
+    "page": 27,
+    "text": "Preparar la prueba gratuita desde el expediente",
+    "number": "6.6"
+  },
+  {
+    "page": 28,
+    "text": "Preparar una invitación al responsable económico",
+    "number": "6.7"
+  },
+  {
+    "page": 29,
+    "text": "Registrar una aceptación documentada del responsable",
+    "number": "6.8"
+  },
+  {
+    "page": 30,
+    "text": "Propuestas y servicio",
+    "number": "7"
+  },
+  {
+    "page": 30,
+    "text": "Preparar una propuesta con tarifa vigente",
+    "number": "7.1"
+  },
+  {
+    "page": 31,
+    "text": "Consultar el avance y compartir la oferta personal",
+    "number": "7.2"
+  },
+  {
+    "page": 32,
+    "text": "Aceptar la propuesta y sus condiciones en el portal",
+    "number": "7.3"
+  },
+  {
+    "page": 33,
+    "text": "Abrir el pago de prueba desde la oferta",
+    "number": "7.4"
+  },
+  {
+    "page": 34,
+    "text": "Habilitar un servicio adquirido",
+    "number": "7.5"
+  },
+  {
+    "page": 35,
+    "text": "Consultar el servicio habilitado",
+    "number": "7.6"
+  },
+  {
+    "page": 36,
+    "text": "Catálogo interno",
+    "number": "8"
+  },
+  {
+    "page": 36,
+    "text": "Consultar planes y tarifas mensuales",
+    "number": "8.1"
+  },
+  {
+    "page": 37,
+    "text": "Comparar la modalidad semestral",
+    "number": "8.2"
+  },
+  {
+    "page": 38,
+    "text": "Seguimiento autorizado",
+    "number": "9"
+  },
+  {
+    "page": 38,
+    "text": "Consultar la agenda y revisar vencimientos",
+    "number": "9.1"
+  },
+  {
+    "page": 39,
+    "text": "Indicadores de la fase LEADS",
+    "number": "10"
+  },
+  {
+    "page": 39,
+    "text": "Consultar el resumen de indicadores",
+    "number": "10.1"
+  },
+  {
+    "page": 40,
+    "text": "Aplicar filtros por periodo y dimensión",
+    "number": "10.2"
+  },
+  {
+    "page": 42,
+    "text": "Interpretar causas y desgloses",
+    "number": "10.3"
+  },
+  {
+    "page": 43,
+    "text": "Actualizar los datos y exportar el reporte",
+    "number": "10.4"
+  },
+  {
+    "page": 44,
+    "text": "Agente e integraciones",
+    "number": "11"
+  },
+  {
+    "page": 44,
+    "text": "Consultar el estado de los servicios",
+    "number": "11.1"
+  },
+  {
+    "page": 45,
+    "text": "Vincular Telegram con un contacto existente",
+    "number": "11.2"
+  },
+  {
+    "page": 45,
+    "text": "Configurar las recomendaciones con datos",
+    "number": "11.3"
+  },
+  {
+    "page": 47,
+    "text": "Conocimiento del agente",
+    "number": "12"
+  },
+  {
+    "page": 47,
+    "text": "Consultar y editar un documento",
+    "number": "12.1"
+  },
+  {
+    "page": 48,
+    "text": "Crear o subir un documento",
+    "number": "12.2"
+  },
+  {
+    "page": 49,
+    "text": "Probar una consulta",
+    "number": "12.3"
+  },
+  {
+    "page": 51,
+    "text": "Reglas del agente",
+    "number": "13"
+  },
+  {
+    "page": 51,
+    "text": "Configurar las preguntas y las acciones automáticas",
+    "number": "13.1"
+  },
+  {
+    "page": 53,
+    "text": "Referencia de operación",
+    "number": "14"
+  },
+  {
+    "page": 53,
+    "text": "Resolver situaciones frecuentes",
+    "number": "14.1"
+  },
+  {
+    "page": 55,
+    "text": "Interpretar los indicadores",
+    "number": "14.2"
+  }
+]

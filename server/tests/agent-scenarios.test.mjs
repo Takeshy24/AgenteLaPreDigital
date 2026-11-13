@@ -259,7 +259,8 @@ test('necesidades académicas por texto libre: cursos, postulación y puntaje; p
       const next = await say('Me cuesta física y química');
       assert.match(next.reply.text, /^¡Anotado! ¿Ya postulaste antes a la UNT\?/);
       const last = await say('No, es mi primera vez');
-      assert.match(last.reply.text, /Para reforzar física, química/);
+      assert.match(last.reply.text, /Para ti, recomiendo Meta UNT/);
+      assert.ok(last.reply.text.length < 650);
       const needs = (
         await query(
           db,

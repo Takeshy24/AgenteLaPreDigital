@@ -2,7 +2,7 @@
 
 Agente negociador inteligente para la gestión y análisis de leads en LaPreDigital
 
-La numeración de módulos y opciones es común al manual de usuario y al futuro manual de código fuente. El Word contiene el índice funcional con páginas y enlaces. Este archivo conserva la estructura y la relación con los archivos del sistema para desarrollar el manual técnico.
+La numeración de módulos y opciones es común al manual de usuario y al manual de código fuente. Ambos Word contienen el índice con páginas y enlaces. Este archivo conserva la estructura y la relación con los archivos del sistema. Estructura vigente: 14 módulos y 44 opciones (actualizada el 13 de noviembre de 2026).
 
 ## Estructura común
 
@@ -51,12 +51,19 @@ La numeración de módulos y opciones es común al manual de usuario y al futuro
    - 10.2 Aplicar filtros por periodo y dimensión
    - 10.3 Interpretar causas y desgloses
    - 10.4 Actualizar los datos y exportar el reporte
-11. Telegram e inteligencia artificial
+11. Agente e integraciones
    - 11.1 Consultar el estado de los servicios
    - 11.2 Vincular Telegram con un contacto existente
-12. Referencia de operación
-   - 12.1 Resolver situaciones frecuentes
-   - 12.2 Interpretar los indicadores
+   - 11.3 Configurar las recomendaciones con datos
+12. Conocimiento del agente
+   - 12.1 Consultar y editar un documento
+   - 12.2 Crear o subir un documento
+   - 12.3 Probar una consulta
+13. Reglas del agente
+   - 13.1 Configurar las preguntas y las acciones automáticas
+14. Referencia de operación
+   - 14.1 Resolver situaciones frecuentes
+   - 14.2 Interpretar los indicadores
 
 ## Correspondencia para el manual de código fuente
 
@@ -65,7 +72,7 @@ Dentro de cada opción técnica se explicarán el componente o punto de entrada,
 | Módulo | Archivos de referencia existentes |
 | --- | --- |
 | 1 Presentación del sistema | `README.md`, `server/README.md` |
-| 2 Acceso e Inicio | `src/App.tsx`, `src/LiveApp.tsx`, `src/components/Layout.tsx`, `src/state/Workspace.tsx`, `server/app.mjs`, `server/workspace/repository.mjs` |
+| 2 Acceso e Inicio | `src/pages/Login.tsx`, `src/features/auth/api.ts`, `server/auth/service.mjs`, `server/auth/routes.mjs`, `src/App.tsx`, `src/LiveApp.tsx`, `src/components/Layout.tsx`, `src/state/Workspace.tsx`, `server/app.mjs`, `server/workspace/repository.mjs` |
 | 3 Captación pública | `src/pages/Landing.tsx`, `src/features/leads/LandingForm.tsx`, `src/pages/PublicPlans.tsx`, `src/pages/PublicGuardian.tsx`, `src/pages/PublicTrial.tsx`, `server/public/landing.mjs`, `server/public/intake.mjs`, `server/public/invitations.mjs` |
 | 4 Pendientes del operador | `src/pages/Pending.tsx`, `server/pending/service.mjs`, `server/handoffs/service.mjs`, `server/contracts/service.mjs`, `server/access/service.mjs` |
 | 5 LEADS y casos | `src/features/leads/LeadTable.tsx`, `src/features/leads/LeadForm.tsx`, `server/leads/service.mjs`, `server/public/intake.mjs`, `server/cases/service.mjs` |
@@ -74,13 +81,15 @@ Dentro de cada opción técnica se explicarán el componente o punto de entrada,
 | 8 Catálogo interno | `src/pages/Catalog.tsx`, `src/features/catalog/PlanBenefits.tsx`, `src/shared/offer.json`, `server/workspace/repository.mjs`, `server/public/repository.mjs` |
 | 9 Seguimiento autorizado | `src/pages/Followup.tsx`, `server/followup/service.mjs`, `server/followup/repository.mjs`, `server/workers.mjs`, `server/policy.mjs` |
 | 10 Indicadores de la fase LEADS | `src/pages/Kpis.tsx`, `src/features/kpis/KpiFilters.tsx`, `src/features/kpis/KpiCard.tsx`, `server/kpis/service.mjs`, `server/kpis/rules.mjs`, `server/kpis/report.mjs`, `server/datamart/service.mjs`, `sql/dimensiones.sql`, `sql/hechos.sql`, `sql/etl_dimensiones.sql`, `sql/etl_hechos.sql` |
-| 11 Telegram e inteligencia artificial | `src/pages/Integrations.tsx`, `src/features/integrations/TelegramCard.tsx`, `server/integrations/config.mjs`, `server/integrations/service.mjs`, `server/integrations/telegram.mjs`, `server/integrations/whatsapp.mjs`, `server/integrations/dispatch.mjs`, `server/agent/ollama.mjs`, `server/agent/service.mjs` |
-| 12 Referencia de operación | `server/http/validation.mjs`, `server/shared/errors.mjs`, `server/tests/landing.test.mjs`, `server/tests/business.test.mjs`, `server/tests/datamart.test.mjs` |
+| 11 Agente e integraciones | `src/pages/Integrations.tsx`, `src/features/integrations/TelegramCard.tsx`, `src/features/integrations/RecommendationSettings.tsx`, `server/agent/recommendations.mjs`, `server/agent/recommendation-rules.mjs`, `server/operations/routes.mjs`, `server/integrations/config.mjs`, `server/integrations/service.mjs`, `server/integrations/telegram.mjs`, `server/integrations/whatsapp.mjs`, `server/integrations/dispatch.mjs`, `server/agent/ollama.mjs`, `server/agent/service.mjs` |
+| 12 Conocimiento del agente | `src/pages/Knowledge.tsx`, `src/features/knowledge/api.ts`, `server/knowledge/routes.mjs`, `server/knowledge/service.mjs`, `server/knowledge/extract.mjs`, `server/knowledge/search.mjs`, `server/knowledge/repository.mjs` |
+| 13 Reglas del agente | `src/pages/AgentRules.tsx`, `server/agent/policy.mjs`, `server/agent/policy-repository.mjs`, `server/knowledge/routes.mjs` |
+| 14 Referencia de operación | `server/http/validation.mjs`, `server/shared/errors.mjs`, `server/tests/landing.test.mjs`, `server/tests/business.test.mjs`, `server/tests/datamart.test.mjs` |
 
 ## Alcance técnico complementario
 
-Antes del recorrido por opciones, el manual de código debe documentar la arquitectura general, los requisitos y la configuración, la estructura de carpetas, el flujo React → API → servicios → SQL Server y la separación entre OLTP y Data Mart. Estos temas amplían el capítulo 1 sin cambiar la numeración funcional.
+Antes del recorrido por opciones, el manual de código documenta la arquitectura general, los requisitos y la configuración, la estructura de carpetas, el flujo React → API → servicios → SQL Server y la separación entre OLTP y Data Mart. Estos temas amplían el capítulo 1 sin cambiar la numeración funcional.
 
-En el capítulo 10 se explicarán las seis dimensiones, los cinco hechos, la carga ETL y las fórmulas de los seis indicadores. Deben mantenerse las claves dimensionales y la procedencia de cada medida, sin presentar los recuentos operativos de Inicio como tasas del Data Mart.
+En el capítulo 10 se explican las dimensiones (las seis originales más DimCaso), los cinco hechos, la carga ETL y las fórmulas de los seis indicadores. Deben mantenerse las claves dimensionales y la procedencia de cada medida, sin presentar los recuentos operativos de Inicio como tasas del Data Mart.
 
-Al cierre del capítulo 12 se incorporarán las verificaciones de funcionamiento y los puntos de configuración necesarios para reproducir los recorridos. La documentación del código debe describir la interfaz vigente, incluida la pestaña Servicio y las acciones de Pendientes. No debe recuperar controles retirados de la interfaz.
+Al cierre del capítulo 14 se incorporan las verificaciones de funcionamiento y los puntos de configuración necesarios para reproducir los recorridos. La documentación del código debe describir la interfaz vigente, incluida la pestaña Servicio y las acciones de Pendientes. No debe recuperar controles retirados de la interfaz.

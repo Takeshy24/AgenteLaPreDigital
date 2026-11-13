@@ -168,7 +168,11 @@ export async function registerLanding(data, { send = defaultSender() } = {}) {
         consent: true,
         beneficiaryName: data.beneficiaryName,
       },
-      { channels, reviewNameMatches: true },
+      {
+        channels,
+        reviewNameMatches: true,
+        consentSource: { origin: 1, version: 'landing-v1' },
+      },
     );
     const url = await telegramLink(db, lead.contact, { consent: data.telegram === true });
     const welcome = await prepareLandingWelcome(db, lead, channels);

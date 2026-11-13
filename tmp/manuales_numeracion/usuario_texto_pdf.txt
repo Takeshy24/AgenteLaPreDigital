@@ -1,0 +1,1006 @@
+ 
+Agente negociador inteligente para la gestión y análisis de leads 
+en LaPreDigital 
+MANUAL DE USUARIO 
+Versión 1.0 
+Noviembre de 2026 
+ 
+2 
+ÍNDICE GENERAL 
+1 Presentación del sistema 4 
+2 Acceso e Inicio 5 
+2.1 Abrir la consola de negociación 5 
+2.2 Usar el menú y reconocer los modos de operación 7 
+3 Captación pública 8 
+3.1 Enviar el formulario de contacto 8 
+3.2 Continuar desde el comprobante de registro 10 
+3.3 Solicitar información de un plan 11 
+3.4 Aceptar la invitación del responsable económico 12 
+3.5 Activar Explora UNT desde el enlace personal 14 
+4 Pendientes del operador 15 
+4.1 Consultar las gestiones pendientes 15 
+4.2 Registrar la atención de una conversación derivada 16 
+4.3 Validar una contratación con pago registrado 17 
+4.4 Revisar la entrega de credenciales 18 
+5 LEADS y casos 19 
+5.1 Revisar una solicitud de captación 19 
+5.2 Registrar un contacto y su participación 20 
+5.3 Buscar y abrir una negociación 21 
+6 Expediente de negociación 22 
+6.1 Consultar y completar el perfil 22 
+6.2 Consultar la conversación y registrar un mensaje recibido 23 
+6.3 Revisar un mensaje con la inteligencia artificial 24 
+6.4 Revisar interés y prioridad de seguimiento 25 
+6.5 Registrar autorización o revocación de contacto 26 
+6.6 Preparar la prueba gratuita desde el expediente 27 
+6.7 Preparar una invitación al responsable económico 28 
+6.8 Registrar una aceptación documentada del responsable 29 
+7 Propuestas y servicio 30 
+7.1 Preparar una propuesta con tarifa vigente 30 
+ 
+3 
+7.2 Consultar el avance y compartir la oferta personal 31 
+7.3 Aceptar la propuesta y sus condiciones en el portal 32 
+7.4 Abrir el pago de prueba desde la oferta 33 
+7.5 Habilitar un servicio adquirido 34 
+7.6 Consultar el servicio habilitado 35 
+8 Catálogo interno 36 
+8.1 Consultar planes y tarifas mensuales 36 
+8.2 Comparar la modalidad semestral 37 
+9 Seguimiento autorizado 38 
+9.1 Consultar la agenda y revisar vencimientos 38 
+10 Indicadores de la fase LEADS 39 
+10.1 Consultar el resumen de indicadores 39 
+10.2 Aplicar filtros por periodo y dimensión 40 
+10.3 Interpretar causas y desgloses 42 
+10.4 Actualizar los datos y exportar el reporte 43 
+11 Agente e integraciones 44 
+11.1 Consultar el estado de los servicios 44 
+11.2 Vincular Telegram con un contacto existente 45 
+11.3 Configurar las recomendaciones con datos 45 
+12 Conocimiento del agente 47 
+12.1 Consultar y editar un documento 47 
+12.2 Crear o subir un documento 48 
+12.3 Probar una consulta 49 
+13 Reglas del agente 51 
+13.1 Configurar las preguntas y las acciones automáticas 51 
+14 Referencia de operación 53 
+14.1 Resolver situaciones frecuentes 53 
+14.2 Interpretar los indicadores 55 
+ 
+ 
+4 
+1 Presentación del sistema 
+Este manual permite utilizar el agente negociador inteligente de LaPreDigital para registrar 
+solicitudes, conducir negociaciones y consultar sus resultados. Está dirigido al operador comercial y 
+a las personas que reciben los formularios y enlaces públicos. Cada opción presenta su pantalla, la 
+forma de uso y el efecto que produce. 
+La operación empieza con una captación y continúa con el seguimiento autorizado, la evaluación del 
+interés, las propuestas y, cuando corresponde, la contratación y habilitación del servicio. Los 
+indicadores reúnen estos eventos para evaluar la fase LEADS. 
+El operador utiliza la consola conectada a la base transaccional. El contacto y el responsable 
+económico utilizan únicamente los formularios y enlaces personales que reciben. La plataforma 
+educativa es un servicio externo: este manual describe la preparación de acceso desde el agente, 
+no las aulas de esa plataforma. 
+Término Qué representa 
+Contacto Persona que conversa con el equipo y autoriza canales de comunicación. 
+Beneficiario Estudiante que recibirá el servicio académico. 
+LEAD Relación comercial entre un contacto y un beneficiario. 
+Caso Oportunidad de negociación del beneficiario, con estado e historial propios. 
+Participación Intervención de un contacto en un caso, con rol, prioridad, interés y seguimiento. 
+Solicitud Datos recibidos durante la captación; pueden necesitar revisión antes de vincularse. 
+ 
+Las capturas muestran datos de demostración. Los nombres, cantidades y porcentajes no 
+representan resultados de la operación real. Las opciones visibles dependen del estado de cada 
+caso y de la configuración de los canales. 
+Utilice el índice para ubicar cada tarea. Los módulos mantienen una numeración común con el 
+índice base del manual de código fuente, de modo que la explicación funcional y su implementación 
+puedan relacionarse por la misma opción. 
+ 
+5 
+2 Acceso e Inicio 
+2.1 Abrir la consola de negociación 
+La consola reúne la gestión comercial del contacto, el estudiante beneficiario y su negociación. 
+Inicio presenta participaciones registradas, casos abiertos, participaciones en Alta y casos 
+pendientes de evaluación. Estos recuentos son operativos; los seis indicadores mensuales se 
+consultan en Indicadores. 
+Antes de empezar El administrador debe haber iniciado la aplicación y su conexión a la base de 
+datos, y entregarle el usuario y la contraseña de la consola. 
+1. Abra la dirección de la consola que le indique el administrador; en el entorno local habitual es 
+http://127.0.0.1:3067. 
+2. Escriba su usuario y su contraseña en Iniciar sesión y pulse Ingresar. El ícono del ojo muestra u 
+oculta la contraseña. 
+3. Compruebe que aparezca OLTP conectado y revise el resumen de Inicio. 
+4. Seleccione Gestionar contactos o LEADS y casos para empezar a trabajar. Para salir, pulse 
+Cerrar sesión en la parte superior. 
+Resultado Se abre la vista operativa con los registros existentes. La sesión dura hasta ocho horas; 
+si vence o el servidor se reinicia, la consola vuelve a pedir el acceso. Consultar Inicio no crea una 
+participación ni modifica la negociación. 
+Figura 1 
+Inicio de sesión de la consola 
+ 
+
+ 
+6 
+Figura 2 
+Pantalla de Inicio de la consola 
+ 
+
+ 
+7 
+2.2 Usar el menú y reconocer los modos de operación 
+El menú lateral permite cambiar entre Inicio, LEADS y casos, Pendientes, Catálogo, Seguimiento, 
+Indicadores, Agente e integraciones, Conocimiento y Reglas del agente. En el expediente, las 
+marcas Automático, Solo manual e Informativo indican quién realiza cada operación. 
+1. Seleccione el módulo que corresponde a la tarea. 
+2. En un expediente, use las pestañas Perfil, Conversación, Propuestas, Servicio y Responsable 
+económico. 
+3. Identifique los controles disponibles y atienda el mensaje que acompaña a un botón 
+deshabilitado. 
+Resultado La navegación cambia la vista. Automático identifica procesos del agente que el 
+operador puede revisar; Solo manual requiere intervención del operador y Solo lectura muestra 
+información registrada. 
+Figura 3 
+Menú de módulos de la consola 
+ 
+
+ 
+8 
+3 Captación pública 
+3.1 Enviar el formulario de contacto 
+En la página pública de captación, el contacto escribe su nombre, correo, teléfono y relación con el 
+estudiante. Si selecciona Padre, Madre o Apoderado, debe identificar también al estudiante 
+beneficiario. El contacto elige expresamente por qué canales desea conversar. 
+Antes de empezar Utilice datos de la persona que autoriza el contacto. La autorización debe 
+corresponder a las opciones realmente elegidas. 
+1. Abra la página pública y vaya a Déjanos tus datos. 
+2. Complete los datos y seleccione su relación en Soy. Indique el estudiante cuando el formulario 
+lo solicite. 
+3. Marque al menos una preferencia de contacto y pulse Quiero que me contacten. 
+Resultado Si los datos permiten identificar a las personas, se registra o reutiliza la negociación. 
+Cuando el correo ya existe o la identidad requiere confirmación, la solicitud pasa a revisión del 
+operador. 
+Figura 4 
+Formulario público de contacto 
+ 
+
+ 
+9 
+Tenga en cuenta Si elige Estudiante y deja el teléfono vacío, el formulario recomienda registrarse 
+con los datos de su mamá, papá o apoderado: en Soy se elige el parentesco del familiar y se 
+escribe el nombre del estudiante. Así el equipo puede escribirle a un número que sí se usa. 
+Figura 5 
+Recomendación para el estudiante sin celular 
+ 
+
+ 
+10 
+3.2 Continuar desde el comprobante de registro 
+El comprobante confirma que la solicitud fue recibida. Puede ofrecer Continuar en WhatsApp y 
+Continuar en Telegram según la configuración y la preferencia indicada. Recibir este comprobante 
+no significa que ya exista una propuesta aceptada o un pago. 
+1. Revise el mensaje de recepción. 
+2. Si desea conversar por WhatsApp, abra el botón y envíe el mensaje preparado desde su cuenta. 
+3. Si eligió Telegram, abra el enlace y pulse Iniciar en el bot siguiendo sus indicaciones. 
+Resultado Se puede continuar la conversación por el canal elegido. El enlace personal de Telegram 
+funciona una vez y vence en diez minutos; abrir WhatsApp por sí solo no envía el mensaje. 
+Tenga en cuenta Si aparece un enlace vencido o no se puede confirmar la identidad, solicite 
+orientación al operador antes de volver a registrar los mismos datos. 
+Figura 6 
+Comprobante de recepción y continuación por canales 
+ 
+
+ 
+11 
+3.3 Solicitar información de un plan 
+El catálogo público permite comparar planes y modalidades. Me interesa este plan abre el formulario 
+asociado al plan seleccionado; Solicitar prueba inicia la solicitud de Explora UNT. El interés enviado 
+sirve para la atención comercial y no realiza un cobro. 
+1. Abra el catálogo público en la dirección terminada en /planes. 
+2. Seleccione el periodo disponible y pulse Me interesa este plan en la opción deseada. 
+3. Complete Hablemos de, identifique al beneficiario, autorice el contacto y pulse Solicitar 
+información. 
+Resultado La solicitud conserva el plan elegido. Si la captación queda completa se vincula con su 
+participación; si necesita datos o confirmación de identidad, permanece para revisión. 
+Figura 7 
+Catálogo público y acceso a la solicitud de un plan 
+ 
+
+ 
+12 
+3.4 Aceptar la invitación del responsable económico 
+El responsable abre su invitación personal para incorporarse al caso del estudiante. El formulario 
+diferencia aceptar la vinculación con el caso y autorizar el contacto por los canales elegidos. Ambas 
+decisiones son necesarias para confirmar el vínculo. 
+Antes de empezar La invitación debe existir y pertenecer a una negociación abierta. Un contacto 
+conocido puede ver menos campos porque ya está identificado. 
+1. Abra el enlace que le compartió el estudiante o el equipo comercial y compruebe que reconoce 
+la solicitud. 
+2. Revise su nombre y complete correo y celular cuando se soliciten. 
+3. Marque la aceptación de vinculación y la autorización de contacto, elija canales y pulse Aceptar 
+invitación. 
+Resultado El responsable se incorpora al mismo caso y queda registrado el vínculo autorizado. Una 
+invitación ya aceptada muestra la confirmación; si el caso está cerrado, el sistema puede impedir la 
+aceptación. 
+Figura 8 
+Aceptación pública de una invitación personal 
+ 
+Tenga en cuenta En la invitación, el responsable elige por qué canales autoriza el contacto: 
+WhatsApp, correo o Telegram. Si ya estaba registrado en LaPreDigital, recibe la invitación 
+
+ 
+13 
+directamente por un canal que autorizó antes y la página no le vuelve a pedir correo ni teléfono; solo 
+confirma las dos autorizaciones. Si no está registrado, el estudiante recibe un botón de WhatsApp 
+con el mensaje listo para reenviarle el enlace. 
+ 
+14 
+3.5 Activar Explora UNT desde el enlace personal 
+El enlace de Explora UNT muestra la duración de la prueba gratuita. La activación registra una 
+prueba para el beneficiario identificado; su uso es independiente de la aceptación de una propuesta 
+comercial. 
+Antes de empezar El enlace debe estar vigente, sin utilizar, y el beneficiario no debe haber 
+disfrutado antes de la prueba. El acceso a contenidos depende de la plataforma educativa 
+conectada. 
+1. Abra el enlace personal de prueba recibido. 
+2. Revise que corresponde a Explora UNT y pulse Activar prueba gratuita si desea solicitarla. 
+3. Compruebe el mensaje de activación y las indicaciones de acceso que aparezcan. 
+Resultado Se registra la prueba por catorce días según la configuración vigente. Solo se permite 
+una prueba por beneficiario, no requiere pago y no cambia por sí sola la etapa comercial. 
+Figura 9 
+Pantalla de activación de Explora UNT 
+ 
+
+ 
+15 
+4 Pendientes del operador 
+4.1 Consultar las gestiones pendientes 
+Pendientes reúne las tareas que requieren atención del equipo: conversaciones derivadas, pagos 
+por validar, servicios o becas por habilitar, credenciales pendientes, identidades por confirmar y 
+otras revisiones. Cada grupo muestra la persona, el caso, la fecha y las acciones pertinentes. 
+1. Entre a Pendientes desde el menú. 
+2. Revise el grupo correspondiente y utilice Actualizar si necesita repetir la consulta. 
+3. Abra Ver caso para consultar la evidencia antes de realizar una acción. 
+Resultado La bandeja se consulta automáticamente cada quince segundos mientras está visible. 
+Una gestión resuelta deja de cumplir las condiciones para aparecer en su grupo. 
+Figura 10 
+Gestiones de atención del operador 
+ 
+
+ 
+16 
+4.2 Registrar la atención de una conversación derivada 
+Conversaciones por atender muestra el motivo por el que el contacto necesita intervención humana 
+y el mensaje de contexto. El operador debe revisar la solicitud y atenderla por el canal 
+correspondiente antes de marcarla como realizada. 
+Antes de empezar Debe existir una derivación pendiente. El seguimiento automático respeta las 
+condiciones de la derivación y su retoma. 
+1. Localice a la persona en Conversaciones por atender. 
+2. Use Ver caso y revise la conversación y el motivo. 
+3. Después de prestar la atención, pulse Marcar como atendida. 
+Resultado Se registra la atención del operador y esa derivación deja de figurar como conversación 
+pendiente. Consultar el caso no equivale a registrar la atención. 
+Figura 11 
+Conversaciones derivadas al personal comercial 
+ 
+
+ 
+17 
+4.3 Validar una contratación con pago registrado 
+Pagos por validar contiene contrataciones con un pago registrado que todavía requieren validación 
+del personal comercial. La referencia y el importe permiten comprobar que el pago corresponde a la 
+propuesta aceptada. 
+Antes de empezar Debe existir aceptación de condiciones y un pago positivo por el importe 
+autorizado. La aceptación de una propuesta por sí sola no habilita esta operación. 
+1. Abra el caso y contraste la propuesta, sus condiciones y la evidencia del pago. 
+2. Compruebe la referencia y el importe; resuelva cualquier diferencia antes de validar. 
+3. Pulse Validar contratación en la fila del beneficiario cuando la comprobación sea correcta. 
+Resultado Se registra la validación contractual y el cierre por contratación pagada. La participación 
+que concretó la compra queda Convertida y el servicio pasa a estar pendiente de habilitación. 
+Figura 12 
+Pago registrado pendiente de validación 
+ 
+
+ 
+18 
+4.4 Revisar la entrega de credenciales 
+Credenciales pendientes de entrega permite comprobar la cuenta creada, el destinatario, el canal y 
+el resultado del envío. La cuenta puede existir aunque el mensaje siga en cola o haya fallado. El 
+estado Habilitado del servicio no prueba la recepción de las credenciales. 
+Antes de empezar La cuenta debe haber sido preparada al habilitar el servicio. La autorización del 
+canal y los datos del destinatario deben seguir siendo válidos. 
+1. Busque al beneficiario en Credenciales pendientes de entrega. 
+2. Revise el estado y el detalle del problema; corrija con el administrador la configuración del canal 
+cuando corresponda. 
+3. Si aparece Reintentar envío, solicite el nuevo envío después de corregir la causa. 
+Resultado El reintento conserva la cuenta y prepara otra entrega de sus credenciales. Una entrega 
+incierta debe verificarse en el canal antes de repetirla; puede no ofrecer reintento automático. 
+Figura 13 
+Estado y recuperación de la entrega de credenciales 
+ 
+
+ 
+19 
+5 LEADS y casos 
+5.1 Revisar una solicitud de captación 
+Solicitudes por revisar muestra las captaciones que necesitan datos o confirmación de identidad. La 
+solicitud recibida y la participación comercial son registros relacionados con propósitos distintos. 
+Una solicitud Vinculada ya se gestiona entre las negociaciones registradas. 
+Antes de empezar En Revisar identidad, confirme la identidad antes de asociar un correo existente 
+a un beneficiario. 
+1. Identifique la solicitud y revise su estado. 
+2. Pulse Completar captación y confirme con la persona los datos y el estudiante. 
+3. Complete o confirme la información y guarde la vinculación. 
+Resultado Al quedar vinculada, la solicitud sale de la bandeja de revisión. Su historial se conserva y 
+la participación aparece en Negociaciones registradas; no es necesario registrarla otra vez. 
+Figura 14 
+Solicitudes por revisar y negociaciones registradas 
+ 
+
+ 
+20 
+5.2 Registrar un contacto y su participación 
+Nuevo LEAD abre Registrar contacto y negociación. El operador identifica al contacto, su rol, el 
+beneficiario y el canal expresamente autorizado. Si el estudiante ya existe, su identificador permite 
+reutilizarlo sin crear otro beneficiario. 
+Antes de empezar Si el contacto es el propio Estudiante, debe corresponder al mismo beneficiario. 
+La confirmación del operador debe basarse en la identidad real y en el consentimiento recibido. 
+1. Pulse Nuevo LEAD y complete nombre, correo, teléfono, rol y origen de captación. 
+2. Identifique al estudiante; utilice su ID cuando ya esté registrado. 
+3. Seleccione el canal autorizado, confirme la autorización expresada y pulse Guardar contacto y 
+participación. 
+Resultado El sistema crea o reutiliza contacto, beneficiario y relación comercial, busca un caso 
+abierto y registra o reutiliza la participación. La participación nueva inicia Pendiente y su seguimiento 
+depende de la autorización. 
+Figura 15 
+Registro manual en dos vistas continuas del formulario 
+      
+
+ 
+21 
+5.3 Buscar y abrir una negociación 
+Negociaciones registradas lista participaciones por contacto, beneficiario y caso. Un estudiante y su 
+madre pueden formar dos participaciones del mismo caso. El contador muestra participaciones, no 
+necesariamente personas o casos distintos. 
+1. Use Buscar contacto o beneficiario para localizar el registro. 
+2. Aplique Prioridad y Caso si necesita limitar los resultados. 
+3. Pulse Abrir en la participación correcta y revise el nombre del contacto, beneficiario y número de 
+caso. 
+Resultado Se abre el expediente de esa participación. Desde allí puede consultar perfil, 
+conversación, propuestas, servicio y vinculación con el responsable económico. 
+Figura 16 
+Identificación del contacto beneficiario y caso en el expediente 
+ 
+
+ 
+22 
+6 Expediente de negociación 
+6.1 Consultar y completar el perfil 
+Perfil presenta la universidad objetivo, carrera, disponibilidad y presupuesto mensual, junto al 
+historial de cambios. El agente puede incorporar información declarada durante la conversación; los 
+controles permiten al operador completar o corregir datos conocidos. 
+Antes de empezar El caso debe estar abierto. Verifique que los datos corresponden al contacto o al 
+beneficiario adecuado antes de guardar. 
+1. Abra la pestaña Perfil de la participación. 
+2. Revise los datos actuales y escriba únicamente lo que la persona haya comunicado. 
+3. Seleccione el canal de procedencia y pulse Guardar perfil. 
+Resultado Los valores se actualizan y el historial conserva el dato anterior, el nuevo, su fecha y 
+procedencia. Los datos desconocidos permanecen como Pendiente. 
+Figura 17 
+Perfil académico y económico del contacto 
+ 
+
+ 
+23 
+6.2 Consultar la conversación y registrar un mensaje recibido 
+Conversación conserva los mensajes entrantes y salientes, sus canales, fechas y estados de 
+entrega. El formulario inferior permite documentar un mensaje que el operador recibió por otro 
+medio; no sirve para enviar un texto al contacto. 
+Antes de empezar La evidencia debe ser real y pertenecer a la persona y participación 
+seleccionadas. 
+1. Abra Conversación y revise el historial. 
+2. Si corresponde, copie el mensaje realmente recibido y seleccione su canal. 
+3. Indique el nivel comunicado y pulse Registrar mensaje. 
+Resultado Se registra un mensaje entrante y se revisan el contexto de la oportunidad y su prioridad. 
+Los salientes distinguen Pendiente de envío, Entrega fallida y Aceptado por el canal; aceptación del 
+canal no significa lectura. 
+Figura 18 
+Historial y registro de interacciones 
+ 
+
+ 
+24 
+6.3 Revisar un mensaje con la inteligencia artificial 
+El bloque Revisar con Ollama permite seleccionar un mensaje entrante y solicitar un análisis. El 
+servicio utiliza el proveedor configurado. El resultado puede proponer interés, una acción y datos del 
+perfil acompañados de la declaración que los respalda. 
+Antes de empezar Debe existir un mensaje entrante y al menos un proveedor de IA disponible. Si 
+no responde, revise Agente e integraciones o continúe la revisión con el personal comercial. 
+1. Seleccione Mensaje recibido en el bloque de análisis. 
+2. Pulse Analizar mensaje y revise las sugerencias y citas. 
+3. Si aparece la opción de guardar datos revisados, aplíquela únicamente después de 
+comprobarlos. 
+Resultado El análisis no confirma pagos ni acepta propuestas por el contacto. Los datos que el 
+operador decide guardar quedan registrados como una intervención revisada. 
+Figura 19 
+Selección de un mensaje para revisión asistida 
+ 
+
+ 
+25 
+6.4 Revisar interés y prioridad de seguimiento 
+Prioridad de seguimiento resume la prioridad vigente, el interés, la participación y los intentos sin 
+respuesta. Al desplegar Revisar interés y prioridad, el operador registra qué expresa el contacto; el 
+sistema calcula la prioridad con las reglas del proceso. 
+Antes de empezar El caso y la participación deben admitir evaluaciones. La prioridad Nula no 
+equivale a revocar una autorización. 
+1. Abra la revisión y elija Sin señal de interés, Consulta o Intención de compra. 
+2. Seleccione el mensaje que respalda Consulta o Compra; sin señal de interés permite evaluar sin 
+mensaje. 
+3. Pulse Guardar evaluación y consulte el resultado y el historial. 
+Resultado Se registra otra evaluación con evidencia y fecha. Los umbrales de tres y siete intentos 
+entregados y vencidos sin respuesta prevalecen sobre el interés; programar un intento no 
+incrementa ese contador. 
+Figura 20 
+Revisión de interés y prioridad vista superior e inferior 
+    
+
+ 
+26 
+6.5 Registrar autorización o revocación de contacto 
+Permisos de contacto registra decisiones expresas por canal. Una autorización de correo no 
+autoriza automáticamente WhatsApp o Telegram. La revocación se aplica a la persona y al canal 
+elegido, aunque participe en más de un caso. 
+Antes de empezar El canal debe tener los datos necesarios. Para autorizar Telegram, el contacto 
+debe haber vinculado e iniciado el bot. 
+1. Seleccione el canal en Permisos de contacto. 
+2. Pulse Registrar autorización o Registrar revocación según la decisión recibida. 
+3. Revise el estado del contacto y la participación después de guardar. 
+Resultado El sistema conserva el historial de decisiones. Sin un canal vigente se suspende el 
+seguimiento; la revocación no asigna por sí sola prioridad Nula ni crea una agenda nueva. 
+Figura 21 
+Permisos independientes por canal de contacto 
+ 
+
+ 
+27 
+6.6 Preparar la prueba gratuita desde el expediente 
+Explora UNT muestra el estado de la prueba del beneficiario y permite preparar su activación. La 
+consola permite registrar una activación solicitada, mientras que un enlace personal puede 
+presentar al contacto su propia pantalla de confirmación. 
+Antes de empezar El caso debe estar abierto y el beneficiario no debe haber utilizado antes 
+Explora UNT. 
+1. En Perfil, revise el bloque Explora UNT. 
+2. Pulse Preparar activación cuando el contacto solicite la prueba. 
+3. Registre la activación solicitada cuando corresponda y compruebe las fechas mostradas. 
+Resultado Se conserva una sola prueba por beneficiario, con duración de catorce días según el 
+parámetro vigente. La prueba no representa una propuesta pagada ni una contratación. 
+Figura 22 
+Prueba gratuita disponible en el expediente 
+ 
+
+ 
+28 
+6.7 Preparar una invitación al responsable económico 
+Responsable económico permite documentar que otra persona decide o asume el pago del 
+estudiante. La invitación utiliza un mensaje de la participación que declare esa necesidad. La 
+invitación pendiente todavía no constituye una vinculación autorizada. 
+Antes de empezar El caso debe estar abierto y el mensaje de evidencia debe pertenecer a la 
+participación elegida. 
+1. Abra Responsable económico y escriba el nombre de la persona invitada. 
+2. Seleccione Padre, Madre o Apoderado y el mensaje que declara la necesidad. 
+3. Pulse Preparar invitación y revise el registro Pendiente. 
+Resultado Queda documentada la necesidad y su invitación. La incorporación al caso se completa 
+al aceptar el responsable la vinculación y autorizar el contacto. El agente puede gestionar el enlace 
+dentro de la conversación. 
+Figura 23 
+Preparación de la invitación al responsable 
+ 
+
+ 
+29 
+6.8 Registrar una aceptación documentada del responsable 
+Cuando el responsable aceptó por un medio verificable, el operador puede registrar esa aceptación 
+desde la invitación pendiente. Esta opción exige distinguir las dos autorizaciones y utilizar los datos 
+de la persona que se incorpora. 
+Antes de empezar La aceptación y las autorizaciones deben haber sido expresadas por el 
+responsable. También puede aceptar directamente desde su invitación pública. 
+1. Pulse Registrar aceptación documentada en la invitación correcta. 
+2. Complete correo y teléfono del responsable. 
+3. Confirme que aceptó vincularse al caso y autorizó el contacto por correo; pulse Confirmar 
+aceptación documentada. 
+Resultado Se crea o reutiliza su contacto y participación en el mismo caso y se registra el vínculo. 
+Si ya fue aceptada, la invitación muestra Vinculado. 
+Figura 24 
+Registro de las dos autorizaciones del responsable 
+ 
+
+ 
+30 
+7 Propuestas y servicio 
+7.1 Preparar una propuesta con tarifa vigente 
+Propuestas presenta los datos conocidos y el avance de las alternativas ofrecidas. Preparar otra 
+propuesta manualmente despliega tarifa, mensaje de contexto, descuento aprobado opcional y 
+justificación. Los valores sugeridos deben revisarse antes de guardarlos. 
+Antes de empezar El caso debe estar abierto. El agente no aprueba descuentos y un descuento 
+total corresponde al proceso de beca, no a una venta con importe cero. 
+1. Abra Propuestas y despliegue Preparar otra propuesta manualmente. 
+2. Seleccione la tarifa vigente y el mensaje entrante; revise la justificación. 
+3. Si existe aprobación de descuento, documente el precio autorizado y pulse Preparar propuesta. 
+Resultado Se registra una propuesta con un mensaje pendiente. Prepararla no confirma su entrega. 
+El precio sale del catálogo o de un descuento positivo menor al catálogo aprobado por el operador. 
+Figura 25 
+Tarifa contexto y justificación de una propuesta 
+ 
+
+ 
+31 
+7.2 Consultar el avance y compartir la oferta personal 
+La propuesta distingue Preparada, Entregada, Aceptada, Pagada y Validada. Cada fase necesita su 
+propia evidencia. Crear enlace personal para el lead permite compartir la oferta para que el contacto 
+revise plan, periodo, importe y condiciones. 
+Antes de empezar La propuesta debe ser válida y estar entregada para generar el enlace desde la 
+consola. Una entrega manual externa debe tener una referencia verificable cuando se solicite. 
+1. Compruebe que la entrega esté confirmada por el canal. 
+2. Pulse Crear enlace personal para el lead y compártalo con el destinatario correspondiente. 
+3. Revise el avance; si el contacto respondió por otro medio, despliegue la opción de aceptación o 
+rechazo y seleccione su mensaje de evidencia. 
+Resultado El enlace personal tiene una vigencia de siete días. Registrar una respuesta requiere 
+evidencia posterior a la entrega; una aceptación no registra automáticamente un pago. 
+Figura 26 
+Avance de una propuesta entregada y enlace personal 
+ 
+
+ 
+32 
+7.3 Aceptar la propuesta y sus condiciones en el portal 
+La oferta personal muestra el beneficiario, contacto, plan, periodo, importe y las condiciones de 
+contratación. La decisión pertenece al contacto destinatario del enlace. El operador utiliza esta 
+pantalla para explicar el recorrido al interesado. 
+Antes de empezar La oferta debe estar vigente y disponible. El enlace es personal y no debe 
+utilizarse para aceptar en nombre de otra persona sin su decisión. 
+1. Abra el enlace personal y compruebe el plan, el importe y el beneficiario. 
+2. Lea todas las condiciones y marque su aceptación únicamente si está de acuerdo. 
+3. Pulse Aceptar propuesta y condiciones. 
+Resultado Quedan registradas la aceptación expresa y las condiciones. La pantalla ofrece el 
+siguiente paso de pago; esta aceptación todavía no significa pago confirmado, contratación validada 
+o servicio habilitado. 
+Figura 27 
+Oferta personal y aceptación expresa de condiciones 
+ 
+
+ 
+33 
+7.4 Abrir el pago de prueba desde la oferta 
+Después de aceptar las condiciones, la oferta permite abrir Stripe Checkout en modo de prueba. El 
+importe se obtiene de la propuesta aceptada. Si está habilitada la demostración, Simular pago 
+identifica expresamente un registro ficticio. 
+Antes de empezar Stripe debe estar configurado para pruebas. El pago registrado debe validarse 
+desde Pendientes antes de habilitar el servicio. 
+1. Pulse Pagar con Stripe de prueba después de aceptar las condiciones. 
+2. Complete únicamente el recorrido de prueba indicado por el administrador en la página de 
+Stripe. 
+3. Al volver, revise la confirmación; si el pago se registró, espere su validación por el personal 
+comercial. 
+Resultado La aplicación comprueba la confirmación de Stripe y registra el pago correspondiente. 
+Los datos de tarjeta se introducen en Stripe, no en la oferta de LaPreDigital. La simulación no 
+acredita un cobro real. 
+Figura 28 
+Opciones de pago después de aceptar las condiciones 
+ 
+
+ 
+34 
+7.5 Habilitar un servicio adquirido 
+Servicio resume si existe una compra confirmada y si el acceso ya fue habilitado. Cuando la 
+contratación tiene pago y validación, muestra Servicio adquirido y Pendiente de habilitación. La 
+misma tarea puede aparecer en Servicios por habilitar dentro de Pendientes. 
+Antes de empezar Se necesitan pago y validación, ausencia de reembolso invalidante y un canal 
+autorizado y configurado para entregar las credenciales. Telegram requiere vínculo; WhatsApp 
+exige ventana utilizable o plantilla aprobada. 
+1. Abra la pestaña Servicio de la participación correcta. 
+2. Compruebe que figure Servicio adquirido y pulse Habilitar servicio cuando esté disponible. 
+3. Revise el resultado y consulte Pendientes si las credenciales aún necesitan entrega. 
+Resultado Se prepara la cuenta del beneficiario y el envío de sus datos de acceso al contacto que 
+aceptó la contratación, por el canal de esa contratación. La entrega se procesa separadamente. 
+Figura 29 
+Servicio adquirido pendiente de habilitación 
+ 
+
+ 
+35 
+7.6 Consultar el servicio habilitado 
+El resumen Servicio muestra Habilitado después de registrar el acceso. Si todavía no hay compra 
+confirmada, informa Servicio no adquirido; un pago pendiente de validación tampoco cumple todavía 
+la condición de adquisición mostrada en este bloque. 
+1. Abra Servicio en el expediente. 
+2. Revise Servicio adquirido y el estado de habilitación. 
+3. Para comprobar la entrega de datos de acceso, consulte Credenciales pendientes de entrega en 
+Pendientes cuando exista una gestión abierta. 
+Resultado La consulta permite distinguir compra, habilitación y entrega de credenciales. El resumen 
+no expone la contraseña del beneficiario. Las actividades de estudio se realizan en la plataforma 
+educativa correspondiente. 
+Figura 30 
+Resumen del servicio adquirido y habilitado 
+ 
+
+ 
+36 
+8 Catálogo interno 
+8.1 Consultar planes y tarifas mensuales 
+Catálogo compara Explora UNT, Ruta UNT, Meta UNT y Meta UNT Plus, con los beneficios de cada 
+alternativa. Las tarifas se obtienen del catálogo vigente. El periodo mensual y el semestral 
+corresponden a importes totales del periodo contratado. 
+1. Abra Catálogo y seleccione Mensual. 
+2. Compare los beneficios y el importe del plan. 
+3. Pulse Seleccionar contacto o Abrir contactos para continuar desde el expediente adecuado. 
+Resultado Consultar el catálogo no crea por sí solo una propuesta ni un pago. La propuesta debe 
+prepararse en el contexto de una participación y un mensaje entrante. 
+Figura 31 
+Tarifas mensuales y selección del contacto en el catálogo interno 
+ 
+
+ 
+37 
+8.2 Comparar la modalidad semestral 
+El selector de periodo cambia las modalidades e importes que pueden ofrecerse. Ruta UNT dispone 
+únicamente de modalidad mensual; Meta UNT y Meta UNT Plus ofrecen las modalidades mensual y 
+semestral previstas en el catálogo. 
+1. Seleccione Semestral en el catálogo. 
+2. Revise qué planes tienen una tarifa disponible para ese periodo. 
+3. Vuelva a Mensual si necesita una opción que no se ofrece semestralmente. 
+Resultado La pantalla muestra el importe total del semestre para las combinaciones disponibles. No 
+se debe preparar una tarifa inexistente ni inferir cuotas o promociones que el catálogo no contempla. 
+Figura 32 
+Comparación de planes con modalidad semestral 
+ 
+
+ 
+38 
+9 Seguimiento autorizado 
+9.1 Consultar la agenda y revisar vencimientos 
+Seguimiento presenta la secuencia de siete intentos y los parámetros vigentes. Los días habituales 
+son 0, 1, 2, 5, 10, 17 y 27 desde el inicio del seguimiento autorizado. El expediente permite 
+consultar la agenda específica de una participación. 
+Antes de empezar Los envíos necesitan autorización y un canal utilizable. Solo los intentos 
+entregados cuyo plazo terminó sin respuesta cuentan en el contador; los omitidos no se 
+reprograman. 
+1. Abra Seguimiento y revise días y parámetros. 
+2. Pulse Revisar vencimientos para ejecutar la revisión manual. 
+3. Consulte después la prioridad, los intentos y los pendientes del caso que necesite atención. 
+Resultado La revisión manual puede evaluar vencimientos y aplicar mantenimiento; no envía 
+mensajes por sí sola. Los procesos automáticos dependen de los conectores y del seguimiento 
+habilitado. Una reactivación no reinicia la agenda original. 
+Figura 33 
+Agenda y revisión manual de vencimientos 
+ 
+
+ 
+39 
+10 Indicadores de la fase LEADS 
+10.1 Consultar el resumen de indicadores 
+Indicadores presenta los seis KPI del informe con numerador, denominador, porcentaje y semáforo. 
+La fuente es el DataMart. Una ventana de medición aún abierta se marca como Provisional y un 
+denominador cero se muestra como No aplicable. 
+Antes de empezar El administrador debe haber preparado y cargado el DataMart. Los semáforos 
+representan las metas académicas propuestas para el proyecto. 
+1. Entre a Indicadores y compruebe el origen mostrado. 
+2. Revise el porcentaje junto a las cantidades y la unidad de conteo. 
+3. Identifique ventanas abiertas y use el detalle para interpretar el resultado. 
+Resultado La consulta muestra los datos cargados en el DataMart. Un porcentaje de demostración 
+no acredita resultados operativos reales; los ejemplos de este manual utilizan datos ficticios. 
+Figura 34 
+Resumen de los seis indicadores de la fase LEADS 
+ 
+
+ 
+40 
+10.2 Aplicar filtros por periodo y dimensión 
+Los filtros permiten seleccionar fechas, agrupación temporal, canal, rol, plan y contacto. Cada filtro 
+se aplica únicamente a los indicadores cuyas medidas incluyen esa dimensión. La prioridad de L-5.1 
+es una condición de entrada y no un filtro de prioridades distintas. 
+1. Indique Desde y Hasta cuando necesite acotar el periodo. 
+2. Elija Año, Trimestre, Mes o Día y las dimensiones pertinentes. 
+3. Use Limpiar filtros para volver a la consulta general. 
+Resultado Se recalcula la vista sobre los hechos ya cargados. Cambiar filtros no ejecuta el ETL ni 
+incorpora los cambios recientes del sistema transaccional. 
+Indicadores Filtros que afectan el cálculo 
+L-1.1 y L-1.2 Tiempo, contacto, canal y rol 
+L-2.1 Tiempo, contacto, canal y rol 
+L-3.1 Tiempo, contacto que declara la necesidad, canal y rol 
+L-4.1 Tiempo, canal y plan 
+L-5.1 Tiempo, contacto y rol de la primera Alta; prioridad Alta como condición 
+ 
+Figura 35 
+Filtros de periodo y dimensiones aplicables 
+ 
+Tenga en cuenta Al cambiar un filtro, la consola indica cuántos indicadores lo admiten. Las tarjetas 
+que lo aplican muestran la marca «se aplica» y las demás se atenúan, porque esa dimensión no 
+forma parte de su cálculo (tabla de filtros de la sección Interpretar los indicadores). Limpiar filtros 
+vuelve a la vista completa. 
+
+ 
+41 
+Figura 36 
+Indicadores que admiten el filtro de canal 
+ 
+
+ 
+42 
+10.3 Interpretar causas y desgloses 
+Ver detalle e interpretación muestra qué mide el indicador, su fórmula, medidas, explicación y 
+causas por las que algunas unidades no alcanzan el resultado. Las pestañas de dimensión permiten 
+consultar los segmentos disponibles y las unidades recientes. 
+1. Abra Ver detalle e interpretación en la tarjeta elegida. 
+2. Revise Qué mide, Cómo leerlo y Por qué no se cumple. 
+3. Cambie Tiempo, Contacto, Canal, Rol o Plan cuando el indicador ofrezca esa dimensión. 
+Resultado El desglose ayuda a localizar grupos que requieren revisión. Los segmentos pueden 
+compartir contactos o casos; sus cantidades no deben sumarse sin respetar la unidad de conteo del 
+indicador. 
+Figura 37 
+Detalle causas y desglose por canal 
+ 
+
+ 
+43 
+10.4 Actualizar los datos y exportar el reporte 
+Actualizar datos vuelve a cargar las dimensiones y los hechos desde el sistema transaccional. 
+Reporte PDF genera el informe con los filtros seleccionados. La hora de consulta y el nombre de la 
+base ayudan a identificar el contexto del resultado. 
+1. Pulse Actualizar datos y espere a que termine la carga. 
+2. Revise los indicadores y seleccione los filtros que desea presentar. 
+3. Pulse Reporte PDF y guarde el documento desde el navegador. 
+Resultado El PDF conserva el resumen, la interpretación y los desgloses de la consulta. Si la 
+actualización falla, revise el mensaje y solicite al administrador comprobar la preparación o 
+disponibilidad del DataMart. 
+Figura 38 
+Resumen del reporte PDF generado por la aplicación 
+ 
+
+ 
+44 
+11 Agente e integraciones 
+11.1 Consultar el estado de los servicios 
+Agente e integraciones informa sobre Telegram, OpenAI, Ollama y el proceso de seguimiento. 
+Configurado y habilitado señala condiciones de conexión; no confirma que un mensaje específico 
+haya sido entregado. La disponibilidad del modelo es independiente del estado comercial de un 
+caso. 
+1. Abra Agente e integraciones y pulse Actualizar estado. 
+2. Revise las tarjetas de canal, proveedor de IA y seguimiento. 
+3. Si falta configuración o un proveedor no responde, solicite revisión al administrador. 
+Resultado La consulta permite identificar dependencias disponibles. El servicio puede usar OpenAI 
+y recurrir a Ollama si están configurados; los envíos concretos se comprueban en su conversación y 
+en Pendientes. 
+Tenga en cuenta Las credenciales de integración se configuran por el administrador y no se 
+introducen en los formularios de los contactos. 
+Figura 39 
+Consulta del estado de integraciones y modelos 
+ 
+
+ 
+45 
+11.2 Vincular Telegram con un contacto existente 
+En el expediente, Vinculación con Telegram despliega la opción Crear enlace para el contacto. El 
+enlace permite que la persona abra el bot y lo vincule con su registro. La vinculación del canal y la 
+autorización de seguimiento se completan siguiendo las indicaciones del bot. 
+Antes de empezar El bot debe estar configurado y el enlace debe utilizarlo la persona a la que 
+corresponde el registro. Para WhatsApp, la conversación continúa desde su botón público y se 
+identifica al contacto por los datos registrados. 
+1. Abra el expediente y despliegue Vinculación con Telegram. 
+2. Pulse Crear enlace para el contacto y compártalo de forma personal con su destinatario. 
+3. Pida que abra el enlace y pulse Iniciar dentro de su cuenta de Telegram. 
+Resultado El enlace es de un solo uso y vence a los diez minutos. El contacto puede autorizar o 
+revocar el seguimiento mediante las opciones del chat; el expediente conserva los permisos por 
+canal. 
+Figura 40 
+Preparación de un enlace personal para Telegram 
+ 
+11.3 Configurar las recomendaciones con datos 
+Recomendaciones con datos permite que el agente ordene las alternativas que caben en el 
+presupuesto según los planes que contrataron estudiantes con la misma carrera y disponibilidad. 
+Sin ese historial, recomienda por perfil y presupuesto. 
+Antes de empezar La opción solo se puede activar con al menos 50 LEADs registrados; el contador 
+muestra cuántos hay. 
+1. Abra Agente e integraciones y revise el contador de LEADs registrados. 
+2. Active Usar el historial de LEADs para recomendar cuando el contador alcance el mínimo. 
+3. Despliegue Probar cómo respondería el agente, escriba carrera, disponibilidad y presupuesto, y 
+elija el origen del ejemplo. 
+
+ 
+46 
+4. Pulse Ver ejemplo simulado o Probar con historial registrado y lea la respuesta. 
+Resultado La vista previa muestra la recomendación que daría el agente. No envía mensajes ni 
+crea LEADs; el ejemplo simulado se marca como EJEMPLO SIMULADO. 
+Tenga en cuenta Las preferencias solo se atribuyen con cinco estudiantes comparables, a partir de 
+contrataciones pagadas y validadas. Los beneficios y precios que explica el agente salen de los 
+documentos de Conocimiento. 
+Figura 41 
+Vista previa de una recomendación con datos simulados 
+ 
+
+ 
+47 
+12 Conocimiento del agente 
+12.1 Consultar y editar un documento 
+Conocimiento reúne los documentos que el agente consulta para responder sobre planes, precios, 
+condiciones y procesos. Cada documento tiene título, fuente, palabras clave opcionales y su 
+contenido. 
+Antes de empezar Los precios de los documentos son informativos. Las propuestas y los cobros se 
+calculan con las tarifas vigentes del catálogo, así que un cambio de precio debe hacerse en ambos 
+lugares. 
+1. Abra Conocimiento y busque el documento por su título o por su estado. 
+2. Seleccione el documento y revise su contenido en la vista de edición o en Vista de lectura. 
+3. Edite el título, la fuente, las palabras clave o el contenido. 
+4. Marque Disponible para el agente si debe usarlo y pulse Guardar cambios. 
+Resultado El documento se guarda con una versión nueva y el agente consulta su contenido 
+actualizado. Si otra persona lo cambió al mismo tiempo, la consola avisa en lugar de sobrescribirlo. 
+Tenga en cuenta Descargar texto obtiene el contenido como archivo. Eliminar retira el documento y 
+sus fragmentos de búsqueda. 
+ 
+48 
+Figura 42 
+Edición de un documento de conocimiento 
+ 
+12.2 Crear o subir un documento 
+Nuevo documento abre un documento en blanco. Subir documento extrae el texto de un archivo 
+TXT, Markdown, DOCX o PDF con texto seleccionable, de hasta 2 MB. 
+Antes de empezar Un PDF escaneado no tiene texto seleccionable y necesita reconocimiento 
+óptico externo antes de subirlo. 
+1. Pulse Nuevo documento o Subir documento y elija el archivo. 
+2. Revise el texto extraído y corrija lo necesario. 
+3. Escriba palabras clave si ayudan a encontrar sinónimos o términos habituales. 
+4. Marque Disponible para el agente y pulse Guardar cambios. 
+
+ 
+49 
+Resultado Los archivos subidos quedan como borradores hasta que se marcan como disponibles y 
+se guardan. El archivo original se conserva aparte del texto editado. 
+Figura 43 
+Biblioteca de documentos del agente 
+ 
+12.3 Probar una consulta 
+Probar consulta muestra qué fragmentos de los documentos disponibles usaría el agente para 
+responder una pregunta. 
+1. Pulse Probar consulta. 
+2. Escriba una pregunta como la haría un interesado, por ejemplo «¿Cuánto cuesta Meta UNT al 
+mes?». 
+3. Pulse Buscar en los documentos y revise los fragmentos con su documento y versión. 
+Resultado La prueba no envía mensajes. Si no aparece el fragmento esperado, agregue palabras 
+clave o mejore el texto del documento y vuelva a guardarlo. 
+
+ 
+50 
+Tenga en cuenta Solo se consultan los cambios guardados de los documentos marcados como 
+disponibles. 
+Figura 44 
+Fragmentos recuperados para una pregunta de prueba 
+ 
+
+ 
+51 
+13 Reglas del agente 
+13.1 Configurar las preguntas y las acciones automáticas 
+Reglas del agente define qué datos pide el agente, en qué orden y qué enlaces prepara por su 
+cuenta: propuestas, prueba gratuita e invitaciones a responsables. 
+Antes de empezar Guardar una regla no envía mensajes ni cambia conversaciones anteriores; se 
+aplica a las solicitudes nuevas. 
+1. Abra Reglas del agente. 
+2. Marque o desmarque Solicitar datos de preparación, Añadir preguntas opcionales y 
+Recomendar al completar el perfil. 
+3. Marque o desmarque la preparación automática de enlaces de propuestas, de prueba y de 
+invitaciones a responsables. 
+4. Ordene las preguntas básicas con los selectores y pulse Guardar reglas. 
+Resultado El agente aplica la configuración guardada. Si se desactiva un tipo de enlace, esa 
+solicitud pasa al equipo comercial como pendiente. 
+Tenga en cuenta Las comprobaciones de identidad, autorizaciones, requisitos de la prueba, tarifas 
+y confirmación de pago siguen siendo obligatorias aunque se cambien las reglas. 
+ 
+52 
+Figura 45 
+Configuración de las reglas del agente 
+ 
+
+ 
+53 
+14 Referencia de operación 
+14.1 Resolver situaciones frecuentes 
+Antes de registrar otra vez o repetir una entrega, compruebe el estado del caso y la evidencia 
+disponible. La siguiente referencia relaciona lo que aparece en pantalla con la revisión que 
+corresponde realizar. 
+Situación Qué revisar o hacer 
+La solicitud dice Revisar 
+identidad 
+Confirme con la persona el correo, el rol y el estudiante; complete la 
+captación. 
+La solicitud desapareció 
+al registrarla 
+Busque su participación en Negociaciones registradas; las vinculadas 
+salen de revisión. 
+El mismo nombre aparece 
+varias veces 
+Compare beneficiario y caso. Puede haber varias participaciones de un 
+contacto. 
+No se puede guardar una 
+evaluación 
+Revise que el caso esté abierto y que Consulta o Compra tengan 
+mensaje de respaldo. 
+El enlace de Telegram 
+venció 
+Prepare un enlace nuevo y pida a su destinatario que lo use dentro de 
+diez minutos. 
+La entrega aparece 
+Fallida o Incierta 
+Revise el canal. Verifique las entregas inciertas antes de solicitar otro 
+envío. 
+Servicio no adquirido tras 
+aceptar 
+Compruebe el pago y su validación. Aceptar condiciones no completa la 
+contratación. 
+Servicio habilitado sin 
+credenciales recibidas 
+Consulte Credenciales pendientes de entrega y solicite revisión de la 
+causa. 
+Los indicadores no 
+reflejan cambios recientes 
+Use Actualizar datos; cambiar filtros solo consulta el contenido ya 
+cargado. 
+Un indicador muestra No 
+aplicable 
+El denominador es cero para esa selección. Revise las cantidades y los 
+filtros. 
+Explora UNT no permite 
+otra activación 
+Compruebe si el beneficiario ya utilizó su prueba; no se reinicia con otro 
+contacto. 
+WhatsApp pide compartir 
+el número 
+La cuenta de WhatsApp no comparte su número con empresas. La 
+persona debe tocar el botón para compartirlo una vez; luego el agente la 
+reconoce por su registro. 
+Telegram dice que la 
+cuenta ya está vinculada 
+a otra persona 
+Ese Telegram pertenece a otro contacto. Cada persona debe abrir su 
+enlace desde su propia cuenta; el enlace sigue siendo válido para su 
+dueño. 
+ 
+54 
+Situación Qué revisar o hacer 
+El agente pregunta por el 
+estudiante y no por quien 
+escribe 
+Es lo esperado cuando escribe una madre, un padre o un apoderado: el 
+agente se refiere al estudiante por su nombre. 
+El agente no envió la 
+invitación directamente al 
+responsable 
+Solo puede escribirle si ya es contacto con un canal autorizado y 
+disponible. Si no, el estudiante recibe el enlace para reenviarlo. 
+El agente no responde 
+con un precio o beneficio 
+Revise en Conocimiento que exista un documento disponible con esa 
+información y use Probar consulta. 
+ 
+ 
+55 
+14.2 Interpretar los indicadores 
+Cada tasa divide un resultado por su población elegible y multiplica por cien. Las cantidades M 
+permiten revisar la base del cálculo. No aplicable significa que no existe denominador para la 
+selección, y Provisional advierte que todavía puede transcurrir parte de la ventana de observación. 
+Indicador Cálculo Qué mide 
+L-1.1 M2 / M1 × 100 Participaciones elegibles que recibieron contacto inicial en la ventana. 
+L-1.2 M3 / M2 × 100 Participaciones contactadas que respondieron en la ventana. 
+L-2.1 M5 / M4 × 100 Contactos consultados que aportaron un dato nuevo o actualizado. 
+L-3.1 M7 / M6 × 100 Casos con necesidad de responsable que lograron el vínculo autorizado. 
+L-4.1 M9 / M8 × 100 Casos con propuestas entregadas que recibieron aceptación oportuna. 
+L-5.1 M11 / M10 × 100 Casos desde su primera Alta que lograron contratación pagada a tiempo. 
+ 
+Los resultados deben leerse con su periodo de cohorte, su fecha de actualización y los filtros 
+efectivos. La ventana general de observación es de siete días o 168 horas, según las reglas de cada 
+indicador. L 4 considera el caso dentro del mes; L 5 parte de su primera Alta y aplica las exclusiones 
+de beca correspondientes. 
+Data Mart es la base dimensional preparada para el análisis. Actualizar datos carga dimensiones y 
+hechos desde la base transaccional. Cambiar filtros o abrir un desglose consulta la última carga 
+disponible; no ejecuta una carga nueva. 
+Entregado, respondido, aceptado, pagado, validado y habilitado describen eventos distintos. Revise 
+el evento que exige el indicador o la tarea, sin deducirlo a partir de otro estado comercial. 

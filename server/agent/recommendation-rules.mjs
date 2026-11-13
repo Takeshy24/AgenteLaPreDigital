@@ -62,14 +62,11 @@ export function recommendationIntro(profile, ranked, audience) {
   const name = audience.student ? 'tu preparación' : `la preparación de ${audience.name}`;
   const best = ranked.options[0];
   if (!best) return `Con el presupuesto que me compartiste, revisemos Explora UNT para ${name}.`;
-  let text = `Para ${name} en ${profile.career || 'la UNT'}, mi primera opción es ${best.tariff.plan}. Recomiendo las modalidades mensuales que caben en el presupuesto que me indicaste.`;
+  let text = `Para ${name} en ${profile.career || 'la UNT'}, estas opciones caben en tu presupuesto mensual.`;
   if (ranked.usesHistory && best.selectedBy > 0)
-    text += ` En el historial registrado, ${best.selectedBy} de ${ranked.cohortSize} estudiantes con esa carrera${ranked.sameAvailability ? ' y disponibilidad' : ''} tienen una contratación pagada y validada de ${best.tariff.plan}. Esto refleja elecciones de compra, no resultados académicos.`;
+    text += ` Historial: ${best.selectedBy} de ${ranked.cohortSize} estudiantes con esa carrera${ranked.sameAvailability ? ' y disponibilidad' : ''} eligieron ${best.tariff.plan}. Son compras pagadas y validadas, no resultados académicos.`;
   else if (ranked.usesHistory)
-    text +=
-      ' El historial comparable no tiene elecciones de estas alternativas dentro de tu presupuesto; priorizo ese límite.';
-  else
-    text +=
-      ' Todavía no hay suficiente historial comparable para atribuir preferencias a estudiantes de esa carrera; priorizo tu presupuesto.';
+    text += ' No hay compras comparables de estas opciones; priorizo tu presupuesto.';
+  else text += ' Sin suficiente historial comparable; priorizo tu presupuesto.';
   return text;
 }

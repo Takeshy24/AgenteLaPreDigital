@@ -17,8 +17,12 @@ import {
 import {
   answerConsent,
   askChannelConsent,
+  channelList,
   isNoContactRequest,
+  isResumeContactRequest,
+  noContactChannels,
   parseConsent,
+  RESUME_HINT,
 } from '../agent/consent-prompt.mjs';
 import { saveConsent } from '../consents/service.mjs';
 import { pool, query, transaction } from '../db.mjs';
@@ -103,6 +107,7 @@ async function handleProfileCallback(item, callback, client) {
         ? await answerProfile(parsed.participationId, parsed)
         : await answerAction(parsed.participationId, parsed);
       if (result.alreadyAnswered) feedback = 'Ya la tengo anotada 😊';
+      if (result.selecting) feedback = 'Selección actualizada. Pulsa «Listo» al terminar.';
       keepKeyboard = !!result.other;
       await repository.finishUpdate(db, item.updateId);
     });
@@ -248,9 +253,13 @@ async function handleStart(item, text, client) {
           : '¡Ups! Ese enlace ya no es válido: puede que haya vencido o que ya se haya usado. Pide uno nuevo desde nuestra página y con gusto seguimos 😊',
   });
 }
+// /autorizar y «quiero volver a recibir mensajes» autorizan Telegram; /revocar lo revoca; un pedido de
+// no contacto revoca los canales que nombra (todos si no nombra ninguno).
 async function handleConsent(item, chat, text, participants, client) {
-  const grant = text.trim() === '/autorizar';
-  const channels = text.trim() === '/revocar' || grant ? [3] : [1, 2, 3];
+  const command = text.trim();
+  const grant =
+    command === '/autorizar' || (command !== '/revocar' && isResumeContactRequest(text));
+  const channels = command === '/revocar' || grant ? [3] : noContactChannels(text);
   if (!participants.length) {
     await transaction((db) =>
       repository.finishUpdate(db, item.updateId, null, 'Sin negociación asociada'),
@@ -267,7 +276,9 @@ async function handleConsent(item, chat, text, participants, client) {
     chat_id: item.chatId,
     text: grant
       ? 'Autorización registrada para seguimiento por Telegram.'
-      : 'Autorización de seguimiento revocada.',
+      : channels.length === 3
+        ? `Listo, no te escribiremos más por ningún canal. ${RESUME_HINT}`
+        : `Listo, ya no te escribiremos por ${channelList(channels)}. ${RESUME_HINT}`,
   });
 }
 function selectParticipation(participants, selection) {
@@ -435,7 +446,9 @@ export async function processUpdate(item, client) {
   if (await continueOnboarding(item, chat.idContacto, message.text, client)) return;
   const participants = await repository.listContactParticipations(await pool(), chat.idContacto);
   const consentCommand =
-    ['/autorizar', '/revocar'].includes(message.text.trim()) || isNoContactRequest(message.text);
+    ['/autorizar', '/revocar'].includes(message.text.trim()) ||
+    isNoContactRequest(message.text) ||
+    isResumeContactRequest(message.text);
   if (consentCommand) return handleConsent(item, chat, message.text, participants, client);
   const selection = await repository.getSelection(await pool(), chat.idContacto);
   const { candidates, target } = selectParticipation(participants, selection);

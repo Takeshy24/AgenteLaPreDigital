@@ -36,7 +36,17 @@ import {
   appendOfferLink,
   recordQuestion,
   attachMarkup,
+  getCourseSelection,
+  completeCourseSelection,
+  listRelatives,
 } from './repository.mjs';
+import {
+  channelList,
+  isUnsubscribeQuestion,
+  noContactChannels,
+  UNSUBSCRIBE_HELP,
+} from './consent-prompt.mjs';
+import { saveConsent } from '../consents/service.mjs';
 import {
   audience,
   isCoreKey,
@@ -64,7 +74,10 @@ export async function handOff(db, participationId, reason, messageId) {
 export function handoffReason(text) {
   const value = words(text);
   if (
-    / (reembolso|reembolsen|reembolsar|devolucion|devuelvan|devuelvanme|devolver mi dinero|regresen mi dinero) /.test(
+    / (reembolso|reembolsen|reembolsar|devolucion|devuelvan|devuelvanme|devuelvenme|devolver mi dinero|regresen mi dinero) /.test(
+      value,
+    ) ||
+    / (devolver|devuelven|devuelvan|regresen|regresan|regresar|reintegren|reintegrar) ([a-z]+ ){0,3}(dinero|plata|pago|pague|pagamos|cobro) /.test(
       value,
     )
   )
@@ -100,6 +113,36 @@ export function handoffReason(text) {
     return 5;
   return null;
 }
+// «No le escriban a mi mamá»: si ese familiar está registrado para el mismo beneficiario, se revocan
+// sus autorizaciones (los canales nombrados o todos); si no, solo se confirma que no se le invitará.
+async function stopRelativeContact(db, participation, text) {
+  const relation = guardianRelation(text);
+  const roles = !relation
+    ? [2, 3, 4]
+    : / padres /.test(words(text))
+      ? [2, 3]
+      : ['familiar', 'responsable'].includes(relation.key)
+        ? [2, 3, 4]
+        : [relation.role];
+  const relatives = await listRelatives(db, {
+    beneficiary: participation.idBeneficiario,
+    contact: participation.idContacto,
+    roles,
+  });
+  if (!relatives.length) return 'De acuerdo, no enviaré una invitación a esa persona.';
+  const channels = noContactChannels(text);
+  for (const relative of relatives)
+    for (const channel of channels)
+      await saveConsent(relative.participationId, {
+        channel,
+        granted: false,
+        version: 'chat-familiar-v1',
+      });
+  const person = relation ? `tu ${relation.label}` : 'esa persona';
+  return channels.length === 3
+    ? `De acuerdo, ya no le escribiremos a ${person}.`
+    : `De acuerdo, ya no le escribiremos a ${person} por ${channelList(channels)}.`;
+}
 export async function actOnAnalysis(participationId, messageId, text, analysis) {
   const workspace = await getWorkspace();
   const contact = workspace.leads.find((lead) => lead.id === participationId);
@@ -118,6 +161,13 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
           ['budget', 'score'].includes(item.field) ? Number(item.value) : item.value,
         ]),
       );
+      if (fields.courses) {
+        const selection = await getCourseSelection(db, participationId);
+        if (selection && !selection.completed) {
+          fields.courses = [...selection.selected, fields.courses];
+          await completeCourseSelection(db, selection);
+        }
+      }
       await saveProfile(participationId, { fields, channel }, { messageId });
     }
     if (reason) {
@@ -125,11 +175,15 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
       return;
     }
     if (handoff && !handoff.fechaRetomaAgente) return;
+    if (isUnsubscribeQuestion(text)) {
+      await createReply(db, participation, UNSUBSCRIBE_HELP, messageId);
+      return;
+    }
     if (declinesFamilyContact(text)) {
       await createReply(
         db,
         participation,
-        'De acuerdo, no enviaré una invitación a esa persona.',
+        await stopRelativeContact(db, participation, text),
         messageId,
       );
       return;

@@ -10,6 +10,7 @@ export async function createLead(data, options = {}) {
 // options.channels: canales autorizados al captar (por defecto, solo communicationChannel).
 // options.reviewNameMatches: un nombre ya registrado por otro contacto queda como solicitud
 // provisional en vez de fallar, para no revelar identificadores a quien escribe.
+// options.consentSource: origen y versión del texto aceptado en el formulario o la invitación.
 export async function saveLead(db, data, options = {}) {
   const channels = options.channels ?? [data.communicationChannel];
   const params = {
@@ -48,7 +49,7 @@ export async function saveLead(db, data, options = {}) {
     if (!beneficiaryName) throw new BusinessError('Falta identificar al beneficiario.');
     const candidates = await repository.findBeneficiaryByName(db, beneficiaryName.toUpperCase());
     if (candidates.length && options.reviewNameMatches) {
-      if (data.consent) await grantConsents(db, params, contact, channels);
+      if (data.consent) await grantConsents(db, params, contact, channels, options.consentSource);
       await repository.insertProvisionalRequest(db, {
         contact,
         role: data.role,
@@ -78,7 +79,7 @@ export async function saveLead(db, data, options = {}) {
     });
     await repository.recordCaseOpening(db, { caseId });
   }
-  if (data.consent) await grantConsents(db, params, contact, channels);
+  if (data.consent) await grantConsents(db, params, contact, channels, options.consentSource);
   const old = (await repository.findParticipation(db, { lead, caseId })).recordset[0];
   if (old) {
     if (data.consent) {
@@ -97,7 +98,7 @@ export async function saveLead(db, data, options = {}) {
   if (authorized) await scheduleAttempts(db, id);
   return { id, contact };
 }
-async function grantConsents(db, params, contact, channels) {
+async function grantConsents(db, params, contact, channels, source) {
   for (const communicationChannel of channels)
-    await repository.grantConsent(db, { ...params, contact, communicationChannel });
+    await repository.grantConsent(db, { ...params, contact, communicationChannel }, source);
 }

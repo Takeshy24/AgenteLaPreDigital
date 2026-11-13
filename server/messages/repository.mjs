@@ -16,10 +16,42 @@ export async function listContactParticipants(db, contact) {
     )
   ).recordset;
 }
+// Un mensaje del contacto levanta el bloqueo por reembolso; el de disputa, solo si ya se registró
+// su resolución.
 export async function clearContactBlocks(db, contact, messageId) {
   return query(
     db,
-    `UPDATE b SET fechaFin=${now},idMensajeFin=@messageId FROM dbo.BloqueoPromocional b WHERE b.fechaFin IS NULL AND EXISTS(SELECT 1 FROM dbo.Lead l WHERE l.idContacto=@contact AND l.idBeneficiario=b.idBeneficiario)`,
+    `UPDATE b
+SET
+  fechaFin = ${now},
+  idMensajeFin = @messageId
+FROM
+  dbo.BloqueoPromocional b
+WHERE
+  b.fechaFin IS NULL
+  AND (
+    b.idMotivoBloqueo = 1
+    OR EXISTS (
+      SELECT
+        1
+      FROM
+        dbo.EventoCaso origen
+        JOIN dbo.EventoCaso resolucion ON resolucion.idCaso = origen.idCaso
+        AND resolucion.idTipoEvento = 12
+        AND resolucion.idEvento > origen.idEvento
+      WHERE
+        origen.idEvento = b.idEventoOrigen
+    )
+  )
+  AND EXISTS (
+    SELECT
+      1
+    FROM
+      dbo.Lead l
+    WHERE
+      l.idContacto = @contact
+      AND l.idBeneficiario = b.idBeneficiario
+  )`,
     { contact, messageId },
   );
 }
@@ -64,13 +96,29 @@ VALUES
 export async function resumeOnReply(db, params = {}, options = {}) {
   return query(
     db,
-    `UPDATE dbo.BloqueoPromocional
+    `UPDATE b
 SET
   fechaFin = ${now},
   idMensajeFin = @messageId
+FROM
+  dbo.BloqueoPromocional b
 WHERE
-  idBeneficiario = @b
-  AND fechaFin IS NULL;
+  b.idBeneficiario = @b
+  AND b.fechaFin IS NULL
+  AND (
+    b.idMotivoBloqueo = 1
+    OR EXISTS (
+      SELECT
+        1
+      FROM
+        dbo.EventoCaso origen
+        JOIN dbo.EventoCaso resolucion ON resolucion.idCaso = origen.idCaso
+        AND resolucion.idTipoEvento = 12
+        AND resolucion.idEvento > origen.idEvento
+      WHERE
+        origen.idEvento = b.idEventoOrigen
+    )
+  );
 
 UPDATE lc
 SET

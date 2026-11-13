@@ -9,6 +9,7 @@ import { getPayload } from '../access/repository.mjs';
 import { openMessage } from '../access/crypto.mjs';
 import { getWhatsAppRecipient } from './whatsapp-repository.mjs';
 import { welcomeApproved } from './welcome-approval.mjs';
+import { hasChannelRecord } from '../consents/repository.mjs';
 import {
   INVITATION_IMPEDIMENTS,
   invitationDeliveryImpediment,
@@ -79,6 +80,20 @@ export async function dispatchMessage(
       await repository.markFailed(db, id, reason);
       await notifyInvitationFailure(db, id, reason);
       return null;
+    }
+    // El permiso pudo registrarse después de preparar la pregunta. Se vuelve a comprobar al
+    // despachar y se sustituye solo el aviso pendiente, sin volver a ofrecer autorización.
+    if (
+      [1, 3].includes(channel) &&
+      row.markup &&
+      JSON.parse(row.markup).consent_prompt &&
+      (await hasChannelRecord(db, row.idContacto, channel))
+    ) {
+      const name = channel === 1 ? 'WhatsApp' : 'Telegram';
+      row.textoMensaje = (await repository.hasConsent(db, row.idContacto, channel))
+        ? `Tu autorización de ${name} ya está registrada. Sigamos con tu preparación.`
+        : `Se mantiene tu decisión de no recibir seguimiento por ${name}. Solo responderé cuando me escribas.`;
+      row.markup = await repository.replaceConsentPrompt(db, id, row.textoMensaje);
     }
     const welcome = row.markup ? JSON.parse(row.markup).welcome : null;
     if (

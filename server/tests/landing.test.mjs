@@ -363,9 +363,10 @@ test('landing: sin bot no inventa enlaces y sin marcar Telegram ofrece enlace si
     );
     await withBot('bot_de_prueba', () =>
       rollbackTest(async (db) => {
+        const email = uniqueEmail('landing-no-pidio');
         const notRequested = await registerLanding({
           name: 'Sin Pedir Telegram',
-          email: uniqueEmail('landing-no-pidio'),
+          email,
           phone: '+51955555555',
           role: 1,
           channels: [2],
@@ -374,9 +375,15 @@ test('landing: sin bot no inventa enlaces y sin marcar Telegram ofrece enlace si
         assert.equal(notRequested.recorded, true);
         assert.match(notRequested.telegramUrl, /^https:\/\/t\.me\/bot_de_prueba\?start=/);
         assert.equal(notRequested.telegramLinkExpires, true);
-        const links = (await query(db, 'SELECT consentimiento FROM dbo.App_TelegramLink'))
-          .recordset;
-        assert.ok(links.every((item) => item.consentimiento === false));
+        const links = (
+          await query(
+            db,
+            `SELECT t.consentimiento FROM dbo.App_TelegramLink t
+            INNER JOIN dbo.Contacto c ON c.idContacto=t.idContacto WHERE c.correo=@email`,
+            { email },
+          )
+        ).recordset;
+        assert.deepEqual(links, [{ consentimiento: false }]);
       }),
     );
   } finally {

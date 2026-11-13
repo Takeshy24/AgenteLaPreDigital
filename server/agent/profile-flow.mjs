@@ -23,6 +23,8 @@ const COURSES = [
   'Lenguaje y razonamiento verbal',
 ];
 export const NO_COURSES = 'Ninguno en especial';
+export const COURSE_SELECTION_HELP =
+  'Puedes elegir varios: marca un curso por vez y pulsa «Listo» al terminar. También puedes escribirlos juntos.';
 const APPLICATIONS = [
   ['Es mi primera vez', 'Es su primera vez', 'Primera postulación (no postuló antes)'],
   ['Ya postulé una vez', 'Ya postuló una vez', 'Postuló una vez'],
@@ -123,10 +125,15 @@ export function optionsFor(key, tariffs = [], aud = STUDENT) {
   }));
 }
 
-export function keyboard(participationId, key, tariffs, aud = STUDENT) {
+export function keyboard(participationId, key, tariffs, aud = STUDENT, selected = []) {
   const { letter } = QUESTIONS[key];
   const buttons = optionsFor(key, tariffs, aud).map((option, index) => ({
-    text: option.label,
+    text:
+      key === 'courses'
+        ? `${selected.includes(option.value) ? '✓ ' : ''}${option.label
+            .replace('Razonamiento matemático', 'Razon. matemático')
+            .replace('Lenguaje y razonamiento verbal', 'Lenguaje / R. verbal')}`
+        : option.label,
     callback_data: `pf:${participationId}:${letter}:${index}`,
   }));
   const rows = [];
@@ -134,7 +141,19 @@ export function keyboard(participationId, key, tariffs, aud = STUDENT) {
     rows.push(buttons.slice(index, index + 2));
   if (key !== 'budget')
     rows.push([{ text: 'Otra respuesta', callback_data: `pf:${participationId}:${letter}:x` }]);
+  if (key === 'courses')
+    rows.push([{ text: 'Listo', callback_data: `pf:${participationId}:d:ok` }]);
   return rows;
+}
+
+export function toggleCourse(selected, course) {
+  return selected.includes(course)
+    ? selected.filter((item) => item !== course)
+    : [...selected, course];
+}
+
+export function courseSelectionText(selected) {
+  return `Seleccionados: ${selected.length ? selected.join(', ') : 'ninguno todavía'}.\n${COURSE_SELECTION_HELP}`;
 }
 
 // Telegram muestra estos botones como teclado de respuesta: al pulsar uno, el texto se envía como
@@ -160,8 +179,9 @@ export const normalizeLabel = (value) =>
     .trim();
 
 export function parseCallback(data) {
-  const match = /^pf:(\d+):([cabdepti])(?::(\d+|x))?$/.exec(data ?? '');
+  const match = /^pf:(\d+):([cabdepti])(?::(\d+|x|ok))?$/.exec(data ?? '');
   if (!match) return null;
+  if (match[3] === 'ok' && match[2] !== 'd') return null;
   return { participationId: Number(match[1]), letter: match[2], index: match[3] ?? null };
 }
 
@@ -201,14 +221,11 @@ export function recommend(profile, tariffs, aud = STUDENT) {
   const budget = Number(profile.budget);
   const fits = monthly(tariffs).filter((tariff) => Number(tariff.precio) <= budget);
   const chosen = fits.at(-1);
-  const summary = `${profile.career}, ${String(profile.availability).toLowerCase()}, hasta S/ ${budget} al mes`;
-  const courses = profile.courses
-    ? ` Para reforzar ${String(profile.courses).toLowerCase()}, revisemos sus características.`
-    : '';
+  const recipient = aud.student ? 'ti' : aud.name;
   return {
     text: chosen
-      ? `Con lo que me compartiste (${summary}), lo que mejor ${aud.student ? 'te va' : `le va a ${aud.name}`} es ${chosen.plan}.${courses}`
-      : `Con lo que me compartiste (${summary}), podemos revisar Explora UNT.${courses}`,
+      ? `Para ${recipient}, recomiendo ${chosen.plan}: cabe en el presupuesto de S/ ${budget} al mes.`
+      : `Con ese presupuesto, podemos revisar Explora UNT para ${recipient}.`,
     tariff: chosen ?? null,
   };
 }
