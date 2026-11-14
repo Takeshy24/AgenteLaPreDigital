@@ -374,7 +374,7 @@ test('las respuestas con botones llenan el perfil una a una y terminan en una re
           .some((button) => button.text === 'Ninguno en especial'),
       );
       await send(db, scenario, press(scenario, `pf:${id}:d:2`));
-      assert.match((await outgoing(db, scenario)).at(-1).text, /Seleccionados: Física/);
+      assert.match((await outgoing(db, scenario)).at(-1).text, /Anoté: Física/);
       assert.equal(
         (
           await query(
@@ -650,7 +650,10 @@ test('al volver a abrir el enlace no repregunta lo ya respondido y retoma donde 
       last = (await outgoing(db, scenario)).at(-1);
       assert.match(last.text, /Sigamos donde nos quedamos/);
       // Retoma la selección pendiente sin contar cada actualización como otra pregunta.
-      assert.match(last.text, /Seleccionados: ninguno todavía/);
+      assert.match(
+        last.text,
+        /¿qué cursos se te hacen más difíciles\?\nElige un curso en las opciones/,
+      );
       assert.equal(await asked(3), 1);
       await send(db, scenario, text(scenario, 'Ninguno en especial'));
       assert.match((await outgoing(db, scenario)).at(-1).text, /¿Ya postulaste antes a la UNT\?/);

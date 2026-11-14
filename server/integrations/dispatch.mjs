@@ -9,6 +9,7 @@ import { getPayload } from '../access/repository.mjs';
 import { openMessage } from '../access/crypto.mjs';
 import { getWhatsAppRecipient } from './whatsapp-repository.mjs';
 import { welcomeApproved } from './welcome-approval.mjs';
+import { publicChatLinks } from '../public/channel-links.mjs';
 import { hasChannelRecord } from '../consents/repository.mjs';
 import {
   INVITATION_IMPEDIMENTS,
@@ -22,6 +23,26 @@ function telegramMarkup(stored) {
   if (markup.inline && markup.inline_keyboard) return { inline_keyboard: markup.inline_keyboard };
   return markup.inline_keyboard || markup.remove_keyboard ? replyMarkup(markup) : null;
 }
+// El correo no recibe respuestas en el sistema: invita a seguir por WhatsApp o Telegram, donde
+// también se puede pedir que no le escriban.
+export function followupEmailContent(text) {
+  const { whatsappUrl, telegramUrl } = publicChatLinks();
+  const links = [
+    ...(whatsappUrl ? [`WhatsApp: ${whatsappUrl}`] : []),
+    ...(telegramUrl ? [`Telegram: ${telegramUrl}`] : []),
+  ];
+  return {
+    subject: 'LaPreDigital · Seguimiento de tu preparación',
+    text: [
+      text,
+      '',
+      ...(links.length ? ['Para responder, escríbenos por:', ...links, ''] : []),
+      'Si no deseas recibir más mensajes, escríbenos «no me escriban» por cualquiera de esos canales.',
+      '',
+      'El equipo de LaPreDigital',
+    ].join('\n'),
+  };
+}
 export async function dispatchMessage(
   id,
   client,
@@ -30,7 +51,10 @@ export async function dispatchMessage(
   const channel = await repository.channelOf(await pool(), id);
   if (channel === 1 && !whatsapp) return { sent: false };
   const credentials = await getPayload(await pool(), id);
-  if (channel === 2 && (!mail || !credentials)) return { sent: false };
+  // Por correo solo salen las credenciales y los intentos de la agenda de seguimiento.
+  const followupEmail =
+    channel === 2 && !credentials && (await repository.isFollowupAttempt(await pool(), id));
+  if (channel === 2 && (!mail || (!credentials && !followupEmail))) return { sent: false };
   const approvedWelcome =
     channel === 1 && (await repository.isLandingWelcomeMessage(await pool(), id))
       ? (welcomeReady ?? (await welcomeApproved(integrationConfig().whatsapp)))
@@ -129,8 +153,9 @@ export async function dispatchMessage(
     if (channel === 2) {
       const result = await mail.send({
         to: message.correo,
-        subject: 'LaPreDigital · Tus datos de acceso',
-        text: message.textoMensaje,
+        ...(credentials
+          ? { subject: 'LaPreDigital · Tus datos de acceso', text: message.textoMensaje }
+          : followupEmailContent(message.textoMensaje)),
       });
       if (!result.messageId) throw new Error('Correo sin confirmación de envío.');
       externalId = result.messageId;

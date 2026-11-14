@@ -1,0 +1,65 @@
+[
+  {
+    "section": 1,
+    "start": 0,
+    "end": 15,
+    "text": "Son las once de la noche. Un estudiante quiere prepararse para la UNT, pregunta cuánto cuesta… y nadie le responde. Mañana podría haber elegido otra academia.",
+    "source_duration": 15.432,
+    "tempo": 1.151641791044776,
+    "voice_end": 14.032291666666667
+  },
+  {
+    "section": 2,
+    "start": 15,
+    "end": 45,
+    "text": "Cada consulta es una oportunidad. Pero, entre WhatsApp, Telegram y hojas de cálculo, el contexto puede perderse. Se repiten preguntas y ofertas, mientras el asesor intenta descubrir a quién atender primero. Sin un registro común, también es difícil saber si las acciones comerciales funcionan.",
+    "source_duration": 27.744,
+    "tempo": 1.0275555555555556,
+    "voice_end": 42.629583333333336
+  },
+  {
+    "section": 3,
+    "start": 45,
+    "end": 75,
+    "text": "Por eso creamos el Agente Negociador Inteligente de LaPreDigital. Conversa por WhatsApp y Telegram, interpreta los mensajes con inteligencia artificial y registra cada paso de la negociación. Para responder sobre la oferta, consulta los documentos aprobados de conocimiento. Así, la conversación y el seguimiento comparten el mismo contexto.",
+    "source_duration": 30.288,
+    "tempo": 1.1217777777777778,
+    "voice_end": 72.632875
+  },
+  {
+    "section": 4,
+    "start": 75,
+    "end": 115,
+    "text": "Primero pregunta la carrera, la disponibilidad y el presupuesto. También permite indicar varios cursos difíciles. Con ese perfil recomienda un plan dentro del presupuesto y presenta sus beneficios de forma breve. Luego prepara una oferta personal, con tarifa vigente, y permite abrir el pago de prueba. Si necesita apoyo de su familia, genera una invitación al responsable económico, quien debe aceptar la vinculación y autorizar su propio contacto.",
+    "source_duration": 39.048,
+    "tempo": 1.0553513513513515,
+    "voice_end": 112.63029166666666
+  },
+  {
+    "section": 5,
+    "start": 115,
+    "end": 140,
+    "text": "La inteligencia artificial propone, pero el sistema valida las reglas. Los precios salen del catálogo vigente y aceptar una propuesta no confirma un pago. Reclamos, reembolsos y solicitudes de atención humana pasan al equipo. Y si alguien revoca el seguimiento, su decisión se respeta por canal.",
+    "source_duration": 26.976,
+    "tempo": 1.226181818181818,
+    "voice_end": 137.63470833333335
+  },
+  {
+    "section": 6,
+    "start": 140,
+    "end": 165,
+    "text": "Todo queda medido mediante seis indicadores de la fase leads: desde el contacto inicial hasta la conversión pagada. La consola consulta el Data Mart y permite analizar periodos y dimensiones. Al filtrar, resalta los indicadores que sí cambian. Las cifras que mostramos son datos de demostración.",
+    "source_duration": 25.632,
+    "tempo": 1.1650909090909092,
+    "voice_end": 162.63308333333333
+  },
+  {
+    "section": 7,
+    "start": 165,
+    "end": 180,
+    "text": "Respuestas oportunas, decisiones con datos y cada negociación bajo control. Agente Negociador Inteligente de LaPreDigital: cada interesado, mejor atendido.",
+    "source_duration": 15.0,
+    "tempo": 1.25,
+    "voice_end": 177.63666666666668
+  }
+]

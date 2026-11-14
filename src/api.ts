@@ -117,6 +117,9 @@ export interface Details {
     idMensajeEnvio: number | null;
     canalEnvio: string | null;
     fechaEnvio: string | null;
+    estadoEnvio: number | null;
+    fechaEntregaEnvio: string | null;
+    errorEnvio: string | null;
   }[];
   proposals: {
     idPropuesta: number;

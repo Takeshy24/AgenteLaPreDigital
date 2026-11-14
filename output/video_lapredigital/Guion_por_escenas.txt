@@ -1,0 +1,66 @@
+GUION POR ESCENAS — LAPREDIGITAL
+21 escenas. Duración total: 3:00.
+Versión para grabar por separado, con frases ajustadas a cada cambio de escena.
+
+1. 00:00–00:07,5 | Consulta nocturna
+Son las once de la noche. Un estudiante pregunta cuánto cuesta prepararse para la UNT.
+
+2. 00:07,5–00:15 | Una oportunidad puede perderse
+Nadie responde. La oportunidad puede perderse: mañana podría haber elegido otra academia.
+
+3. 00:15–00:25 | Asesor saturado
+Cada consulta es una oportunidad. Pero, entre WhatsApp, Telegram y hojas de cálculo, el contexto puede perderse.
+
+4. 00:25–00:35 | Información fragmentada
+Se repiten preguntas y ofertas. La información queda dispersa, y el seguimiento depende de recordar cada conversación.
+
+5. 00:35–00:45 | Priorizar la atención
+El asesor necesita saber a quién atender primero y si las acciones comerciales están funcionando.
+
+6. 00:45–00:55 | Presentación del producto
+Por eso creamos el Agente Negociador Inteligente, para la gestión y análisis de leads en LaPreDigital.
+
+7. 00:55–01:05 | WhatsApp y Telegram
+Conversa por WhatsApp y Telegram, interpreta los mensajes con inteligencia artificial y registra cada paso de la negociación.
+
+8. 01:05–01:15 | Conocimiento aprobado
+Para responder, consulta los documentos aprobados de conocimiento. Así, la conversación y el seguimiento comparten el mismo contexto.
+
+9. 01:15–01:25 | Perfil del estudiante
+Primero pregunta la carrera, la disponibilidad y el presupuesto. También permite indicar varios cursos difíciles.
+
+10. 01:25–01:35 | Recomendación del plan
+Con ese perfil recomienda un plan dentro del presupuesto y presenta sus beneficios de forma breve.
+
+11. 01:35–01:43 | Oferta personal
+Luego prepara una oferta personal, con la tarifa vigente y un enlace para aceptarla.
+
+12. 01:43–01:49 | Pago de prueba
+La oferta permite abrir el pago de prueba. Aceptarla no confirma el pago.
+
+13. 01:49–01:55 | Participación de la familia
+Si necesita apoyo familiar, genera una invitación: el responsable económico acepta y autoriza su contacto.
+
+14. 01:55–02:03 | Reglas del sistema
+La inteligencia artificial propone, pero el sistema valida las reglas. Los precios salen del catálogo vigente.
+
+15. 02:03–02:12 | Atención humana
+Reclamos, reembolsos y solicitudes de atención humana pasan al equipo, con el contexto de la conversación.
+
+16. 02:12–02:20 | Autorizaciones por canal
+Cada persona autoriza su propio contacto. Y si revoca el seguimiento, su decisión se respeta por canal.
+
+17. 02:20–02:29 | Seis indicadores
+Todo queda medido mediante seis indicadores de la fase leads: desde el contacto inicial hasta la conversión pagada.
+
+18. 02:29–02:37 | Filtros del Data Mart
+La consola consulta el Data Mart. Al filtrar por periodo y dimensiones, resalta los indicadores afectados.
+
+19. 02:37–02:45 | Desglose de resultados
+También permite revisar cantidades, causas y desgloses. Las cifras que mostramos son datos de demostración.
+
+20. 02:45–02:53 | Valor del sistema
+Respuestas oportunas, decisiones con datos y cada negociación bajo control: responder, registrar y analizar.
+
+21. 02:53–03:00 | Cierre
+Agente Negociador Inteligente de LaPreDigital: cada interesado, mejor atendido.

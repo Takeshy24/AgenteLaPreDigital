@@ -54,9 +54,12 @@ export async function queueNextStep(
   if (key) {
     if (key === 'courses')
       return queueCourses(db, participation, replyTo, resumeCourses ? selection.selected : [], {
-        text: resumeCourses
-          ? intro + flow.courseSelectionText(selection.selected)
-          : `${intro}${flow.questionText(key, aud)}\n${flow.COURSE_SELECTION_HELP}`,
+        text:
+          intro +
+          flow.courseSelectionText(
+            resumeCourses ? selection.selected : [],
+            flow.questionText(key, aud),
+          ),
         question: !resumeCourses,
       });
     const { field } = flow.QUESTIONS[key];

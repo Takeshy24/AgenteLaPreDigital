@@ -265,6 +265,21 @@ export function resolveTariff(text, tariffs, context = {}) {
   return chosen?.idPlanTarifa ?? null;
 }
 
+// «El que me recomendaste», «el recomendado», «ese mismo»: se refiere al plan recomendado antes.
+export const refersToRecommendation = (text) => {
+  const value = words(text);
+  return (
+    / (el|la|lo) que (me |nos |le )?(recomendaste|recomendo|recomiendas|sugeriste|sugirio|propusiste|dijiste|mencionaste) /.test(
+      value,
+    ) ||
+    / (el|la|lo) (recomendado|recomendada|sugerido|sugerida) /.test(value) ||
+    / (ese|esa|este|esta) (plan|opcion|mismo|misma|modalidad) /.test(value) ||
+    / (el|la) (mismo|misma) /.test(value) ||
+    /^ (quiero |me quedo con |dame |prefiero )?(ese|esa|ese mismo|esa misma|el mismo|ese plan|esa opcion)( por favor| porfa)? $/.test(
+      value,
+    )
+  );
+};
 export const isPurchaseRequest = (text) => PURCHASE.test(words(text)) && !NEGATED.test(words(text));
 export const isTrialRequest = (text) => TRIAL.test(words(text));
 export const isObjection = (text) => OBJECTION.test(words(text));

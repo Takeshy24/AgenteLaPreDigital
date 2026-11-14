@@ -382,6 +382,8 @@ WHERE
   AND (
     m.idCanal <> 2 OR EXISTS (
       SELECT 1 FROM dbo.HabilitacionAcceso a WHERE a.idMensajeCredenciales = m.idMensaje
+    ) OR EXISTS (
+      SELECT 1 FROM dbo.IntentoContacto i WHERE i.idMensajeEnvio = m.idMensaje
     )
   )
   AND (
@@ -792,3 +794,19 @@ export async function countIncoming(db, contact, channel) {
 }
 
 // messages: canal del mensaje sin asignar
+export async function isFollowupAttempt(db, id) {
+  return (
+    (
+      await query(
+        db,
+        `SELECT
+  COUNT(*) n
+FROM
+  dbo.IntentoContacto
+WHERE
+  idMensajeEnvio = @id`,
+        { id },
+      )
+    ).recordset[0].n > 0
+  );
+}

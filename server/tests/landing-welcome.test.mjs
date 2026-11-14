@@ -266,3 +266,77 @@ test('un rechazo de Meta no elimina el registro ni afirma que se entregó la bie
     await close();
   }
 });
+
+const pendingApproval = (context) =>
+  context.mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      data: [{ name: 'bienvenida_prueba', language: 'es', status: 'PENDING' }],
+    }),
+  }));
+
+test('sin plantilla aprobada y con correo autorizado, la bienvenida sale por correo y no por WhatsApp', async (context) => {
+  try {
+    await rollbackTest(async (db) => {
+      pendingApproval(context);
+      const data = form([1, 2]);
+      const receipt = await registerLanding(data, {
+        send: async () => ({ messageId: 'correo-registro' }),
+      });
+      assert.equal(receipt.whatsappWelcome, 'email');
+      const attempt = (
+        await query(
+          db,
+          `SELECT m.idCanal channel, m.idEstadoEntrega delivered FROM dbo.Contacto c
+          JOIN dbo.Lead l ON l.idContacto=c.idContacto JOIN dbo.LeadCaso lc ON lc.idLead=l.idLead
+          JOIN dbo.IntentoContacto i ON i.idLeadCaso=lc.idLeadCaso AND i.numeroIntento=1
+          JOIN dbo.Mensaje m ON m.idMensaje=i.idMensajeEnvio WHERE c.correo=@email`,
+          { email: data.email },
+        )
+      ).recordset[0];
+      assert.deepEqual(attempt, { channel: 2, delivered: 2 });
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('una bienvenida de WhatsApp sin aprobación pasa al correo y el correo de seguimiento se despacha', async (context) => {
+  try {
+    await rollbackTest(async (db) => {
+      const data = form([1, 2]);
+      await registerLanding(data, { send: null });
+      const welcome = await first(db, data.email);
+      assert.equal(welcome.state, 'pending');
+      await query(
+        db,
+        'UPDATE dbo.IntentoContacto SET fechaProgramada=DATEADD(MINUTE,-1,DATEADD(HOUR,-5,SYSUTCDATETIME())) WHERE idLeadCaso=@id AND numeroIntento=1',
+        { id: welcome.participation },
+      );
+      await reviewFollowup({ canSend: (channel) => channel === 2, welcomeReady: false });
+      const old = (
+        await query(db, 'SELECT idEstadoEntrega delivered FROM dbo.Mensaje WHERE idMensaje=@id', {
+          id: welcome.id,
+        })
+      ).recordset[0];
+      assert.equal(old.delivered, 3);
+      const rerouted = await first(db, data.email);
+      assert.notEqual(rerouted.id, welcome.id);
+      const sentMail = [];
+      const result = await dispatchMessage(rerouted.id, null, {
+        mail: {
+          send: async (mail) => {
+            sentMail.push(mail);
+            return { messageId: 'correo-seguimiento' };
+          },
+        },
+      });
+      assert.equal(result.sent, true);
+      assert.equal(sentMail[0].to, data.email);
+      assert.match(sentMail[0].subject, /Seguimiento/);
+      assert.equal((await first(db, data.email)).delivered, 2);
+    });
+  } finally {
+    await close();
+  }
+});

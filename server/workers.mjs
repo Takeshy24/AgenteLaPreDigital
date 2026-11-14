@@ -2,7 +2,8 @@ import { pool, query } from './db.mjs';
 import { reviewFollowup, reviewMaintenance } from './followup/service.mjs';
 import { integrationConfig } from './integrations/config.mjs';
 import { dispatchPending } from './integrations/dispatch.mjs';
-import { recoverDispatches } from './integrations/repository.mjs';
+import { insideServiceWindow, recoverDispatches } from './integrations/repository.mjs';
+import { welcomeApproved } from './integrations/welcome-approval.mjs';
 import { telegramClient } from './integrations/telegram-client.mjs';
 import { pollTelegram } from './integrations/telegram.mjs';
 import { whatsappClient } from './integrations/whatsapp-client.mjs';
@@ -37,6 +38,13 @@ export async function startWorkers() {
     config.whatsapp.enabled && !!config.whatsapp.token && !!config.whatsapp.phoneNumberId;
   const mail = config.smtp.user && config.smtp.password ? { send: sendEmail } : null;
   if (!enabled && !whatsappEnabled && !config.followup.enabled && !mail) return async () => {};
+  // Canales que pueden enviar un intento ahora. WhatsApp no deja escribir primero sin una plantilla
+  // aprobada para ese texto, así que solo se usa dentro de las 24 horas desde el último mensaje del
+  // contacto; fuera de ellas el intento pasa al siguiente canal autorizado (correo o Telegram).
+  const canSendNow = async (channel, contact, tx) =>
+    (enabled && channel === 3) ||
+    (!!mail && channel === 2) ||
+    (whatsappEnabled && channel === 1 && (await insideServiceWindow(tx, contact)));
   const db = await pool();
   const lease = (
     await query(
@@ -89,8 +97,8 @@ SELECT
             lastReview = Date.now();
             if (config.followup.enabled)
               await reviewFollowup({
-                canSend: (channel) =>
-                  (enabled && channel === 3) || (whatsappEnabled && channel === 1),
+                canSend: (channel, contact, tx) => canSendNow(channel, contact, tx),
+                welcomeReady: whatsappEnabled ? await welcomeApproved(config.whatsapp) : false,
               });
             else await reviewMaintenance();
           }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { Details } from '../api';
 import { Badge, Card, Empty, ModeLegend } from '../components/ui';
 import { AgentCard } from '../features/agent/AgentCard';
 import { ConsentCard } from '../features/consents/ConsentCard';
@@ -20,6 +21,17 @@ const tabs = [
   { id: 'commercial', label: 'Servicio' },
   { id: 'guardian', label: 'Responsable económico' },
 ];
+// Estado real del envío: «enviado» solo cuando el canal lo aceptó; antes se muestra en cola.
+function attemptStatus(attempt: Details['attempts'][number]) {
+  if (attempt.omitido) return '· omitido';
+  if (!attempt.idMensajeEnvio) return '· pendiente';
+  const channel = attempt.canalEnvio ?? 'el canal';
+  if (attempt.estadoEnvio === 2)
+    return `· enviado por ${channel} el ${formatDate(attempt.fechaEntregaEnvio ?? attempt.fechaEnvio ?? '')}`;
+  if (attempt.estadoEnvio === 3)
+    return `· no se envió por ${channel}${attempt.errorEnvio ? ` (${attempt.errorEnvio})` : ''}`;
+  return `· en cola por ${channel}, aún no enviado${attempt.errorEnvio ? ` (${attempt.errorEnvio})` : ''}`;
+}
 export function Profile() {
   const { selected, detail, navigate } = useWorkspace();
   const [tab, setTab] = useState('profile');
@@ -112,11 +124,7 @@ export function Profile() {
                 {detail.attempts.map((attempt) => (
                   <p key={attempt.idIntento}>
                     Intento {attempt.numeroIntento} · {formatDate(attempt.fechaProgramada)}{' '}
-                    {attempt.omitido
-                      ? '· omitido'
-                      : attempt.idMensajeEnvio
-                        ? `· enviado por ${attempt.canalEnvio}${attempt.fechaEnvio ? ` el ${formatDate(attempt.fechaEnvio)}` : ''}`
-                        : '· pendiente'}
+                    {attemptStatus(attempt)}
                   </p>
                 ))}
               </Card>

@@ -1,0 +1,8 @@
+1
+00:00:00,100 --> 00:00:02,937
+Son las once de la noche.
+
+2
+00:00:02,887 --> 00:00:08,383
+Un estudiante quiere prepararse para la UNT y pregunta cuánto cuesta.
+

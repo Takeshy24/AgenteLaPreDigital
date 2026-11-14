@@ -1,0 +1,53 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
+Style: Default,Plus Jakarta Sans,35,&H00F5F7F1,&H00F5F7F1,&H00101412,&H90101412,0,0,0,0,100,100,0,0,3,14,0,2,170,170,66,1
+
+[Events]
+Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
+Dialogue: 0,0:00:00.75,0:00:02.49,Default,,0,0,0,,Son las once de la noche.
+Dialogue: 0,0:00:03.36,0:00:07.10,Default,,0,0,0,,Un estudiante quiere prepararse para la UNT, pregunta cuánto
+Dialogue: 0,0:00:07.13,0:00:09.40,Default,,0,0,0,,cuesta… y nadie le responde.
+Dialogue: 0,0:00:10.26,0:00:13.19,Default,,0,0,0,,Mañana podría haber elegido otra academia.
+Dialogue: 0,0:00:15.76,0:00:18.37,Default,,0,0,0,,Cada consulta es una oportunidad.
+Dialogue: 0,0:00:19.36,0:00:24.10,Default,,0,0,0,,Pero, entre WhatsApp, Telegram y hojas de cálculo, el
+Dialogue: 0,0:00:24.13,0:00:26.16,Default,,0,0,0,,contexto puede perderse.
+Dialogue: 0,0:00:27.14,0:00:32.27,Default,,0,0,0,,Se repiten preguntas y ofertas, mientras el asesor intenta descubrir
+Dialogue: 0,0:00:32.30,0:00:34.07,Default,,0,0,0,,a quién atender primero.
+Dialogue: 0,0:00:35.05,0:00:39.85,Default,,0,0,0,,Sin un registro común, también es difícil saber si las acciones
+Dialogue: 0,0:00:39.88,0:00:41.66,Default,,0,0,0,,comerciales funcionan.
+Dialogue: 0,0:00:45.75,0:00:50.06,Default,,0,0,0,,Por eso creamos el Agente Negociador Inteligente de LaPreDigital.
+Dialogue: 0,0:00:50.96,0:00:55.21,Default,,0,0,0,,Conversa por WhatsApp y Telegram, interpreta los mensajes con
+Dialogue: 0,0:00:55.24,0:00:59.49,Default,,0,0,0,,inteligencia artificial y registra cada paso de la negociación.
+Dialogue: 0,0:01:00.37,0:01:04.79,Default,,0,0,0,,Para responder sobre la oferta, consulta los documentos aprobados
+Dialogue: 0,0:01:04.82,0:01:09.52,Default,,0,0,0,,de conocimiento. Así, la conversación y el seguimiento
+Dialogue: 0,0:01:09.55,0:01:11.75,Default,,0,0,0,,comparten el mismo contexto.
+Dialogue: 0,0:01:15.76,0:01:20.28,Default,,0,0,0,,Primero pregunta la carrera, la disponibilidad y el presupuesto.
+Dialogue: 0,0:01:21.25,0:01:24.86,Default,,0,0,0,,También permite indicar varios cursos difíciles.
+Dialogue: 0,0:01:25.81,0:01:30.06,Default,,0,0,0,,Con ese perfil recomienda un plan dentro del presupuesto y presenta
+Dialogue: 0,0:01:30.09,0:01:32.32,Default,,0,0,0,,sus beneficios de forma breve.
+Dialogue: 0,0:01:33.27,0:01:38.20,Default,,0,0,0,,Luego prepara una oferta personal, con tarifa vigente, y permite
+Dialogue: 0,0:01:38.23,0:01:39.97,Default,,0,0,0,,abrir el pago de prueba.
+Dialogue: 0,0:01:40.92,0:01:46.04,Default,,0,0,0,,Si necesita apoyo de su familia, genera una invitación al responsable
+Dialogue: 0,0:01:46.07,0:01:50.80,Default,,0,0,0,,económico, quien debe aceptar la vinculación y autorizar su propio
+Dialogue: 0,0:01:50.83,0:01:51.68,Default,,0,0,0,,contacto.
+Dialogue: 0,0:01:55.74,0:01:59.59,Default,,0,0,0,,La inteligencia artificial propone, pero el sistema valida las
+Dialogue: 0,0:01:59.62,0:02:04.06,Default,,0,0,0,,reglas. Los precios salen del catálogo vigente y aceptar una
+Dialogue: 0,0:02:04.09,0:02:06.12,Default,,0,0,0,,propuesta no confirma un pago.
+Dialogue: 0,0:02:06.92,0:02:11.03,Default,,0,0,0,,Reclamos, reembolsos y solicitudes de atención humana pasan al
+Dialogue: 0,0:02:11.06,0:02:16.02,Default,,0,0,0,,equipo. Y si alguien revoca el seguimiento, su decisión se respeta
+Dialogue: 0,0:02:16.05,0:02:16.82,Default,,0,0,0,,por canal.
+Dialogue: 0,0:02:20.75,0:02:24.38,Default,,0,0,0,,Todo queda medido mediante seis indicadores de la fase leads:
+Dialogue: 0,0:02:24.58,0:02:27.74,Default,,0,0,0,,desde el contacto inicial hasta la conversión pagada.
+Dialogue: 0,0:02:28.60,0:02:32.27,Default,,0,0,0,,La consola consulta el Data Mart y permite analizar periodos
+Dialogue: 0,0:02:32.30,0:02:36.81,Default,,0,0,0,,y dimensiones. Al filtrar, resalta los indicadores
+Dialogue: 0,0:02:36.84,0:02:41.79,Default,,0,0,0,,que sí cambian. Las cifras que mostramos son datos de demostración.
+Dialogue: 0,0:02:45.74,0:02:49.75,Default,,0,0,0,,Respuestas oportunas, decisiones con datos y cada negociación
+Dialogue: 0,0:02:49.78,0:02:54.40,Default,,0,0,0,,bajo control. Agente Negociador Inteligente de LaPreDigital:
+Dialogue: 0,0:02:54.57,0:02:56.86,Default,,0,0,0,,cada interesado, mejor atendido.

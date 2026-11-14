@@ -178,10 +178,14 @@ ORDER BY
     attempts: `SELECT
   i.*,
   ch.nombre canalEnvio,
-  m.fechaHora fechaEnvio
+  m.fechaHora fechaEnvio,
+  m.idEstadoEntrega estadoEnvio,
+  m.fechaEntrega fechaEntregaEnvio,
+  d.error errorEnvio
 FROM
   dbo.IntentoContacto i
   LEFT JOIN dbo.Mensaje m ON m.idMensaje = i.idMensajeEnvio
+  LEFT JOIN dbo.App_Dispatch d ON d.idMensaje = m.idMensaje
   LEFT JOIN dbo.Cat_CanalComunicacion ch ON ch.id = m.idCanal
 WHERE
   i.idLeadCaso = @id

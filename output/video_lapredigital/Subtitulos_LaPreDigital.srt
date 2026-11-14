@@ -1,0 +1,159 @@
+1
+00:00:00,750 --> 00:00:02,491
+Son las once de la noche.
+
+2
+00:00:03,365 --> 00:00:07,102
+Un estudiante quiere prepararse para la UNT, pregunta cuánto
+
+3
+00:00:07,132 --> 00:00:09,398
+cuesta… y nadie le responde.
+
+4
+00:00:10,259 --> 00:00:13,193
+Mañana podría haber elegido otra academia.
+
+5
+00:00:15,762 --> 00:00:18,368
+Cada consulta es una oportunidad.
+
+6
+00:00:19,362 --> 00:00:24,095
+Pero, entre WhatsApp, Telegram y hojas de cálculo, el
+
+7
+00:00:24,125 --> 00:00:26,157
+contexto puede perderse.
+
+8
+00:00:27,136 --> 00:00:32,268
+Se repiten preguntas y ofertas, mientras el asesor intenta descubrir
+
+9
+00:00:32,298 --> 00:00:34,075
+a quién atender primero.
+
+10
+00:00:35,054 --> 00:00:39,851
+Sin un registro común, también es difícil saber si las acciones
+
+11
+00:00:39,881 --> 00:00:41,658
+comerciales funcionan.
+
+12
+00:00:45,753 --> 00:00:50,061
+Por eso creamos el Agente Negociador Inteligente de LaPreDigital.
+
+13
+00:00:50,962 --> 00:00:55,207
+Conversa por WhatsApp y Telegram, interpreta los mensajes con
+
+14
+00:00:55,237 --> 00:00:59,487
+inteligencia artificial y registra cada paso de la negociación.
+
+15
+00:01:00,374 --> 00:01:04,795
+Para responder sobre la oferta, consulta los documentos aprobados
+
+16
+00:01:04,825 --> 00:01:09,523
+de conocimiento. Así, la conversación y el seguimiento
+
+17
+00:01:09,553 --> 00:01:11,745
+comparten el mismo contexto.
+
+18
+00:01:15,759 --> 00:01:20,285
+Primero pregunta la carrera, la disponibilidad y el presupuesto.
+
+19
+00:01:21,250 --> 00:01:24,860
+También permite indicar varios cursos difíciles.
+
+20
+00:01:25,810 --> 00:01:30,061
+Con ese perfil recomienda un plan dentro del presupuesto y presenta
+
+21
+00:01:30,091 --> 00:01:32,320
+sus beneficios de forma breve.
+
+22
+00:01:33,271 --> 00:01:38,204
+Luego prepara una oferta personal, con tarifa vigente, y permite
+
+23
+00:01:38,234 --> 00:01:39,968
+abrir el pago de prueba.
+
+24
+00:01:40,918 --> 00:01:46,038
+Si necesita apoyo de su familia, genera una invitación al responsable
+
+25
+00:01:46,068 --> 00:01:50,800
+económico, quien debe aceptar la vinculación y autorizar su propio
+
+26
+00:01:50,830 --> 00:01:51,679
+contacto.
+
+27
+00:01:55,744 --> 00:01:59,586
+La inteligencia artificial propone, pero el sistema valida las
+
+28
+00:01:59,616 --> 00:02:04,057
+reglas. Los precios salen del catálogo vigente y aceptar una
+
+29
+00:02:04,087 --> 00:02:06,116
+propuesta no confirma un pago.
+
+30
+00:02:06,918 --> 00:02:11,026
+Reclamos, reembolsos y solicitudes de atención humana pasan al
+
+31
+00:02:11,056 --> 00:02:16,019
+equipo. Y si alguien revoca el seguimiento, su decisión se respeta
+
+32
+00:02:16,049 --> 00:02:16,823
+por canal.
+
+33
+00:02:20,749 --> 00:02:24,382
+Todo queda medido mediante seis indicadores de la fase leads:
+
+34
+00:02:24,585 --> 00:02:27,740
+desde el contacto inicial hasta la conversión pagada.
+
+35
+00:02:28,602 --> 00:02:32,268
+La consola consulta el Data Mart y permite analizar periodos
+
+36
+00:02:32,298 --> 00:02:36,806
+y dimensiones. Al filtrar, resalta los indicadores
+
+37
+00:02:36,836 --> 00:02:41,789
+que sí cambian. Las cifras que mostramos son datos de demostración.
+
+38
+00:02:45,742 --> 00:02:49,746
+Respuestas oportunas, decisiones con datos y cada negociación
+
+39
+00:02:49,776 --> 00:02:54,400
+bajo control. Agente Negociador Inteligente de LaPreDigital:
+
+40
+00:02:54,568 --> 00:02:56,862
+cada interesado, mejor atendido.

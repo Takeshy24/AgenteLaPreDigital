@@ -217,3 +217,54 @@ GROUP BY
     )
   ).recordset;
 }
+// Tarifas de la última recomendación enviada (sus botones «Quiero la propuesta» llevan pf:id:p:tarifa).
+export async function lastRecommendedTariffs(db, participationId) {
+  const rows = (
+    await query(
+      db,
+      `SELECT TOP 10
+  d.markup
+FROM
+  dbo.Mensaje m
+  JOIN dbo.App_Dispatch d ON d.idMensaje = m.idMensaje
+WHERE
+  m.idLeadCaso = @id
+  AND m.idDireccion = 2
+  AND d.markup LIKE N'%:p:%'
+ORDER BY
+  m.idMensaje DESC`,
+      { id: participationId },
+    )
+  ).recordset;
+  for (const row of rows) {
+    const tariffs = (JSON.parse(row.markup).inline_keyboard ?? [])
+      .flat()
+      .map((button) => /^pf:\d+:p:(\d+)$/.exec(button.callback_data ?? '')?.[1])
+      .filter(Boolean)
+      .map(Number);
+    if (tariffs.length) return [...new Set(tariffs)];
+  }
+  return [];
+}
+// Últimos mensajes de la participación antes del actual, con la acción que el agente interpretó
+// en los entrantes (contexto de compra de los últimos cinco mensajes).
+export async function recentConversation(db, participationId, beforeMessageId, limit = 5) {
+  return (
+    await query(
+      db,
+      `SELECT TOP (@limit)
+  m.idDireccion direction,
+  m.textoMensaje text,
+  JSON_VALUE(a.payload, '$.action') action
+FROM
+  dbo.Mensaje m
+  LEFT JOIN dbo.App_AgentAnalysis a ON a.idMensaje = m.idMensaje
+WHERE
+  m.idLeadCaso = @id
+  AND m.idMensaje < @before
+ORDER BY
+  m.idMensaje DESC`,
+      { id: participationId, before: beforeMessageId, limit },
+    )
+  ).recordset;
+}

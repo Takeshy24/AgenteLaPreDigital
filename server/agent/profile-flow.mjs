@@ -23,8 +23,10 @@ const COURSES = [
   'Lenguaje y razonamiento verbal',
 ];
 export const NO_COURSES = 'Ninguno en especial';
+// WhatsApp solo deja elegir una opción por lista: cada curso elegido se anota y se vuelven a
+// mostrar las opciones para elegir otro.
 export const COURSE_SELECTION_HELP =
-  'Puedes elegir varios: marca un curso por vez y pulsa «Listo» al terminar. También puedes escribirlos juntos.';
+  'Elige un curso en las opciones; después puedes elegir otro, uno por vez. Cuando termines, elige «Listo». También puedes escribir los cursos juntos, por ejemplo: «Física y Química».';
 const APPLICATIONS = [
   ['Es mi primera vez', 'Es su primera vez', 'Primera postulación (no postuló antes)'],
   ['Ya postulé una vez', 'Ya postuló una vez', 'Postuló una vez'],
@@ -152,8 +154,11 @@ export function toggleCourse(selected, course) {
     : [...selected, course];
 }
 
-export function courseSelectionText(selected) {
-  return `Seleccionados: ${selected.length ? selected.join(', ') : 'ninguno todavía'}.\n${COURSE_SELECTION_HELP}`;
+// Texto que acompaña a las opciones mientras se eligen cursos. Sin cursos anotados repite la
+// pregunta para que el mensaje se entienda solo.
+export function courseSelectionText(selected, question = '¿Qué cursos te resultan más difíciles?') {
+  if (!selected.length) return `${question}\n${COURSE_SELECTION_HELP}`;
+  return `Anoté: ${selected.join(', ')}. Si hay otros cursos difíciles, elígelos en las opciones, uno por vez; si no, elige «Listo» para continuar.`;
 }
 
 // Telegram muestra estos botones como teclado de respuesta: al pulsar uno, el texto se envía como

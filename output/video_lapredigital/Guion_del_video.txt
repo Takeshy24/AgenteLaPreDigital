@@ -1,0 +1,20 @@
+0:00–0:15
+Son las once de la noche. Un estudiante quiere prepararse para la UNT, pregunta cuánto cuesta… y nadie le responde. Mañana podría haber elegido otra academia.
+
+0:15–0:45
+Cada consulta es una oportunidad. Pero, entre WhatsApp, Telegram y hojas de cálculo, el contexto puede perderse. Se repiten preguntas y ofertas, mientras el asesor intenta descubrir a quién atender primero. Sin un registro común, también es difícil saber si las acciones comerciales funcionan.
+
+0:45–1:15
+Por eso creamos el Agente Negociador Inteligente de LaPreDigital. Conversa por WhatsApp y Telegram, interpreta los mensajes con inteligencia artificial y registra cada paso de la negociación. Para responder sobre la oferta, consulta los documentos aprobados de conocimiento. Así, la conversación y el seguimiento comparten el mismo contexto.
+
+1:15–1:55
+Primero pregunta la carrera, la disponibilidad y el presupuesto. También permite indicar varios cursos difíciles. Con ese perfil recomienda un plan dentro del presupuesto y presenta sus beneficios de forma breve. Luego prepara una oferta personal, con tarifa vigente, y permite abrir el pago de prueba. Si necesita apoyo de su familia, genera una invitación al responsable económico, quien debe aceptar la vinculación y autorizar su propio contacto.
+
+1:55–2:20
+La inteligencia artificial propone, pero el sistema valida las reglas. Los precios salen del catálogo vigente y aceptar una propuesta no confirma un pago. Reclamos, reembolsos y solicitudes de atención humana pasan al equipo. Y si alguien revoca el seguimiento, su decisión se respeta por canal.
+
+2:20–2:45
+Todo queda medido mediante seis indicadores de la fase leads: desde el contacto inicial hasta la conversión pagada. La consola consulta el Data Mart y permite analizar periodos y dimensiones. Al filtrar, resalta los indicadores que sí cambian. Las cifras que mostramos son datos de demostración.
+
+2:45–3:00
+Respuestas oportunas, decisiones con datos y cada negociación bajo control. Agente Negociador Inteligente de LaPreDigital: cada interesado, mejor atendido.

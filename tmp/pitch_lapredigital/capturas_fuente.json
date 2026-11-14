@@ -1,0 +1,566 @@
+[
+  {
+    "paragraph": 96,
+    "target": "media/image22.png",
+    "description": "Inicio de sesión de la consola",
+    "name": "image22.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 99,
+    "target": "media/image29.png",
+    "description": "Pantalla de Inicio de la consola",
+    "name": "image29.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 108,
+    "target": "media/image24.png",
+    "description": "Menú de módulos de la consola",
+    "name": "image24.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 119,
+    "target": "media/image35.jpg",
+    "description": "Formulario público de contacto",
+    "name": "image35.jpg",
+    "crop": {
+      "b": "22833",
+      "l": "61760",
+      "r": "3163",
+      "t": "13472"
+    }
+  },
+  {
+    "paragraph": 123,
+    "target": "media/image28.png",
+    "description": "Recomendación para el estudiante sin celular",
+    "name": "image28.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 133,
+    "target": "media/image27.jpg",
+    "description": "Comprobante de recepción y continuación por canales",
+    "name": "image27.jpg",
+    "crop": {
+      "b": "42314",
+      "l": "61760",
+      "r": "3163",
+      "t": "13472"
+    }
+  },
+  {
+    "paragraph": 142,
+    "target": "media/image32.jpg",
+    "description": "Catálogo público y acceso a la solicitud de un plan",
+    "name": "image32.jpg",
+    "crop": {
+      "b": "49085",
+      "l": "4743",
+      "r": "5138",
+      "t": "17637"
+    }
+  },
+  {
+    "paragraph": 152,
+    "target": "media/image31.jpg",
+    "description": "Aceptación pública de una invitación personal",
+    "name": "image31.jpg",
+    "crop": {
+      "b": "13206",
+      "l": "23123",
+      "r": "23123",
+      "t": "15385"
+    }
+  },
+  {
+    "paragraph": 163,
+    "target": "media/image30.jpg",
+    "description": "Pantalla de activación de Explora UNT",
+    "name": "image30.jpg",
+    "crop": {
+      "b": "50888",
+      "l": "23438",
+      "r": "23438",
+      "t": "18056"
+    }
+  },
+  {
+    "paragraph": 173,
+    "target": "media/image34.jpg",
+    "description": "Gestiones de atención del operador",
+    "name": "image34.jpg",
+    "crop": {
+      "b": "49682",
+      "l": "17787",
+      "r": "791",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 183,
+    "target": "media/image34.jpg",
+    "description": "Conversaciones derivadas al personal comercial",
+    "name": "image34.jpg",
+    "crop": {
+      "b": "69896",
+      "l": "20553",
+      "r": "2530",
+      "t": "15613"
+    }
+  },
+  {
+    "paragraph": 193,
+    "target": "media/image34.jpg",
+    "description": "Pago registrado pendiente de validación",
+    "name": "image34.jpg",
+    "crop": {
+      "b": "54134",
+      "l": "20553",
+      "r": "2530",
+      "t": "31375"
+    }
+  },
+  {
+    "paragraph": 203,
+    "target": "media/image34.jpg",
+    "description": "Estado y recuperación de la entrega de credenciales",
+    "name": "image34.jpg",
+    "crop": {
+      "b": "19317",
+      "l": "20553",
+      "r": "2530",
+      "t": "66192"
+    }
+  },
+  {
+    "paragraph": 214,
+    "target": "media/image37.jpg",
+    "description": "Solicitudes por revisar y negociaciones registradas",
+    "name": "image37.jpg",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 224,
+    "target": "media/image38.jpg",
+    "description": "Registro de contacto parte superior",
+    "name": "image38.jpg",
+    "crop": {
+      "b": "32461",
+      "l": "2632",
+      "r": "7895",
+      "t": "951"
+    }
+  },
+  {
+    "paragraph": 224,
+    "target": "media/image36.jpg",
+    "description": "Registro de contacto parte superior",
+    "name": "image38.jpg",
+    "crop": {
+      "b": "32461",
+      "l": "2632",
+      "r": "7895",
+      "t": "951"
+    }
+  },
+  {
+    "paragraph": 233,
+    "target": "media/image40.jpg",
+    "description": "Identificación del contacto beneficiario y caso en el expediente",
+    "name": "image40.jpg",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 244,
+    "target": "media/image19.jpg",
+    "description": "Perfil académico y económico del contacto",
+    "name": "image19.jpg",
+    "crop": {
+      "b": "43811",
+      "l": "20553",
+      "r": "32737",
+      "t": "37819"
+    }
+  },
+  {
+    "paragraph": 254,
+    "target": "media/image39.jpg",
+    "description": "Historial y registro de interacciones",
+    "name": "image39.jpg",
+    "crop": {
+      "b": "47019",
+      "l": "20553",
+      "r": "32737",
+      "t": "30283"
+    }
+  },
+  {
+    "paragraph": 264,
+    "target": "media/image39.jpg",
+    "description": "Selección de un mensaje para revisión asistida",
+    "name": "image39.jpg",
+    "crop": {
+      "b": "38265",
+      "l": "20553",
+      "r": "32737",
+      "t": "53591"
+    }
+  },
+  {
+    "paragraph": 274,
+    "target": "media/image18.jpg",
+    "description": "Revisión de interés y prioridad con evidencia parte superior",
+    "name": "image18.jpg",
+    "crop": {
+      "b": "49577",
+      "l": "69160",
+      "r": "2531",
+      "t": "30283"
+    }
+  },
+  {
+    "paragraph": 274,
+    "target": "media/image18.jpg",
+    "description": "Revisión de interés y prioridad con evidencia parte superior",
+    "name": "image18.jpg",
+    "crop": {
+      "b": "49577",
+      "l": "69160",
+      "r": "2531",
+      "t": "30283"
+    }
+  },
+  {
+    "paragraph": 284,
+    "target": "media/image19.jpg",
+    "description": "Permisos independientes por canal de contacto",
+    "name": "image19.jpg",
+    "crop": {
+      "b": "22186",
+      "l": "69160",
+      "r": "2531",
+      "t": "63966"
+    }
+  },
+  {
+    "paragraph": 294,
+    "target": "media/image19.jpg",
+    "description": "Prueba gratuita disponible en el expediente",
+    "name": "image19.jpg",
+    "crop": {
+      "b": "23669",
+      "l": "20553",
+      "r": "32737",
+      "t": "68755"
+    }
+  },
+  {
+    "paragraph": 304,
+    "target": "media/image26.jpg",
+    "description": "Preparación de la invitación al responsable",
+    "name": "image26.jpg",
+    "crop": {
+      "b": "49808",
+      "l": "20553",
+      "r": "32737",
+      "t": "30283"
+    }
+  },
+  {
+    "paragraph": 314,
+    "target": "media/image21.jpg",
+    "description": "Registro de las dos autorizaciones del responsable",
+    "name": "image21.jpg",
+    "crop": {
+      "b": "38629",
+      "l": "20553",
+      "r": "32737",
+      "t": "43061"
+    }
+  },
+  {
+    "paragraph": 325,
+    "target": "media/image23.jpg",
+    "description": "Tarifa contexto y justificación de una propuesta",
+    "name": "image23.jpg",
+    "crop": {
+      "b": "30862",
+      "l": "20553",
+      "r": "32737",
+      "t": "49302"
+    }
+  },
+  {
+    "paragraph": 335,
+    "target": "media/image20.jpg",
+    "description": "Avance de una propuesta entregada y enlace personal",
+    "name": "image20.jpg",
+    "crop": {
+      "b": "49221",
+      "l": "20553",
+      "r": "32737",
+      "t": "30283"
+    }
+  },
+  {
+    "paragraph": 345,
+    "target": "media/image33.jpg",
+    "description": "Oferta personal y aceptación expresa de condiciones",
+    "name": "image33.jpg",
+    "crop": {
+      "b": "9581",
+      "l": "23123",
+      "r": "23123",
+      "t": "38171"
+    }
+  },
+  {
+    "paragraph": 355,
+    "target": "media/image25.jpg",
+    "description": "Opciones de pago después de aceptar las condiciones",
+    "name": "image25.jpg",
+    "crop": {
+      "b": "9807",
+      "l": "23123",
+      "r": "23123",
+      "t": "39073"
+    }
+  },
+  {
+    "paragraph": 365,
+    "target": "media/image15.jpg",
+    "description": "Servicio adquirido pendiente de habilitación",
+    "name": "image15.jpg",
+    "crop": {
+      "b": "9180",
+      "l": "20553",
+      "r": "2530",
+      "t": "72584"
+    }
+  },
+  {
+    "paragraph": 374,
+    "target": "media/image10.jpg",
+    "description": "Resumen del servicio adquirido y habilitado",
+    "name": "image10.jpg",
+    "crop": {
+      "b": "9519",
+      "l": "20553",
+      "r": "2530",
+      "t": "75261"
+    }
+  },
+  {
+    "paragraph": 384,
+    "target": "media/image14.jpg",
+    "description": "Catálogo interno con tarifas mensuales y selección del contacto",
+    "name": "image14.jpg",
+    "crop": {
+      "b": "53097",
+      "l": "20553",
+      "r": "2530",
+      "t": "19126"
+    }
+  },
+  {
+    "paragraph": 393,
+    "target": "media/image13.jpg",
+    "description": "Comparación de planes con modalidad semestral",
+    "name": "image13.jpg",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 404,
+    "target": "media/image5.jpg",
+    "description": "Agenda y revisión manual de vencimientos",
+    "name": "image5.jpg",
+    "crop": {
+      "b": "67359",
+      "l": "20553",
+      "r": "2530",
+      "t": "13164"
+    }
+  },
+  {
+    "paragraph": 415,
+    "target": "media/image17.jpg",
+    "description": "Resumen de los seis indicadores de la fase LEADS",
+    "name": "image17.jpg",
+    "crop": {
+      "b": "5099",
+      "l": "20553",
+      "r": "2530",
+      "t": "29462"
+    }
+  },
+  {
+    "paragraph": 437,
+    "target": "media/image17.jpg",
+    "description": "Filtros de periodo y dimensiones aplicables",
+    "name": "image17.jpg",
+    "crop": {
+      "b": "71843",
+      "l": "20553",
+      "r": "2530",
+      "t": "12419"
+    }
+  },
+  {
+    "paragraph": 441,
+    "target": "media/image3.png",
+    "description": "Indicadores que admiten el filtro de canal",
+    "name": "image3.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 450,
+    "target": "media/image6.jpg",
+    "description": "Detalle causas y desglose por canal",
+    "name": "image6.jpg",
+    "crop": {
+      "b": "56071",
+      "l": "20553",
+      "r": "2530",
+      "t": "16755"
+    }
+  },
+  {
+    "paragraph": 459,
+    "target": "media/image11.png",
+    "description": "Resumen del reporte PDF generado por la aplicación",
+    "name": "image11.png",
+    "crop": {
+      "b": "49555",
+      "l": "5247",
+      "r": "5037",
+      "t": "2967"
+    }
+  },
+  {
+    "paragraph": 470,
+    "target": "media/image9.png",
+    "description": "Consulta del estado de integraciones y modelos",
+    "name": "image9.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 480,
+    "target": "media/image12.jpg",
+    "description": "Vinculación con Telegram y creación del enlace personal",
+    "name": "image12.jpg",
+    "crop": {
+      "b": "14400",
+      "l": "69170",
+      "r": "2530",
+      "t": "77854"
+    }
+  },
+  {
+    "paragraph": 492,
+    "target": "media/image7.png",
+    "description": "Vista previa de una recomendación con datos simulados",
+    "name": "image7.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 505,
+    "target": "media/image8.png",
+    "description": "Edición de un documento de conocimiento",
+    "name": "image8.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 516,
+    "target": "media/image16.png",
+    "description": "Biblioteca de documentos del agente",
+    "name": "image16.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 526,
+    "target": "media/image1.png",
+    "description": "Fragmentos recuperados para una pregunta de prueba",
+    "name": "image1.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  },
+  {
+    "paragraph": 539,
+    "target": "media/image2.png",
+    "description": "Configuración de las reglas del agente",
+    "name": "image2.png",
+    "crop": {
+      "b": "0",
+      "l": "0",
+      "r": "0",
+      "t": "0"
+    }
+  }
+]

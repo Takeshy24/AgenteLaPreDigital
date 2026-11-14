@@ -424,3 +424,40 @@ WHERE
   AND fechaFin <= ${now}`,
   );
 }
+// Intentos cuyo mensaje es una bienvenida de la landing por WhatsApp que sigue sin enviarse.
+export async function listBlockedWelcomes(db) {
+  return (
+    await query(
+      db,
+      `SELECT
+  i.idIntento id,
+  i.idLeadCaso,
+  l.idLead,
+  l.idContacto,
+  m.idMensaje messageId
+FROM
+  dbo.IntentoContacto i
+  JOIN dbo.Mensaje m ON m.idMensaje = i.idMensajeEnvio
+  JOIN dbo.App_Dispatch d ON d.idMensaje = m.idMensaje
+  JOIN dbo.LeadCaso lc ON lc.idLeadCaso = i.idLeadCaso
+  JOIN dbo.Lead l ON l.idLead = lc.idLead
+WHERE
+  m.idCanal = 1
+  AND m.idEstadoEntrega = 1
+  AND d.state = N'pending'
+  AND JSON_VALUE(d.markup, '$.welcome.source') = N'landing'
+  AND lc.idEstadoParticipacion = 1`,
+    )
+  ).recordset;
+}
+export async function releaseAttempt(db, id) {
+  await query(
+    db,
+    `UPDATE dbo.IntentoContacto
+SET
+  idMensajeEnvio = NULL
+WHERE
+  idIntento = @id`,
+    { id },
+  );
+}

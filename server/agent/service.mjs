@@ -21,11 +21,13 @@ import {
   guardianParts,
   guardianRelation,
   isQuestion,
+  refersToRecommendation,
+  resolveTariff,
   unavailableOption,
   words,
 } from './intents.mjs';
 import { recordProposalResponse } from '../proposals/service.mjs';
-import { answerFromKnowledge } from './knowledge.mjs';
+import { answerFromKnowledge, mentionedPlans } from './knowledge.mjs';
 import {
   findPendingProposal,
   latestOpenProposal,
@@ -39,6 +41,8 @@ import {
   getCourseSelection,
   completeCourseSelection,
   listRelatives,
+  lastRecommendedTariffs,
+  recentConversation,
 } from './repository.mjs';
 import {
   channelList,
@@ -143,6 +147,13 @@ async function stopRelativeContact(db, participation, text) {
     ? `De acuerdo, ya no le escribiremos a ${person}.`
     : `De acuerdo, ya no le escribiremos a ${person} por ${channelList(channels)}.`;
 }
+const recommendedList = (tariffs) =>
+  tariffs
+    .map(
+      (tariff) =>
+        `${tariff.plan} ${tariff.modalidad.toLowerCase()} (S/ ${Number(tariff.precio).toFixed(2)})`,
+    )
+    .join(' o ');
 export async function actOnAnalysis(participationId, messageId, text, analysis) {
   const workspace = await getWorkspace();
   const contact = workspace.leads.find((lead) => lead.id === participationId);
@@ -187,6 +198,40 @@ export async function actOnAnalysis(participationId, messageId, text, analysis) 
         messageId,
       );
       return;
+    }
+    // El plan recomendado da contexto a «el que me recomendaste» y a «quiero contratar» sin plan.
+    const recommended =
+      participation.idEstadoCaso === 1 &&
+      !mentionedPlans(text).some((name) => name !== 'Explora UNT')
+        ? (await lastRecommendedTariffs(db, participationId))
+            .map((id) => workspace.tariffs.find((tariff) => tariff.idPlanTarifa === id))
+            .filter(Boolean)
+        : [];
+    if (
+      recommended.length === 1 &&
+      refersToRecommendation(text) &&
+      (analysis.action === 'proposal' || !isQuestion(text))
+    ) {
+      analysis.action = 'proposal';
+      analysis.tariffId = recommended[0].idPlanTarifa;
+      analysis.level = 3;
+    }
+    // Contexto de los últimos cinco mensajes: si la persona pidió contratar o el agente le preguntó
+    // qué plan quiere, una respuesta con plan y modalidad («meta unt plus mensual») es la elección
+    // para la propuesta, no una consulta de información.
+    if (participation.idEstadoCaso === 1 && analysis.action !== 'proposal' && !isQuestion(text)) {
+      const recent = await recentConversation(db, participationId, messageId, 5);
+      const buying = recent.some(
+        (item) =>
+          (item.direction === 1 && item.action === 'proposal') ||
+          (item.direction === 2 && /quieres contratar|plan y modalidad/i.test(item.text)),
+      );
+      const tariffId = buying ? resolveTariff(text, workspace.tariffs) : null;
+      if (tariffId) {
+        analysis.action = 'proposal';
+        analysis.tariffId = tariffId;
+        analysis.level = 3;
+      }
     }
     const policy = await getPolicy(db);
     if (
@@ -468,7 +513,9 @@ La aceptación no confirma el pago.`,
       const invalid = unavailableOption(text, workspace.tariffs);
       response = invalid
         ? 'Esa combinación no está disponible para preparar una propuesta. ¿Qué plan y modalidad prefieres?'
-        : '¿Qué plan y modalidad quieres contratar?';
+        : recommended.length
+          ? `¿Quieres contratar ${recommendedList(recommended)}, ${recommended.length === 1 ? 'el plan que te recomendé' : 'los planes que te recomendé'}? Elige una opción o escríbeme otro plan y modalidad.`
+          : '¿Qué plan y modalidad quieres contratar?';
     }
     if (analysis.action === 'catalog') {
       const answer = answerFromKnowledge(text, [], await knowledgeFragments());
@@ -489,6 +536,15 @@ La aceptación no confirma el pago.`,
       }
     }
     const reply = await createReply(db, participation, response, messageId);
+    if (analysis.action === 'proposal' && !analysis.tariffId && recommended.length)
+      await attachMarkup(db, reply, {
+        inline_keyboard: recommended.map((tariff) => [
+          {
+            text: `Quiero ${tariff.plan} ${tariff.modalidad.toLowerCase()}`.slice(0, 24),
+            callback_data: `pf:${participation.idLeadCaso}:p:${tariff.idPlanTarifa}`,
+          },
+        ]),
+      });
     if (analysis.action === 'ask') {
       const field = profileKey ? { career: 2, availability: 6, budget: 7 }[profileKey] : null;
       if (field) {

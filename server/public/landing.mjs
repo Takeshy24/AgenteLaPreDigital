@@ -12,6 +12,7 @@ import { BusinessError } from '../shared/errors.mjs';
 import { telegramBotUrl as botUrl, whatsappUrl } from './channel-links.mjs';
 export { whatsappUrl } from './channel-links.mjs';
 import { prepareLandingWelcome } from './welcome.mjs';
+import { welcomeApproved } from '../integrations/welcome-approval.mjs';
 
 const LANDING_CAPTURE_CHANNEL = 1;
 const REVIEW_PLAN = 'Sin plan elegido (landing)';
@@ -149,6 +150,10 @@ export async function registerLanding(data, { send = defaultSender() } = {}) {
     );
   const email = data.email.trim().toLowerCase();
   const channels = [...new Set(data.channels)];
+  // La consulta a Meta se hace antes de abrir la transacción.
+  const welcomeReady = channels.includes(1)
+    ? await welcomeApproved(integrationConfig().whatsapp)
+    : false;
   const outcome = await transaction(async (db) => {
     const existing = (await findContacts(db, { email })).recordset[0];
     if (existing) {
@@ -175,7 +180,7 @@ export async function registerLanding(data, { send = defaultSender() } = {}) {
       },
     );
     const url = await telegramLink(db, lead.contact, { consent: data.telegram === true });
-    const welcome = await prepareLandingWelcome(db, lead, channels);
+    const welcome = await prepareLandingWelcome(db, lead, channels, { welcomeReady });
     const message =
       data.telegram && url ? telegramEmail(url) : channels.includes(2) ? registrationEmail() : null;
     return {

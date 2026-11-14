@@ -217,7 +217,7 @@ test('WhatsApp permite marcar varios cursos, desmarcar y confirmar antes de avan
       await flush(db, scenario);
       let payload = scenario.client.calls.at(-1);
       assert.match(payload.interactive.body.text, /difíciles a David/);
-      assert.match(payload.interactive.body.text, /Puedes elegir varios/);
+      assert.match(payload.interactive.body.text, /después puedes elegir otro, uno por vez/);
       const choose = async (label) => {
         const row = payload.interactive.action.sections[0].rows.find((row) => row.title === label);
         assert.ok(row, label);
@@ -243,7 +243,7 @@ test('WhatsApp permite marcar varios cursos, desmarcar y confirmar antes de avan
         0,
       );
       await choose('✓ Física');
-      assert.match(payload.interactive.body.text, /Seleccionados: Química/);
+      assert.match(payload.interactive.body.text, /Anoté: Química/);
       await choose('Listo');
       assert.match(payload.interactive.body.text, /¿David ya postuló antes a la UNT\?/);
       const stored = (
@@ -834,6 +834,142 @@ test('WhatsApp: el primer «Hola quiero enviarle el link de invitación a mi esp
         1,
         'El modelo interpreta el mensaje antes de validar y ejecutar la invitación',
       );
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('WhatsApp acepta varios cursos escritos juntos mientras la lista está abierta', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup({ role: 2, beneficiaryName: 'David Prueba' });
+      await saveProfile(scenario.lead.id, {
+        fields: { career: 'Medicina Humana', availability: 'Solo fines de semana', budget: 40 },
+        channel: 1,
+      });
+      await receive(db, scenario, typed('Hola'));
+      await flush(db, scenario);
+      await receive(db, scenario, typed('Física y Química'));
+      await flush(db, scenario);
+      assert.match(scenario.client.calls.at(-1).interactive.body.text, /¿David ya postuló antes/);
+      const stored = (
+        await query(
+          db,
+          `SELECT curso FROM dbo.BeneficiarioCursoDificil b
+        INNER JOIN dbo.Lead l ON l.idBeneficiario=b.idBeneficiario
+        INNER JOIN dbo.LeadCaso lc ON lc.idLead=l.idLead WHERE lc.idLeadCaso=@id ORDER BY curso`,
+          { id: scenario.lead.id },
+        )
+      ).recordset.map((row) => row.curso);
+      assert.deepEqual(stored, ['Física', 'Química']);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('«quiero contratar» y «el que me recomendaste» usan el plan recomendado', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup({ role: 2, beneficiaryName: 'David Prueba' });
+      await saveProfile(scenario.lead.id, {
+        fields: {
+          career: 'Medicina Humana',
+          availability: '3 a 4 horas al día',
+          budget: 100,
+          courses: ['Física'],
+          applications: 'Postuló una vez',
+        },
+        channel: 1,
+      });
+      await receive(db, scenario, typed('Hola'));
+      await flush(db, scenario);
+      const recommendation = scenario.client.calls.at(-1).interactive;
+      const offered = recommendation.action.sections[0].rows.find((row) => /:p:/.test(row.id));
+      assert.ok(offered, recommendation.body.text);
+      const details = recommendation.action.sections[0].rows.find((row) => /:i:/.test(row.id));
+      await receive(db, scenario, chosen(details.id, details.title));
+      await flush(db, scenario);
+      await receive(db, scenario, typed('Quiero contratar el servicio'));
+      await flush(db, scenario);
+      const question = scenario.client.calls.at(-1).interactive;
+      assert.match(question.body.text, /el plan que te recomendé/);
+      assert.ok(question.action.sections[0].rows.some((row) => row.id === offered.id));
+      await receive(db, scenario, typed('el que me recomendaste'));
+      await flush(db, scenario);
+      const proposals = (
+        await query(
+          db,
+          'SELECT idPlanTarifa tariff FROM dbo.PropuestaComercial WHERE idLeadCasoEntrega=@id',
+          { id: scenario.lead.id },
+        )
+      ).recordset;
+      assert.deepEqual(proposals, [{ tariff: Number(offered.id.split(':').at(-1)) }]);
+    });
+  } finally {
+    await close();
+  }
+});
+
+const proposalTariffs = async (db, participation) =>
+  (
+    await query(
+      db,
+      'SELECT idPlanTarifa tariff FROM dbo.PropuestaComercial WHERE idLeadCasoEntrega=@id',
+      { id: participation },
+    )
+  ).recordset.map((row) => row.tariff);
+
+test('«quiero contratar ese plan» tras ver el detalle usa el plan recomendado', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup({ role: 2, beneficiaryName: 'David Prueba' });
+      await saveProfile(scenario.lead.id, {
+        fields: {
+          career: 'Medicina Humana',
+          availability: '3 a 4 horas al día',
+          budget: 100,
+          courses: ['Física'],
+          applications: 'Postuló una vez',
+        },
+        channel: 1,
+      });
+      await receive(db, scenario, typed('Hola'));
+      await flush(db, scenario);
+      const rows = scenario.client.calls.at(-1).interactive.action.sections[0].rows;
+      const offered = rows.find((row) => /:p:/.test(row.id));
+      const details = rows.find((row) => /:i:/.test(row.id));
+      await receive(db, scenario, chosen(details.id, details.title));
+      await flush(db, scenario);
+      await receive(db, scenario, typed('okey quiero contratar ese plan'));
+      await flush(db, scenario);
+      assert.deepEqual(await proposalTariffs(db, scenario.lead.id), [
+        Number(offered.id.split(':').at(-1)),
+      ]);
+      assert.match(scenario.client.calls.at(-1).text.body, /\/oferta\//);
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('tras preguntar qué plan quiere, «meta unt plus mensual» prepara la propuesta', async () => {
+  try {
+    await rollbackTest(async (db) => {
+      const scenario = await setup({ role: 1 });
+      await receive(db, scenario, typed('Quiero contratar'));
+      await flush(db, scenario);
+      assert.match(JSON.stringify(scenario.client.calls.at(-1)), /plan y modalidad/);
+      await receive(db, scenario, typed('meta unt plus mensual'));
+      await flush(db, scenario);
+      const tariff = (
+        await query(
+          db,
+          "SELECT t.idPlanTarifa id FROM dbo.PlanTarifa t JOIN dbo.PlanComercial p ON p.idPlan=t.idPlan WHERE p.nombre=N'Meta UNT Plus' AND t.idModalidad=1",
+        )
+      ).recordset[0].id;
+      assert.deepEqual(await proposalTariffs(db, scenario.lead.id), [tariff]);
     });
   } finally {
     await close();
